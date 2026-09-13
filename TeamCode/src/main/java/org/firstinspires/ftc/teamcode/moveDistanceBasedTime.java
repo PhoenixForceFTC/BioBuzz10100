@@ -22,6 +22,9 @@ class moveDistanceBasedTime{
     }
 
     public void dispatchNewTask(double distance, double speed, double motorSpeed){
+        if(dispatchedTask){
+            return;
+        }
         dispatchedTask = true;
         currentDistance = distance;
         currentSpeed = speed;
