@@ -5,12 +5,39 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 //Step one
 @TeleOp(name = "Shooter")
-public class ShooterTest extends LinearOpMode {
+public class Shooter extends LinearOpMode {
     public DcMotorEx shooter; //To get motor's extra features
     private double power = 0;
+
+    public Shooter(String shooterName){
+        this.shooter = hardwareMap.get(DcMotorEx.class, shooterName);
+        this.shooter.setDirection(DcMotorSimple.Direction.FORWARD);
+        this.shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+    }
+
+    public void run(){
+        //Raises power by 0.05 each time a is pressed
+        if (gamepad1.aWasPressed()) {
+            power = Math.min(1.0, power + 0.05);
+            //Lowers power by 0.05 each time b is pressed
+        } else if (gamepad1.bWasPressed()) {
+            power = Math.max(0.0, power - 0.05);
+        }
+        //Instant stop
+        if (gamepad1.xWasPressed()) {
+            power = 0;
+        }
+        shooter.setPower(power);
+        double rpm = shooter.getVelocity() * 60 / 28; //Reads speed
+
+        //Display speed
+        telemetry.addData("Shooter power", "%.2f", power);
+        telemetry.addData("Shooter RPM", "%.0f", rpm);
+    }
 
     @Override
     public void runOpMode() {
