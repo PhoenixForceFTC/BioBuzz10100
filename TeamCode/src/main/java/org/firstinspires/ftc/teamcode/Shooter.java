@@ -26,6 +26,7 @@ public class Shooter {
         this.shooter = hardwareMap.get(DcMotorEx.class, shooterName);
         this.shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         this.shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        this.shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         this._telemetry = telemetry;
         this.gamepad = GameGamepad;
     }
