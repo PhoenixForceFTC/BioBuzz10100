@@ -79,3 +79,11 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+gradle/gradle-daemon-jvm.properties
+build.gradle
+build.gradle
+gradle/wrapper/gradle-wrapper.jar
+gradle/wrapper/gradle-wrapper.properties
+gradlew
+gradlew.bat
+settings.gradle
