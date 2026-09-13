@@ -5,41 +5,21 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import org.firstinspires.ftc.teamcode.Shooter;
 
 //Step one
 @TeleOp(name = "Shooter")
 public class ShooterTest extends LinearOpMode {
-    public DcMotorEx shooter; //To get motor's extra features
-    private double power = 0;
+    Shooter shooter;
 
     @Override
     public void runOpMode() {
         //When driver is in init
-        shooter = hardwareMap.get(DcMotorEx.class, "shooter");
-        //Step 3
-        shooter.setDirection(DcMotor.Direction.FORWARD);
-        //FLOAT allows for wheel to coast down to be gentle on gears.
-        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        //When driver presses start
+        shooter = new Shooter("shooter", telemetry);
+
         waitForStart();
         while (opModeIsActive()) {
-            //Raises power by 0.05 each time a is pressed
-            if (gamepad1.aWasPressed()) {
-                power = Math.min(1.0, power + 0.05);
-                //Lowers power by 0.05 each time b is pressed
-            } else if (gamepad1.bWasPressed()) {
-                power = Math.max(0.0, power - 0.05);
-            }
-            //Instant stop
-            if (gamepad1.xWasPressed()) {
-                power = 0;
-            }
-            shooter.setPower(power);
-            double rpm = shooter.getVelocity() * 60 / 28; //Reads speed
-
-            //Display speed
-            telemetry.addData("Shooter power", "%.2f", power);
-            telemetry.addData("Shooter RPM", "%.0f", rpm);
+            shooter.run();
             telemetry.update();
         }
     }

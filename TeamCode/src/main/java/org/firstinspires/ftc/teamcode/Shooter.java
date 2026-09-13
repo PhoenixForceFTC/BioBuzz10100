@@ -7,16 +7,20 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+
 //Step one
 @TeleOp(name = "Shooter")
 public class Shooter extends LinearOpMode {
     public DcMotorEx shooter; //To get motor's extra features
     private double power = 0;
+    Telemetry _telemetry;
 
-    public Shooter(String shooterName){
+    public Shooter(String shooterName, Telemetry telemetry){
         this.shooter = hardwareMap.get(DcMotorEx.class, shooterName);
         this.shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         this.shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        this._telemetry = telemetry;
     }
 
     public void run(){
@@ -35,8 +39,8 @@ public class Shooter extends LinearOpMode {
         double rpm = shooter.getVelocity() * 60 / 28; //Reads speed
 
         //Display speed
-        telemetry.addData("Shooter power", "%.2f", power);
-        telemetry.addData("Shooter RPM", "%.0f", rpm);
+        _telemetry.addData("Shooter power", "%.2f", power);
+        _telemetry.addData("Shooter RPM", "%.0f", rpm);
     }
 
     @Override
@@ -65,9 +69,9 @@ public class Shooter extends LinearOpMode {
             double rpm = shooter.getVelocity() * 60 / 28; //Reads speed
 
             //Display speed
-            telemetry.addData("Shooter power", "%.2f", power);
-            telemetry.addData("Shooter RPM", "%.0f", rpm);
-            telemetry.update();
+            _telemetry.addData("Shooter power", "%.2f", power);
+            _telemetry.addData("Shooter RPM", "%.0f", rpm);
+            _telemetry.update();
         }
     }
 }
