@@ -11,6 +11,7 @@ public class TeleOpFullTest extends LinearOpMode {
     Shooter shooter;
 
     Mecanum mecanum;
+    PassingMechanism passingMechanism;
 
     @Override
     public void runOpMode() {
@@ -21,12 +22,17 @@ public class TeleOpFullTest extends LinearOpMode {
 
         mecanum = new Mecanum(hardwareMap, gamepad1, telemetry);
 
+        passingMechanism = new PassingMechanism("passer", telemetry, hardwareMap, gamepad1);
+
         waitForStart();
 
         while (opModeIsActive()) {
 
             intake.run();
             shooter.run();
+            passingMechanism.run();
+            mecanum.run();
+            telemetry.update();
 
         }
     }
