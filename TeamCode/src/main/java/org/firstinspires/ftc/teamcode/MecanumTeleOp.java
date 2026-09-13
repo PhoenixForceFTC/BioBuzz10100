@@ -32,6 +32,7 @@ public class MecanumTeleOp extends LinearOpMode {
     double LFpower = 0, LBpower = 0, RFpower = 0, RBpower = 0;
 
     Shooter shooter;
+    Intake intake;
 
     // goBILDA 435 RPM / 13.7:1 gearbox; the external 1:1 bevel adds no reduction.
     // Leave headroom below no-load speed for regulation under load; lower if needed.
@@ -53,16 +54,17 @@ public class MecanumTeleOp extends LinearOpMode {
         rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        DcMotor intake = hardwareMap.get(DcMotor.class, "intake");
-        intake.setPower(0);
-        setEncoderMode(intake);
+        DcMotor intakeMotor = hardwareMap.get(DcMotor.class, "intake");
+        intakeMotor.setPower(0);
+        setEncoderMode(intakeMotor);
 
         shooter = new Shooter("shooter", telemetry, hardwareMap, gamepad1);
+        intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
 
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
         telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
         telemetry.addLine("Left trigger: intake reverse | Right trigger: forward");
-        telemetry.addLine("Hold left bumper for 25% driving speed");
+        telemetry.addLine("Hold left bumper for 60% driving speed");
         telemetry.setMsTransmissionInterval(100);
         telemetry.update();
 
@@ -108,15 +110,16 @@ public class MecanumTeleOp extends LinearOpMode {
 
             // Triggers behave like full-speed directional buttons. If both are held,
             // their directions cancel so the motor stops.
-            double intakePower = 0.0;
-            if (gamepad1.right_trigger > 0.05) {
-                intakePower += 1.0;
-            }
-            if (gamepad1.left_trigger > 0.05) {
-                intakePower -= 1.0;
-            }
-            intake.setPower(intakePower);
-            telemetry.addData("Intake encoder", intake.getCurrentPosition());
+            intake.run();
+//            double intakePower = 0.0;
+//            if (gamepad1.right_trigger > 0.05) {
+//                intakePower += 1.0;
+//            }
+//            if (gamepad1.left_trigger > 0.05) {
+//                intakePower -= 1.0;
+//            }
+//            intakeMotor.setPower(intakePower);
+//            telemetry.addData("Intake encoder", intakeMotor.getCurrentPosition());
             telemetry.update();
             idle();
         }

@@ -15,9 +15,9 @@ public class Intake {
 
     private DcMotor IntakeMotor;
 
-    private Boolean on = false;
+    private boolean on = false;
 
-    private Boolean direction = true;
+    private boolean direction = true;
 
     private double power = 1;
 
@@ -48,10 +48,11 @@ public class Intake {
     public void run(){
         if(gamepad1.left_bumper){
             direction = true;
+            power = Math.abs(power);
         }
 
         if(gamepad1.right_bumper){
-            direction = false;
+            power = -Math.abs(power);
         }
 
         if(gamepad1.yWasPressed()){
