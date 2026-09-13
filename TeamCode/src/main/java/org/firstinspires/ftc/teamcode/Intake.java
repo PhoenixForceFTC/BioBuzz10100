@@ -11,7 +11,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-@TeleOp(name = "Intake Control", group = "Test")
 public class Intake {
 
     private DcMotor IntakeMotor;
@@ -55,7 +54,7 @@ public class Intake {
             direction = false;
         }
 
-        if(gamepad1.y){
+        if(gamepad1.yWasPressed()){
             on = !on;
         }
 
