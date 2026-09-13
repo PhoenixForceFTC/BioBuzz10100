@@ -21,6 +21,8 @@ import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigu
 public class MecanumTeleOp extends LinearOpMode {
     // Order is FL, FR, BL, BR throughout the mixing and the wheel test.
 
+    boolean fast = false;
+
     DcMotorEx leftFront;
     DcMotorEx leftBack;
     DcMotorEx rightFront;
@@ -67,6 +69,10 @@ public class MecanumTeleOp extends LinearOpMode {
             double turn = Math.abs(gamepad1.right_stick_x) <= 0.05 ? 0 : gamepad1.right_stick_x;
             double total = Math.abs(drive) + Math.abs(strafe) + Math.abs(turn);
 
+            if(gamepad1.leftBumperWasPressed()){
+                fast = !fast;
+            }
+
             try{
                 LFpower = (drive + strafe + turn)/total;
                 RFpower = (drive - strafe - turn)/total;
@@ -79,10 +85,18 @@ public class MecanumTeleOp extends LinearOpMode {
                 RBpower = 0;
             }
 
-            leftFront.setPower(LFpower);
-            leftBack.setPower(LBpower);
-            rightFront.setPower(RFpower);
-            rightBack.setPower(RBpower);
+            if(fast){
+                leftFront.setPower(LFpower);
+                leftBack.setPower(LBpower);
+                rightFront.setPower(RFpower);
+                rightBack.setPower(RBpower);
+
+            } else if (!fast){
+                leftFront.setPower(0.6*LFpower);
+                leftBack.setPower(0.6*LBpower);
+                rightFront.setPower(0.6*RFpower);
+                rightBack.setPower(0.6*RBpower);
+            }
 
             // Triggers behave like full-speed directional buttons. If both are held,
             // their directions cancel so the motor stops.
