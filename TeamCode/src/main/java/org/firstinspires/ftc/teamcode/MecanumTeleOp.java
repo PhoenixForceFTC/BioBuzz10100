@@ -5,6 +5,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import org.firstinspires.ftc.teamcode.Shooter;
+import org.firstinspires.ftc.teamcode.Intake;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 
 /**
@@ -28,6 +30,8 @@ public class MecanumTeleOp extends LinearOpMode {
     DcMotorEx rightFront;
     DcMotorEx rightBack;
     double LFpower = 0, LBpower = 0, RFpower = 0, RBpower = 0;
+
+    Shooter shooter;
 
     // goBILDA 435 RPM / 13.7:1 gearbox; the external 1:1 bevel adds no reduction.
     // Leave headroom below no-load speed for regulation under load; lower if needed.
@@ -53,6 +57,8 @@ public class MecanumTeleOp extends LinearOpMode {
         intake.setPower(0);
         setEncoderMode(intake);
 
+        shooter = new Shooter("shooter", telemetry, hardwareMap, gamepad1);
+
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
         telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
         telemetry.addLine("Left trigger: intake reverse | Right trigger: forward");
@@ -65,7 +71,7 @@ public class MecanumTeleOp extends LinearOpMode {
         while (opModeIsActive()) {
             // FTC gamepads report forward stick movement as negative Y.
             double drive = Math.abs(gamepad1.left_stick_y) <= 0.05 ? 0 : -gamepad1.left_stick_y;
-            double strafe = Math.abs(gamepad1.left_stick_y) <= 0.05 ? 0 : gamepad1.left_stick_y;
+            double strafe = Math.abs(gamepad1.left_stick_x) <= 0.05 ? 0 : gamepad1.left_stick_x;
             double turn = Math.abs(gamepad1.right_stick_x) <= 0.05 ? 0 : gamepad1.right_stick_x;
             double total = Math.abs(drive) + Math.abs(strafe) + Math.abs(turn);
 
@@ -97,6 +103,8 @@ public class MecanumTeleOp extends LinearOpMode {
                 rightFront.setPower(0.6*RFpower);
                 rightBack.setPower(0.6*RBpower);
             }
+
+            shooter.run();
 
             // Triggers behave like full-speed directional buttons. If both are held,
             // their directions cancel so the motor stops.

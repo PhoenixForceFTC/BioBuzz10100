@@ -12,7 +12,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 //Step one
-@TeleOp(name = "Shooter")
 public class Shooter {
     public DcMotorEx shooter; //To get motor's extra features
     private double power = 0;
