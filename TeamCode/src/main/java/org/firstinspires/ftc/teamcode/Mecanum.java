@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-@TeleOp(name = "Mecanum", group = "Drive")
 public class Mecanum {
 
     private HardwareMap hardwareMap;

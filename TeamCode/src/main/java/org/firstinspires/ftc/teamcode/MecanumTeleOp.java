@@ -19,7 +19,7 @@ import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigu
  *     <li>Expansion Hub 0: intake</li>
  * </ul>
  */
-@TeleOp(name = "Mecanum TeleOp", group = "Drive")
+@TeleOp(name = "Mecanum TeleOp Final", group = "Drive")
 public class MecanumTeleOp extends LinearOpMode {
     // Order is FL, FR, BL, BR throughout the mixing and the wheel test.
 
@@ -58,7 +58,7 @@ public class MecanumTeleOp extends LinearOpMode {
         intakeMotor.setPower(0);
         setEncoderMode(intakeMotor);
 
-        shooter = new Shooter("shooter", telemetry, hardwareMap, gamepad1);
+        shooter = new Shooter("shooter1", "shooter2", telemetry, hardwareMap, gamepad1);
         intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
 
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
