@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 
 /**
@@ -14,6 +15,9 @@ import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigu
  *     <li>Control Hub 2: leftback</li>
  *     <li>Control Hub 3: rightback</li>
  *     <li>Expansion Hub 0: intake</li>
+ *     <li>Expansion Hub 1: flymotor1</li>
+ *     <li>Expansion Hub 2: flymotor2</li>
+ *     <li>Expansion Hub 3: kicker</li>
  * </ul>
  */
 @TeleOp(name = "Mecanum TeleOp", group = "Drive")
@@ -31,6 +35,29 @@ public class MecanumTeleOp extends LinearOpMode {
     private static final double MOTOR_RPM = 435.0;
     // Leave headroom below no-load speed for regulation under load; lower if needed.
     private static final double MAX_TICKS_PER_SECOND = TICKS_PER_REV * MOTOR_RPM / 60.0 * 0.75;
+    private static final String[] SPEED_MOTOR_NAMES = {"flymotor1", "flymotor2"};
+    // 6000 RPM Yellow Jacket (1:1 internal gearbox), then 8-tooth driving 14-tooth.
+    private static final double SPEED_MOTOR_TICKS_PER_REV = 28.0;
+    private static final double SPEED_MOTOR_RPM = 6000.0;
+    private static final double OUTPUT_REVS_PER_MOTOR_REV = 8.0 / 14.0;
+    private static final int OUTPUT_RPM_STEP = 100;
+    // Round down to a whole step below the nominal 3428.57 RPM output limit.
+    private static final int MAX_OUTPUT_RPM = (int) (SPEED_MOTOR_RPM
+            * OUTPUT_REVS_PER_MOTOR_REV / OUTPUT_RPM_STEP) * OUTPUT_RPM_STEP;
+    private static final double TICKS_PER_SECOND_PER_OUTPUT_RPM =
+            SPEED_MOTOR_TICKS_PER_REV / (60.0 * OUTPUT_REVS_PER_MOTOR_REV);
+    private static final double KICKER_MOTOR_TICKS_PER_REV = 28.0;
+    private static final double KICKER_MOTOR_RPM = 435.0;
+    private static final double KICKER_GEAR_RATIO = 14.0 / 8.0;
+    private static final double KICKER_OUTPUT_RPM = KICKER_MOTOR_RPM * KICKER_GEAR_RATIO;
+    // REV velocity PIDF uses a 32767 full-scale output and ticks/second feedback.
+    // Starting gains, not a substitute for measuring/tuning the assembled flywheel.
+    private static final double FLY_VELOCITY_F = 32767.0
+            / (SPEED_MOTOR_RPM * SPEED_MOTOR_TICKS_PER_REV / 60.0);
+    private static final double FLY_VELOCITY_P = 0.1 * FLY_VELOCITY_F;
+    private static final double FLY_VELOCITY_I = 0.1 * FLY_VELOCITY_P;
+    private static final double FLY_VELOCITY_D = 0.0;
+    private static final double NOMINAL_VOLTAGE = 12.0;
 
     @Override
     public void runOpMode() {
@@ -52,18 +79,72 @@ public class MecanumTeleOp extends LinearOpMode {
         intake.setPower(0);
         setEncoderMode(intake);
 
+        DcMotor kicker = hardwareMap.get(DcMotor.class, "kicker");
+        kicker.setPower(0);
+        kicker.setDirection(DcMotor.Direction.FORWARD);
+        setEncoderMode(kicker);
+
+        DcMotorEx[] speedMotors = new DcMotorEx[SPEED_MOTOR_NAMES.length];
+        for (int i = 0; i < speedMotors.length; i++) {
+            DcMotorEx motor = hardwareMap.get(DcMotorEx.class, SPEED_MOTOR_NAMES[i]);
+            speedMotors[i] = motor;
+            motor.setPower(0);
+            // Restore original motor-lead polarity: software reversal preserves
+            // the desired CCW rotation without inverting the velocity feedback.
+            motor.setDirection(DcMotor.Direction.REVERSE);
+            MotorConfigurationType motorType = motor.getMotorType().clone();
+            motorType.setTicksPerRev(SPEED_MOTOR_TICKS_PER_REV);
+            motorType.setMaxRPM(SPEED_MOTOR_RPM);
+            motor.setMotorType(motorType);
+            setEncoderMode(motor);
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            motor.setVelocityPIDFCoefficients(FLY_VELOCITY_P, FLY_VELOCITY_I,
+                    FLY_VELOCITY_D, FLY_VELOCITY_F);
+        }
+
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
         telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
         telemetry.addLine("Left trigger: intake reverse | Right trigger: forward");
-        telemetry.addLine("Hold left bumper for 25% driving speed");
+        telemetry.addLine("A: kicker forward | Y: kicker reverse");
+        telemetry.addLine("Hold left stick button for 25% driving speed");
+        telemetry.addLine("Bumpers: right +100 / left -100 output RPM | B: stop fly motors");
+        telemetry.addLine("Fly motors: restore original power-wire polarity before running");
+        telemetry.addData("Fly motor output range", "0-%d RPM", MAX_OUTPUT_RPM);
         telemetry.setMsTransmissionInterval(100);
         telemetry.update();
 
         waitForStart();
 
         double[] targets = new double[wheels.length];
+        int outputRpm = 0;
+        boolean previousRightBumper = gamepad1.right_bumper;
+        boolean previousLeftBumper = gamepad1.left_bumper;
+        double nextVoltageSample = 0.0;
+        double batteryVoltage = Double.NaN;
+        double appliedVelocityF = FLY_VELOCITY_F;
         try {
             while (opModeIsActive()) {
+                if (getRuntime() >= nextVoltageSample) {
+                    batteryVoltage = Double.POSITIVE_INFINITY;
+                    for (VoltageSensor sensor : hardwareMap.voltageSensor) {
+                        double voltage = sensor.getVoltage();
+                        if (voltage > 0 && !Double.isInfinite(voltage)) {
+                            batteryVoltage = Math.min(batteryVoltage, voltage);
+                        }
+                    }
+                    // Keep nominal feedforward if no valid sensor is available.
+                    double compensatedF = Double.isInfinite(batteryVoltage)
+                            ? FLY_VELOCITY_F
+                            : FLY_VELOCITY_F * NOMINAL_VOLTAGE / batteryVoltage;
+                    if (Math.abs(compensatedF - appliedVelocityF) > 0.05) {
+                        for (DcMotorEx motor : speedMotors) {
+                            motor.setVelocityPIDFCoefficients(FLY_VELOCITY_P, FLY_VELOCITY_I,
+                                    FLY_VELOCITY_D, compensatedF);
+                        }
+                        appliedVelocityF = compensatedF;
+                    }
+                    nextVoltageSample = getRuntime() + 0.25;
+                }
                 // FTC gamepads report forward stick movement as negative Y.
                 double drive = -deadband(gamepad1.left_stick_y);
                 // Slightly compensate for the reduced lateral traction of mecanum wheels.
@@ -77,7 +158,7 @@ public class MecanumTeleOp extends LinearOpMode {
 
                 // One common scale preserves the wheel-speed ratios, including diagonals.
                 double denominator = Math.max(Math.abs(drive) + Math.abs(strafe) + Math.abs(turn), 1.0);
-                double speedLimit = MAX_TICKS_PER_SECOND * (gamepad1.left_bumper ? 0.25 : 1.0);
+                double speedLimit = MAX_TICKS_PER_SECOND * (gamepad1.left_stick_button ? 0.25 : 1.0);
                 for (int i = 0; i < wheels.length; i++) {
                     targets[i] = targets[i] / denominator * speedLimit;
                     // The hub closes each wheel's velocity loop using its own encoder.
@@ -97,7 +178,52 @@ public class MecanumTeleOp extends LinearOpMode {
                 }
                 intake.setPower(intakePower);
 
+                double kickerPower = 0.0;
+                if (gamepad1.a) {
+                    kickerPower = 1.0;
+                } else if (gamepad1.y) {
+                    kickerPower = -1.0;
+                }
+                kicker.setPower(kickerPower);
+
+                boolean rightBumper = gamepad1.right_bumper;
+                boolean leftBumper = gamepad1.left_bumper;
+                // One step per press; holding both bumpers makes no change.
+                if (gamepad1.b) {
+                    outputRpm = 0;
+                } else if (rightBumper && !previousRightBumper && !leftBumper) {
+                    outputRpm = Math.min(outputRpm + OUTPUT_RPM_STEP, MAX_OUTPUT_RPM);
+                } else if (leftBumper && !previousLeftBumper && !rightBumper) {
+                    outputRpm = Math.max(outputRpm - OUTPUT_RPM_STEP, 0);
+                }
+                previousRightBumper = rightBumper;
+                previousLeftBumper = leftBumper;
+
+                double speedTarget = outputRpm * TICKS_PER_SECOND_PER_OUTPUT_RPM;
+                telemetry.addData("Fly motor target", "%d output RPM", outputRpm);
+                if (Double.isInfinite(batteryVoltage)) {
+                    telemetry.addLine("Battery voltage unavailable: using nominal flywheel feedforward");
+                } else {
+                    telemetry.addData("Battery", "%.2f V", batteryVoltage);
+                }
+                telemetry.addData("Fly PIDF", "P %.3f | I %.3f | D %.3f | F %.3f",
+                        FLY_VELOCITY_P, FLY_VELOCITY_I, FLY_VELOCITY_D, appliedVelocityF);
+                for (int i = 0; i < speedMotors.length; i++) {
+                    if (outputRpm == 0) {
+                        speedMotors[i].setPower(0);
+                    } else {
+                        // The hub runs the only PID loop; F anticipates battery voltage changes.
+                        speedMotors[i].setVelocity(speedTarget);
+                    }
+                    double ticksPerSecond = speedMotors[i].getVelocity();
+                    double actualRpm = ticksPerSecond / TICKS_PER_SECOND_PER_OUTPUT_RPM;
+                    telemetry.addData(SPEED_MOTOR_NAMES[i],
+                            "actual %.0f output RPM | error %+.0f RPM | %.0f ticks/s",
+                            actualRpm, outputRpm - actualRpm, ticksPerSecond);
+                }
+
                 telemetry.addData("Intake encoder", intake.getCurrentPosition());
+                telemetry.addData("Kicker encoder", kicker.getCurrentPosition());
                 telemetry.update();
                 idle();
             }
@@ -106,6 +232,10 @@ public class MecanumTeleOp extends LinearOpMode {
                 wheel.setPower(0);
             }
             intake.setPower(0);
+            kicker.setPower(0);
+            for (DcMotorEx motor : speedMotors) {
+                motor.setPower(0);
+            }
         }
     }
 
