@@ -1,3 +1,19 @@
+## FOR STARDANCE
+CAD file is too large for GitHub; I have attached a placeholder, and the actual CAD is linked as the product demo. 
+
+This project is a parallel plate drivetrain. It uses motors with the mecanum wheels sandwiched between two parallel plates in order to have an efficient and space-constrained assembly. The motors are 6,000 RPM bearing motors with a tested RPM of 5,800, which leads into a 1:4 gear ratio and then a 1:3 belt ratio. This finally connects to a 104 mm mecanum wheel, which spins at 483 RPM.
+
+I'm using an HTD 3.9 mm belt because it is a perfect balance of drive power, efficiency, and noise. The 3 in HTD 3 stands for a 3 mm pitch, and the belt is 9 mm wide. I use an adjustable tensioner for the belt to maintain proper belt tension so that it doesn't slip under heavy torque changes. I'm also using bearing stacks around pulleys to further constrain the belt path.
+
+I hope that I can use the grant money to buy multiple variations of parts and test different configurations with real-life conditions to find the optimum drivetrain. 
+
+<img width="632" height="517" alt="image" src="https://github.com/user-attachments/assets/7dfbf4ac-fdf0-4a8e-b49c-2196934d119e" />
+<img width="710" height="230" alt="image" src="https://github.com/user-attachments/assets/0294889b-dea5-4750-bab0-5132535cc05c" />
+<img width="698" height="205" alt="image" src="https://github.com/user-attachments/assets/1e86831d-3705-45ca-8e06-f18124b60ac5" />
+<img width="364" height="197" alt="image" src="https://github.com/user-attachments/assets/caccd3be-4b9c-4168-903d-01186e672817" />
+<img width="365" height="153" alt="image" src="https://github.com/user-attachments/assets/51a01fc9-2302-4356-b718-53ae49aac4e5" />
+
+
 ## NOTICE
 
 This repository contains the public FTC SDK for the BIOBUZZ (2026-2027) competition season.
