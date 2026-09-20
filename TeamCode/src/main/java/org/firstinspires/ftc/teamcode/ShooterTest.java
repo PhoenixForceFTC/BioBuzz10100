@@ -14,7 +14,7 @@ public class ShooterTest extends LinearOpMode {
     @Override
     public void runOpMode() {
         //When driver is in init
-        shooter = new Shooter("shooter", telemetry, hardwareMap, gamepad1);
+        shooter = new Shooter("shooter1", "shooter2", telemetry, hardwareMap, gamepad1);
         waitForStart();
         while (opModeIsActive()) {
             shooter.run();

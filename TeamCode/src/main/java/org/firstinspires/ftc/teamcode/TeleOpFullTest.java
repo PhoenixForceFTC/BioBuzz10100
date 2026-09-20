@@ -18,11 +18,11 @@ public class TeleOpFullTest extends LinearOpMode {
 
         intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
 
-        shooter = new Shooter("shooter", telemetry, hardwareMap, gamepad1);
+        shooter = new Shooter("flymotor1", "flymotor2", telemetry, hardwareMap, gamepad1);
 
         mecanum = new Mecanum(hardwareMap, gamepad1, telemetry);
 
-        passingMechanism = new PassingMechanism("passer", telemetry, hardwareMap, gamepad1);
+        passingMechanism = new PassingMechanism("kicker", telemetry, hardwareMap, gamepad1);
 
         waitForStart();
 
