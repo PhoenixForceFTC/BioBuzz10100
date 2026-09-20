@@ -1,0 +1,81 @@
+Organization: put different teleops in different folders.****
+
+Variables: camel case.
+
+Classes: pascal case.
+
+Main file:
+Keep it clean*. Only import necessary things, should be place where all hardware is originally accessed, as well as the main loop.
+
+Each different functionality should have its own class that handles it. 
+
+Test files/classes for classes of different functionality should have Test at the end of the name. 
+
+The classes for different functionality should have private variables for hardware, and other things originally accessed through extending LinearOpMode.
+
+Ex: 
+
+"
+private HardwareMap hardwareMap;
+
+private Gamepad gamepad1;
+
+private Telemetry telemetry;
+
+private boolean fast = false;
+
+private DcMotorEx leftFront;
+
+private DcMotorEx leftBack;
+
+private DcMotorEx rightFront;
+
+private DcMotorEx rightBack;
+"
+
+* 
+TLDR: Original variable for each functionality is declared. 
+This variable is set.
+General parameter for constructor order: ("hardwareName", telemetry, hardwareMap, gamepad#, additional as needed). 
+"
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+
+@TeleOp(name = "TeleOp", group = "Drive")
+public class TeleOpFullTest extends LinearOpMode {
+
+    private Intake intake;
+    private Shooter shooter;
+
+    private Mecanum mecanum;
+    private PassingMechanism passingMechanism;
+
+    @Override
+    public void runOpMode() {
+
+        intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
+
+        shooter = new Shooter("shooter", telemetry, hardwareMap, gamepad1);
+
+        mecanum = new Mecanum(hardwareMap, gamepad1, telemetry);
+
+        passingMechanism = new PassingMechanism("passer", telemetry, hardwareMap, gamepad1);
+
+        waitForStart();
+
+        while (opModeIsActive()) {
+
+            intake.run();
+            shooter.run();
+            passingMechanism.run();
+            mecanum.run();
+            telemetry.update();
+
+        }
+    }
+
+}
+"
