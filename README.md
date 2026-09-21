@@ -1,3 +1,16 @@
+## FOR STARDANCE
+This is a parallel plate drivetrain with two bare motors connected to 104 mm GoBilda mecanum wheels. This drivetrain is very special and unique because:
+1. It is 100% custom.
+2. It uses two parallel plates to house everything that is drivetrain-related.|
+These are important because you can't just connect motors directly to wheels:
+1. It creates a lot of backlash.
+2. It is extremely bad for the motor health.
+3. It is terrible for robot packaging.
+What we do that creates a unique solution is connect the motors to wheels with belts and gears. This allows us to have a higher final drive ratio, which gives us a much faster robot. It also allows us to place our motors much farther back and down, which allows for much easier packaging and execution.
+My parallel plate drivetrain system is exceptionally unique because it uses a combination of motors connected to a gear ratio and a belt ratio, which gives the most efficient ratio system to transfer the power. It also makes sure that my drivetrain is quiet and extremely efficient. We are using mod 0.8 gears from GoBilda for the gear ratio, as they are precision-machined and have the perfect ratios. Our belts are HD 3 mm, which means they have a 3 mm pitch and are 9 mm wide. This also allows us to have a very efficient and quiet drivetrain while transferring the power.
+
+Our parallel plate drivetrain also has what is called dead axles, where the individual axles of the rotating components don't move, but the components are on bearings that move around them. This also increases efficiency and allows us to have better packaging because we don't need bearings on the edges. Overall, this drivetrain creates an extremely unique system to accomplish motor power transmission and gives us a unique advantage over our competition robot. 
+
 ## NOTICE
 
 This repository contains the public FTC SDK for the BIOBUZZ (2026-2027) competition season.
