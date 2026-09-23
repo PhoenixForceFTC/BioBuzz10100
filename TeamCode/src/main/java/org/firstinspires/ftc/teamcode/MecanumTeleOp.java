@@ -1,11 +1,20 @@
 package org.firstinspires.ftc.teamcode;
 
+import android.util.Size;
+
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
+
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.vision.VisionPortal;
+
+import java.util.List;
 
 /**
  * Robot-configuration names:
@@ -58,6 +67,10 @@ public class MecanumTeleOp extends LinearOpMode {
     private static final double FLY_VELOCITY_I = 0.1 * FLY_VELOCITY_P;
     private static final double FLY_VELOCITY_D = 0.0;
     private static final double NOMINAL_VOLTAGE = 12.0;
+    private static final double HIVE_TURN_GAIN = 0.018;
+    private static final double HIVE_MAX_TURN = 0.35;
+    private static final double POLLEN_MAX_TURN = 0.28;
+    private static final double POLLEN_STOP_Y = 0.86;
 
     @Override
     public void runOpMode() {
@@ -102,18 +115,27 @@ public class MecanumTeleOp extends LinearOpMode {
                     FLY_VELOCITY_D, FLY_VELOCITY_F);
         }
 
+        Limelight3A limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight.pipelineSwitch(0); // Configure pipeline 0 as 36h11 AprilTags, 3.25 in.
+        PollenDetector pollenDetector = new PollenDetector();
+        VisionPortal webcamPortal = new VisionPortal.Builder()
+                .setCamera(hardwareMap.get(WebcamName.class, "webcam"))
+                .setCameraResolution(new Size(320, 240))
+                .addProcessor(pollenDetector)
+                .build();
+
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
         telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
         telemetry.addLine("Left trigger: intake reverse | Right trigger: forward");
         telemetry.addLine("A: kicker forward | Y: kicker reverse");
         telemetry.addLine("Hold left stick button for 25% driving speed");
         telemetry.addLine("Bumpers: right +100 / left -100 output RPM | B: stop fly motors");
+        telemetry.addLine("X: toggle visible-hive turn assist | D-pad down: toggle pollen pickup");
+        telemetry.addLine("Manual turning cancels hive assist; any manual driving cancels pollen pickup");
         telemetry.addLine("Fly motors: restore original power-wire polarity before running");
         telemetry.addData("Fly motor output range", "0-%d RPM", MAX_OUTPUT_RPM);
         telemetry.setMsTransmissionInterval(100);
         telemetry.update();
-
-        waitForStart();
 
         double[] targets = new double[wheels.length];
         int outputRpm = 0;
@@ -122,7 +144,19 @@ public class MecanumTeleOp extends LinearOpMode {
         double nextVoltageSample = 0.0;
         double batteryVoltage = Double.NaN;
         double appliedVelocityF = FLY_VELOCITY_F;
+        boolean hiveAssist = false;
+        boolean pollenAssist = false;
+        boolean previousX = gamepad1.x;
+        boolean previousDpadDown = gamepad1.dpad_down;
+        int selectedHive = -1;
+        long lastPollenFrame = -1;
+        int pollenConfirmations = 0;
+        double lastPollenX = Double.NaN;
+        double lastPollenY = Double.NaN;
+        double intakeFinishUntil = 0;
         try {
+            limelight.start();
+            waitForStart();
             while (opModeIsActive()) {
                 if (getRuntime() >= nextVoltageSample) {
                     batteryVoltage = Double.POSITIVE_INFINITY;
@@ -151,6 +185,87 @@ public class MecanumTeleOp extends LinearOpMode {
                 double strafe = deadband(gamepad1.left_stick_x) * 1.1;
                 double turn = deadband(gamepad1.right_stick_x);
 
+                LLResult limelightResult = limelight.getLatestResult();
+                List<HiveTagTracker.Cell> visibleCells =
+                        HiveTagTracker.visibleCells(limelightResult);
+                boolean xPressed = gamepad1.x;
+                boolean downPressed = gamepad1.dpad_down;
+                if (xPressed && !previousX) {
+                    hiveAssist = !hiveAssist;
+                    pollenAssist = false;
+                    HiveTagTracker.Cell closest = HiveTagTracker.nearestVisible(visibleCells);
+                    selectedHive = closest == null ? -1 : closest.index;
+                }
+                if (downPressed && !previousDpadDown) {
+                    pollenAssist = !pollenAssist;
+                    hiveAssist = false;
+                    selectedHive = -1;
+                    pollenConfirmations = 0;
+                }
+                previousX = xPressed;
+                previousDpadDown = downPressed;
+
+                if (hiveAssist && Math.abs(turn) > 0.15) {
+                    hiveAssist = false;
+                }
+                if (pollenAssist && (Math.abs(drive) > 0.15 || Math.abs(strafe) > 0.15
+                        || Math.abs(turn) > 0.15 || gamepad1.left_trigger > 0.05)) {
+                    pollenAssist = false;
+                }
+
+                HiveTagTracker.Cell hive = selectedHive < 0
+                        ? HiveTagTracker.nearestVisible(visibleCells)
+                        : HiveTagTracker.find(visibleCells, selectedHive);
+                if (hiveAssist) {
+                    turn = 0;
+                    if (hive != null) {
+                        selectedHive = hive.index; // Lock the cell until assist is toggled off.
+                        if (Math.abs(hive.bearingDegrees) > 1.5) {
+                            turn = clamp(hive.bearingDegrees * HIVE_TURN_GAIN,
+                                    -HIVE_MAX_TURN, HIVE_MAX_TURN);
+                            if (Math.abs(turn) < 0.08) {
+                                turn = Math.copySign(0.08, turn);
+                            }
+                        }
+                    }
+                }
+
+                PollenDetector.Detection pollen = pollenDetector.getLatest();
+                boolean freshPollen = pollen != null
+                        && System.nanoTime() - pollen.observedNanos < 300_000_000L;
+                if (pollenAssist) {
+                    drive = 0;
+                    strafe = 0;
+                    turn = 0;
+                    if (!freshPollen) {
+                        pollenConfirmations = 0;
+                    } else {
+                        if (pollen.frameNumber != lastPollenFrame) {
+                            if (Math.abs(pollen.x - lastPollenX) < 0.16
+                                    && Math.abs(pollen.y - lastPollenY) < 0.16) {
+                                pollenConfirmations++;
+                            } else {
+                                pollenConfirmations = 1;
+                            }
+                            lastPollenFrame = pollen.frameNumber;
+                            lastPollenX = pollen.x;
+                            lastPollenY = pollen.y;
+                        }
+                        if (pollenConfirmations >= 3) {
+                            double error = (pollen.x - 0.5) * 2;
+                            if (pollen.y >= POLLEN_STOP_Y) {
+                                pollenAssist = false;
+                                intakeFinishUntil = getRuntime() + 0.35;
+                            } else {
+                                turn = clamp(error * 0.50, -POLLEN_MAX_TURN,
+                                        POLLEN_MAX_TURN);
+                                drive = Math.abs(error) > 0.32 ? 0
+                                        : (pollen.y < 0.55 ? 0.28 : 0.18);
+                            }
+                        }
+                    }
+                }
+
                 targets[0] = drive + strafe + turn;
                 targets[1] = drive - strafe - turn;
                 targets[2] = drive - strafe + turn;
@@ -158,7 +273,8 @@ public class MecanumTeleOp extends LinearOpMode {
 
                 // One common scale preserves the wheel-speed ratios, including diagonals.
                 double denominator = Math.max(Math.abs(drive) + Math.abs(strafe) + Math.abs(turn), 1.0);
-                double speedLimit = MAX_TICKS_PER_SECOND * (gamepad1.left_stick_button ? 0.25 : 1.0);
+                double speedLimit = MAX_TICKS_PER_SECOND * (gamepad1.left_stick_button
+                        ? 0.25 : (hiveAssist || pollenAssist ? 0.35 : 1.0));
                 for (int i = 0; i < wheels.length; i++) {
                     targets[i] = targets[i] / denominator * speedLimit;
                     // The hub closes each wheel's velocity loop using its own encoder.
@@ -175,6 +291,13 @@ public class MecanumTeleOp extends LinearOpMode {
                 }
                 if (gamepad1.left_trigger > 0.05) {
                     intakePower -= 1.0;
+                }
+                if ((pollenAssist && pollenConfirmations >= 3 && freshPollen)
+                        || getRuntime() < intakeFinishUntil) {
+                    intakePower = 1.0;
+                }
+                if (gamepad1.left_trigger > 0.05) {
+                    intakeFinishUntil = 0;
                 }
                 intake.setPower(intakePower);
 
@@ -224,6 +347,23 @@ public class MecanumTeleOp extends LinearOpMode {
 
                 telemetry.addData("Intake encoder", intake.getCurrentPosition());
                 telemetry.addData("Kicker encoder", kicker.getCurrentPosition());
+                telemetry.addData("Hive assist", hiveAssist ? "ON" : "OFF");
+                telemetry.addData("Pollen pickup", pollenAssist ? "ON" : "OFF");
+                for (HiveTagTracker.Cell cell : visibleCells) {
+                    telemetry.addData("Hive " + cell.name,
+                            "IDs %s | %d tags | bearing %+.1f deg",
+                            cell.ids, cell.visibleTags, cell.bearingDegrees);
+                }
+                if (hiveAssist) {
+                    telemetry.addData("Selected hive", hive == null
+                            ? "waiting for visible tags" : hive.name);
+                }
+                if (freshPollen) {
+                    telemetry.addData("Pollen", "x %.2f y %.2f area %.0f | confirmations %d",
+                            pollen.x, pollen.y, pollen.area, pollenConfirmations);
+                } else if (pollenAssist) {
+                    telemetry.addLine("Pollen: waiting for fresh webcam frames");
+                }
                 telemetry.update();
                 idle();
             }
@@ -236,12 +376,19 @@ public class MecanumTeleOp extends LinearOpMode {
             for (DcMotorEx motor : speedMotors) {
                 motor.setPower(0);
             }
+            webcamPortal.close();
+            pollenDetector.close();
+            limelight.stop();
         }
     }
 
     private double deadband(double value) {
         return Math.abs(value) <= 0.05 ? 0.0
                 : Math.copySign((Math.abs(value) - 0.05) / 0.95, value);
+    }
+
+    private static double clamp(double value, double low, double high) {
+        return Math.max(low, Math.min(high, value));
     }
 
     private void setEncoderMode(DcMotor motor) {
