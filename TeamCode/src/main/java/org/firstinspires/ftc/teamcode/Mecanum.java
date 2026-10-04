@@ -46,7 +46,7 @@ public class Mecanum {
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
         telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
@@ -59,7 +59,7 @@ public class Mecanum {
     public void run(){
 
         double drive = Math.abs(gamepad1.left_stick_y) <= 0.05 ? 0 : -gamepad1.left_stick_y;
-        double strafe = Math.abs(gamepad1.left_stick_y) <= 0.05 ? 0 : gamepad1.left_stick_y;
+        double strafe = Math.abs(gamepad1.left_stick_x) <= 0.05 ? 0 : gamepad1.left_stick_x;
         double turn = Math.abs(gamepad1.right_stick_x) <= 0.05 ? 0 : gamepad1.right_stick_x;
         double total = Math.abs(drive) + Math.abs(strafe) + Math.abs(turn);
 

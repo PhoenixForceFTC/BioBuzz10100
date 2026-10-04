@@ -12,11 +12,11 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 //Step one
 public class PassingMechanism {
     public DcMotorEx passmotor; //To get motor's extra features
-    private double power = 0;
+    private double power = 0.5;
     Telemetry _telemetry;
     Gamepad gamepad;
     HardwareMap hardwareMap;
-    boolean isZero = false;
+    boolean isZero = true;
 
     public PassingMechanism(String passerName, Telemetry telemetry, HardwareMap h, Gamepad GameGamepad){
         this.hardwareMap = h;
