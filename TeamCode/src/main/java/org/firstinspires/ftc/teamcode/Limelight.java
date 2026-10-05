@@ -11,6 +11,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import java.util.ArrayList;
 import java.util.List;
 
+//usage: purely scans using the limelight.
+
 public class Limelight {
 
     private Limelight3A limelight;
