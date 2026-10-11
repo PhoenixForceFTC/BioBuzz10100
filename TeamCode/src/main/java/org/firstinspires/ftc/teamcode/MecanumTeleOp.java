@@ -31,7 +31,7 @@ public class MecanumTeleOp extends LinearOpMode {
     DcMotorEx rightBack;
     double LFpower = 0, LBpower = 0, RFpower = 0, RBpower = 0;
 
-    Shooter shooter;
+    //Shooter shooter;
     Intake intake;
 
     // goBILDA 435 RPM / 13.7:1 gearbox; the external 1:1 bevel adds no reduction.
@@ -52,14 +52,14 @@ public class MecanumTeleOp extends LinearOpMode {
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        DcMotor intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-        intakeMotor.setPower(0);
-        setEncoderMode(intakeMotor);
+        //DcMotor intakeMotor = hardwareMap.get(DcMotor.class, "intake");
+        //intakeMotor.setPower(0);
+        //setEncoderMode(intakeMotor);
 
-        shooter = new Shooter("shooter1", "shooter2", telemetry, hardwareMap, gamepad1);
-        intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
+        //shooter = new Shooter("shooter1", "shooter2", telemetry, hardwareMap, gamepad1);
+        //intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
 
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
         telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
@@ -106,11 +106,11 @@ public class MecanumTeleOp extends LinearOpMode {
                 rightBack.setPower(0.6*RBpower);
             }
 
-            shooter.run();
+            //shooter.run();
 
             // Triggers behave like full-speed directional buttons. If both are held,
             // their directions cancel so the motor stops.
-            intake.run();
+            //intake.run();
 //            double intakePower = 0.0;
 //            if (gamepad1.right_trigger > 0.05) {
 //                intakePower += 1.0;
