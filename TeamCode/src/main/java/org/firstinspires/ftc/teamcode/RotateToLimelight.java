@@ -10,6 +10,12 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
+//usage: create this class in the main code. to start a turn to a scanned limelight, do dispatch turn.
+// somewhere inside each loop should call the turn function. if there is a dispatched turn, then it will run.
+
+//todo: using the same code architecture, make it work for the turret.
+
+
 public class RotateToLimelight {
 
     // ---- Target rotation to hold, in degrees ----
