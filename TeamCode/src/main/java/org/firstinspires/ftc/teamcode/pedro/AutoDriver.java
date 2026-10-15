@@ -125,6 +125,11 @@ public class AutoDriver {
         return moving || !queue.isEmpty();
     }
 
+    /** Current robot pose on the field, as tracked by the follower. Safe to call any time. */
+    public Pose getPose() {
+        return follower.pose();
+    }
+
     private static double clamp(double speed) {
         return Math.max(0.0, Math.min(1.0, speed));
     }
