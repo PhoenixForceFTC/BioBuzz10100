@@ -98,7 +98,31 @@ public class AutoDriver {
      * Queue an in-place turn, relative to the robot's heading at the moment the
      * turn starts. LEFT is counter-clockwise, RIGHT is clockwise.
      */
+    public AutoDriver turn(double degrees, Direction direction, int stepSize) {
+
+        double turndirection  = (direction == Direction.LEFT ? 1 : -1);
+        double remainingAngle = Math.abs(degrees);
+        while (remainingAngle > 0) {
+            double step = Math.min(stepSize, remainingAngle);
+            queue.add(Move.turn(step*turndirection));
+            remainingAngle -= stepSize;
+        }
+
+        double signed = Math.abs(degrees) * (direction == Direction.LEFT ? 1 : -1);
+        queue.add(Move.turn(signed));
+        return this;
+    }
+
     public AutoDriver turn(double degrees, Direction direction) {
+
+        double turndirection  = (direction == Direction.LEFT ? 1 : -1);
+        double remainingAngle = Math.abs(degrees);
+        while (remainingAngle > 0) {
+            double step = Math.min(120, remainingAngle);
+            queue.add(Move.turn(step*turndirection));
+            remainingAngle -= 120;
+        }
+
         double signed = Math.abs(degrees) * (direction == Direction.LEFT ? 1 : -1);
         queue.add(Move.turn(signed));
         return this;

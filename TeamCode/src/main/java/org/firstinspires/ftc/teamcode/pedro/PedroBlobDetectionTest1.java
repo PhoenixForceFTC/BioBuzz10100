@@ -24,6 +24,7 @@ import java.util.List;
 public class PedroBlobDetectionTest1 extends OpMode {
 
     int dilateSize = 15; int erodeSize = 15; double circularity = 0.4;
+    boolean ballFound = false;
 
     private Follower follower;
     private AutoDriver driver;
@@ -62,8 +63,7 @@ public class PedroBlobDetectionTest1 extends OpMode {
                 .build();
 
         // AUTOMATIC is the default: each move starts when the last one finishes.
-        driver.moveTo(20, 0, 180, 0.1)      // turn pt1
-                .moveTo(0, 0, 360, 0.1);    // turnpt2
+        driver.turn(359, AutoDriver.Direction.LEFT, 10);    // turn 360 deg
 
         // For MANUAL mode instead:
         // driver.setMode(AutoDriver.Mode.MANUAL);
@@ -86,11 +86,19 @@ public class PedroBlobDetectionTest1 extends OpMode {
 
         telemetry.addLine("Circularity Radius Center");
 
-        for(ColorBlobLocatorProcessor.Blob b : blobs){
-            if (b.getCircle().getRadius() > 30){
-                driver.stopAll();
-                double currentHeading = driver.getPose().heading();
-                driver.moveTo(10*Math.cos(currentHeading), 10*Math.sin(currentHeading), currentHeading);
+        telemetry.addLine("Current Heading: " + String.valueOf(driver.getPose().heading()));
+
+        if(!ballFound){
+            for(ColorBlobLocatorProcessor.Blob b : blobs){
+                if (b.getCircle().getRadius() > 30){
+                    driver.stopAll();
+                    Pose currentPose = driver.getPose();
+
+                    driver.moveTo(10*Math.cos(currentPose.heading()) + currentPose.x(),
+                            10*Math.sin(currentPose.heading()) + currentPose.y(),
+                            Math.toDegrees(currentPose.heading()));
+                    ballFound = true;
+                }
             }
         }
 
