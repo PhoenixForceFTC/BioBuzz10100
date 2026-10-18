@@ -1,10 +1,57 @@
 Item,SKU,Unit Price (List),Unit Price (Sale),Quantity,Line Total
-GripForce Gecko Wheel (8mm REX Bore, 48mm Diameter, 15A Durometer),3632-4008-0048,$7.99,$5.99,16,$95.84
+"GripForce Gecko Wheel (8mm REX Bore, 48mm Diameter, 15A Durometer)",3632-4008-0048,$7.99,$5.99,16,$95.84
 4-Bar Odometry Pod (32mm Wheel),3110-0001-0002,$99.99,$74.99,2,$149.98
-2303 Series Steel MOD 0.8 Pinion Gear (8mm REX Bore, 20 Tooth),2303-4008-0020,$10.59,$7.94,4,$31.76
-2302 Series Aluminum MOD 0.8 Hub Mount Gear (14mm Bore, 80 Tooth),2302-0014-0080,$13.79,$10.34,4,$41.36
-1516 Series 8mm REX Standoff (M4 x 0.7mm Threads, 64mm Length) - 4 Pack,1516-4008-0640,$6.99,$5.24,4,$20.96
-1106 Series Square Beam (8 Hole, 64mm Length),1106-0008-0064,$3.79,$2.84,8,$22.72
-1502 Series 4mm ID Spacer (6mm OD, 16mm Length) - 4 Pack,1502-0006-0160,$2.69,$2.02,4,$8.08
-1502 Series 4mm ID Spacer (6mm OD, 14mm Length) - 4 Pack,1502-0006-0140,$2.59,$1.94,4,$7.76
+"2303 Series Steel MOD 0.8 Pinion Gear (8mm REX Bore, 20 Tooth)",2303-4008-0020,$10.59,$7.94,4,$31.76
+"2302 Series Aluminum MOD 0.8 Hub Mount Gear (14mm Bore, 80 Tooth)",2302-0014-0080,$13.79,$10.34,4,$41.36
+"1516 Series 8mm REX Standoff (M4 x 0.7mm Threads, 64mm Length) - 4 Pack",1516-4008-0640,$6.99,$5.24,4,$20.96
+"1106 Series Square Beam (8 Hole, 64mm Length)",1106-0008-0064,$3.79,$2.84,8,$22.72
+"1502 Series 4mm ID Spacer (6mm OD, 16mm Length) - 4 Pack",1502-0006-0160,$2.69,$2.02,4,$8.08
+"1502 Series 4mm ID Spacer (6mm OD, 14mm Length) - 4 Pack",1502-0006-0140,$2.59,$1.94,4,$7.76
 8mm Bore Face Thru-Hole Pillow Block (32mm x 32mm Mounting Pattern),1603-0032-0008,$6.99,$5.24,4,$20.96
+"2910 Series Aluminum Clamping Collar (8mm REX ID x 20mm OD, 9mm Length)",2910-0920-4008,,$3.74,12,$44.88
+"GripForce Gecko Wheel (8mm REX Bore, 32mm Diameter, 15A Durometer)",3632-4008-0032,,$5.24,12,$62.88
+"1502 Series 4mm ID Spacer (6mm OD, 50mm Length) - 4 Pack",1502-0006-0500,,$3.82,1,$3.82
+"1502 Series 4mm ID Spacer (6mm OD, 40mm Length) - 4 Pack",1502-0006-0400,,$3.29,1,$3.29
+"2mm Pitch GT2 Pinion Timing Pulley (8mm REX Bore, 40 Tooth)",3422-4008-0040,,$7.49,2,$14.98
+"1522 Series 8mm ID Spacer (10mm OD, 9mm Length) - 4 Pack",1522-0010-0090,,$3.18,1,$3.18
+"8mm REX Shaft with E-Clip (Stainless Steel, 112mm Length)",2106-4008-1120,,$4.34,1,$4.34
+"8mm REX Shaft with E-Clip (Stainless Steel, 168mm Length)",2106-4008-1680,,$5.39,6,$32.34
+"1522 Series 8mm ID Spacer (10mm OD, 6mm Length) - 4 Pack",1522-0010-0060,,$2.62,2,$5.24
+"1522 Series 8mm ID Spacer (10mm OD, 3mm Length) - 4 Pack",1522-0010-0030,,$2.24,2,$4.48
+"1516 Series 8mm REX Standoff (M4 x 0.7mm Threads, 19mm Length) - 4 Pack",1516-4008-0190,,$2.84,1,$2.84
+"1522 Series 8mm ID Spacer (10mm OD, 4mm Length) - 4 Pack",1522-0010-0040,,$2.24,7,$15.68
+"8mm REX Shaft with E-Clip (Stainless Steel, 32mm Length)",2106-4008-0320,,$2.92,1,$2.92
+1204 Series Gusseted Angle Mount (2-1),1204-0002-0001,,$4.49,1,$4.49
+"1613 Series Thrust Ball Bearing (6mm ID x 14mm OD, 5mm Thickness)",1613-0514-0006,,$2.99,16,$47.84
+"1502 Series 4mm ID Spacer (6mm OD, 18mm Length) - 4 Pack",1502-0006-0180,,$2.13,1,$2.13
+"1502 Series 4mm ID Spacer (6mm OD, 16.5mm Length) - 4 Pack",1502-0006-0165,,$2.06,1,$2.06
+"1502 Series 4mm ID Spacer (6mm OD, 7mm Length) - 4 Pack",1502-0006-0070,,$1.57,1,$1.57
+"1502 Series 4mm ID Spacer (6mm OD, 11mm Length) - 4 Pack",1502-0006-0110,,$1.76,1,$1.76
+"1502 Series 4mm ID Spacer (6mm OD, 3mm Length) - 4 Pack",1502-0006-0030,,$1.34,1,$1.34
+"2807 Series Stainless Steel Shim (6mm ID x 9mm OD, 0.25mm Thickness) - 12 Pack",2807-0609-0250,,$1.87,2,$3.74
+"2807 Series Stainless Steel Shim (8mm ID x 11mm OD, 0.25mm Thickness) - 12 Pack",2807-0811-0250,,$2.02,2,$4.04
+"2807 Series Stainless Steel Shim (4mm ID x 7mm OD, 0.25mm Thickness) - 12 Pack",2807-0407-0250,,$1.72,2,$3.44
+"2305 Series Brass, MOD 0.8, Servo Gear (25 Tooth Spline, 24 Tooth)",2305-0025-0024,,$7.87,1,$7.87
+"8mm Bore 2-Side, 1-Post Pillow Block (43mm Width)",1606-0043-0008,,$5.24,1,$5.24
+"8mm REX Shaft with E-Clip (Stainless Steel, 40mm Length)",2106-4008-0400,,$3.07,1,$3.07
+"1502 Series 4mm ID Spacer (6mm OD, 30mm Length) - 4 Pack",1502-0006-0300,,$2.77,4,$11.08
+"Steel Flywheel (60mm Diameter, 115g, 551 g·cm²)",3628-0014-0060,,$9.74,2,$19.48
+"Hogback Traction Wheel (72mm Diameter, 50A Durometer)",3626-0014-0072,,$6.74,1,$6.74
+"Dual-Bearing Timing Belt Idler Pulley (8mm Bore, 18.5mm Diameter, 9.5mm Inside Width)",3428-0019-0008,,$5.24,4,$20.96
+"1516 Series 8mm REX Standoff (M4 x 0.7mm Threads, 144mm Length) - 4 Pack",1516-4008-1440,,$9.52,1,$9.52
+"1516 Series 8mm REX Standoff (M4 x 0.7mm Threads, 72mm Length) - 4 Pack",1516-4008-0720,,$5.69,4,$22.76
+"1522 Series 8mm ID Spacer (10mm OD, 12mm Length) - 4 Pack",1522-0010-0120,,$3.74,4,$14.96
+"1516 Series 8mm REX Standoff (M4 x 0.7mm Threads, 43mm Length) - 4 Pack",1516-4008-0430,,$4.12,4,$16.48
+Wera Tools 3mm Hex-Plus T-Handle,5023334001,,$13.99,2,$27.98
+"8mm REX Shaft with E-Clip (Stainless Steel, 48mm Length)",2106-4008-0480,,$3.22,1,$3.22
+"1106 Series Square Beam (9 Hole, 72mm Length)",1106-0009-0072,,$2.99,8,$23.92
+"8mm REX Shaft with E-Clip (Stainless Steel, 72mm Length)",2106-4008-0720,,$3.67,8,$29.36
+"4mm ID Non-Flanged Ball Bearing (10mm OD, 4mm Thickness) - 2 Pack",1600-0410-0004,,$2.99,8,$23.92
+"1502 Series 4mm ID Spacer (6mm OD, 12mm Length) - 4 Pack",1502-0006-0120,,$1.83,4,$7.32
+"1502 Series 4mm ID Spacer (6mm OD, 5mm Length) - 4 Pack",1502-0006-0050,,$1.46,4,$5.84
+"2807 Series Stainless Steel Shim (8mm ID x 11mm OD, 1mm Thickness) - 12 Pack",2807-0811-1000,,$2.02,4,$8.08
+"2302 Series Aluminum MOD 0.8 Hub Mount Gear (14mm Bore, 108 Tooth)",2302-0014-0108,,$12.74,2,$25.48
+"1611 Series Flanged Ball Bearing (8mm ID x 14mm OD, 5mm Thickness) - 2 Pack",1611-0514-0008,,$2.99,8,$23.92
+"1121 Series Low-Side U-Channel (5 Hole, 144mm Length)",1121-0005-0144,,$5.99,1,$5.99
+"1121 Series Low-Side U-Channel (13 Hole, 336mm Length)",1121-0013-0336,,$11.99,1,$11.99
+"1120 Series U-Channel (5 Hole, 144mm Length)",1120-0005-0144,,$6.74,1,$6.74
