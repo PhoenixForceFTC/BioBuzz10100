@@ -1,10 +1,31 @@
-## TeamCode Module
+## TeamCode Module — BioBuzz 10100 (`V1`)
 
-Welcome!
+Welcome! This module (`TeamCode`) holds our team's robot code built on **FTC Robot Controller SDK v12.0**.
 
-This module, TeamCode, is the place where you will write/paste the code for your team's
-robot controller App. This module is currently empty (a clean slate) but the
-process for adding OpModes is straightforward.
+- **Architecture & Best Practices**: Read [AGENTS.md](../../../../../../../AGENTS.md) for FTC software best practices, including how to organize code into **Subsystem classes**, individual **Test OpModes**, and **Combined Competition OpModes**.
+
+### Current Implemented Code
+
+1. **Layer 1 — Subsystems**:
+   - **[MecanumDrivetrain.java](MecanumDrivetrain.java)**: Plain Java subsystem for the 4-motor mecanum drive using **goBILDA 5202/5203 Bare Motors** (`28.0` ticks/rev, `6000.0 RPM`, `RUN_USING_ENCODER`, `BRAKE`). Supports config names `leftfront`/`rightfront`/`leftback`/`rightback` (as well as `front_left_drive`, etc.).
+   - **[PinpointOdometry.java](PinpointOdometry.java)**: Plain Java subsystem for the **goBILDA Pinpoint Odometry Computer** and two **4-Bar Odometry Pods** (`goBILDA_4_BAR_POD`, `19.8944 ticks/mm`, both pods `EncoderDirection.REVERSED`):
+     - Forward/Backward (X) pod: `24.80 + 14.40/2 = +32.00 mm` left of center (`xOffset = +32.00 mm`), `72.20 mm` back of center.
+     - Left/Right Strafe (Y) pod: `81.20 - 14.40/2 = 74.00 mm` behind center (`yOffset = -74.00 mm`), `33.80 mm` right of center.
+   - **[TurretSubsystem.java](TurretSubsystem.java)**: Plain Java subsystem for the Turret & Limelight 3A assembly:
+     - **Rotation Servos (`"turret_servo_1"`, `"turret_servo_2"`)**: 2x Axon MAX in Servo Mode (`500–2500 us`), Expansion Hub Servo Ports 1 & 2 (via goBILDA 6V Power Distribution Hub), `1:1` with turret rotation. Center (`0.5`) = `0°` (right), with a `±10°` deadzone on the left (`-170°..+170°`).
+     - **Through-Bore Encoder (`"turret_encoder"`)**: REV Through-Bore Encoder V1 (`8192 CPR`) on Expansion Hub Quadrature Port 1 (`108T Turret : 40T Encoder` = `2.7x` faster = `22,118.4 ticks/rev`, `61.44 ticks/deg`), providing closed-loop position trim after servo homing.
+     - **Pitch Servo (`"turret_pitch"`)**: 1x Axon MAX in Servo Mode on Expansion Hub Servo Port 0, linked `2:1` with hood pitch (`15.0°` at `0.0` servo pos, adjustable down to `0.0°` at `0.0845` servo pos).
+     - **Shooter Motor (`"turret_motor"`)**: 6000 RPM goBILDA 5202/5203 Bare YellowJacket on Expansion Hub Motor & Quadrature Port 0 (`28.0 ticks/rev`, `6000.0 RPM`, `RUN_USING_ENCODER`, `FLOAT`).
+     - **Limelight 3A (`"limelight"`)**: Connected to Control Hub USB 3.0 via powered USB hub, angled `30.0°` up from horizontal toward the goal.
+2. **Layer 2 — Standalone Mechanism Test OpModes**:
+   - **[DrivetrainTestOpMode.java](DrivetrainTestOpMode.java)** (`@TeleOp(name = "Test: Drivetrain Only", group = "Test")`): Tests only `MecanumDrivetrain` (joystick driving + `RB + X/Y/A/B` single-wheel test).
+   - **[PinpointTestOpMode.java](PinpointTestOpMode.java)** (`@TeleOp(name = "Test: Pinpoint Odometry Only", group = "Test")`): Tests only `PinpointOdometry` (push robot by hand to inspect pose and raw pod counts).
+   - **[ServoZeroCalibrationOpMode.java](ServoZeroCalibrationOpMode.java)** (`@TeleOp(name = "Test: Set All Servos to 0", group = "Test")`): Drives all turret servos (`turret_pitch`, `turret_servo_1`, `turret_servo_2`) to `0.0` on start, or `0.5` center home (`B`).
+   - **[TurretTestOpMode.java](TurretTestOpMode.java)** (`@TeleOp(name = "Test: Turret & Limelight Only", group = "Test")`): Tests only `TurretSubsystem` (rotation, Through-Bore encoder trim, `15°–0°` pitch, 6000 RPM shooter motor, and Limelight 3A auto-aiming).
+3. **Layer 3 — Combined TeleOp**:
+   - **[MecanumTeleOp.java](MecanumTeleOp.java)** (`@TeleOp(name = "Mecanum TeleOp", group = "Drive")`): Combines `MecanumDrivetrain`, `PinpointOdometry`, and `TurretSubsystem`.
+
+---
 
 ## Creating your own OpModes
 

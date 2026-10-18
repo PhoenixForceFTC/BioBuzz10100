@@ -1,3 +1,36 @@
+# BioBuzz 10100 — V1 Codebase Overview
+
+This branch (`V1`) is a clean fork of the official **FTC Robot Controller SDK v12.0** (`20260907-090034`) with our team's drivetrain and odometry code in `TeamCode`.
+
+- **Coding Standards & Subsystem Architecture**: See [AGENTS.md](AGENTS.md) for FTC robot code best practices, including how to split mechanisms into reusable **Subsystem classes**, standalone **Test OpModes**, and **Combined Competition OpModes**.
+- **TeamCode Reference**: See [TeamCode/src/main/java/org/firstinspires/ftc/teamcode/readme.md](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/readme.md) for detailed hardware documentation.
+
+## Current State of the Code (`V1`)
+
+The codebase follows the 3-layer modular architecture described in [AGENTS.md](AGENTS.md):
+
+1. **Layer 1 — Subsystem Classes (Plain Java Classes)**:
+   - **[MecanumDrivetrain.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/MecanumDrivetrain.java)**: Encapsulates the 4-motor mecanum drivetrain configured for **goBILDA 5202/5203 Series Bare Motors** (no planetary gearbox, 1:1 ratio, `6000.0 RPM`, `28.0` quadrature encoder counts per revolution, `RUN_USING_ENCODER`, `ZeroPowerBehavior.BRAKE`, and `1.1x` lateral strafe compensation).
+   - **[PinpointOdometry.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PinpointOdometry.java)**: Encapsulates the **goBILDA Pinpoint Odometry Computer** (`"pinpoint"`) paired with two **goBILDA 4-Bar Odometry Pods** (`3110-0001-0002`, 32 mm wheel, 2000 CPR $\approx 19.8944\text{ ticks/mm}$):
+     - **Forward/Backward (X) Pod**: $24.80\text{ mm} + \frac{14.40\text{ mm}}{2} = +32.00\text{ mm}$ left of center (`xOffset = +32.00 mm`), and $72.20\text{ mm}$ back of center.
+     - **Left/Right Strafe (Y) Pod**: $81.20\text{ mm} - \frac{14.40\text{ mm}}{2} = 74.00\text{ mm}$ behind center (`yOffset = -74.00 mm`), and $33.80\text{ mm}$ right of center.
+     - **Pod Encoder Directions**: Both X and Y pods set to `EncoderDirection.REVERSED`.
+   - **[TurretSubsystem.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/TurretSubsystem.java)**: Encapsulates the turret rotation servos, REV Through-Bore Encoder V1, pitch/hood servo, 6000 RPM shooter flywheel motor, and Limelight 3A goal tracking:
+     - **Turret Rotation Servos (`"turret_servo_1"`, `"turret_servo_2"`)**: Two Axon MAX servos in Servo Mode (`500–2500 us` PWM, `355°` range) on Expansion Hub Servo Ports 1 & 2 (powered via goBILDA 6V Power Distribution Hub), geared `1:1` with turret rotation. Center (`0.5`) = `0°` home (to the right of the turret), with a `±10°` deadzone on the left (`-170°` to `+170°` safe travel).
+     - **Turret Rotation Encoder (`"turret_encoder"`)**: REV Through-Bore Encoder V1 (`8192 CPR`) on Expansion Hub Quadrature Port 1, geared `108T Turret : 40T Encoder` (`2.7x` faster = `22,118.4 ticks/turret rev`, `61.44 ticks/deg`). Zeroed after servo homing and used for closed-loop position trim/verification if servo positioning lags or cuts out.
+     - **Turret Pitch / Hood Servo (`"turret_pitch"`)**: Axon MAX servo in Servo Mode on Expansion Hub Servo Port 0, linked `2:1` with turret pitch angle, adjustable from `15.0°` (`0.0` servo pos) down to `0.0°` (`0.0845` servo pos = `30°` servo rotation).
+     - **Turret Shooter / Flywheel Motor (`"turret_motor"`)**: 6000 RPM goBILDA 5202/5203 Bare YellowJacket motor on Expansion Hub Motor & Quadrature Port 0 (`28.0 ticks/rev`, `6000.0 RPM`, `RUN_USING_ENCODER`, `FLOAT`).
+     - **Limelight 3A (`"limelight"`)**: Connected via powered USB hub to Control Hub USB 3.0 port, mounted `30.0°` up from horizontal toward the goal (`tx` auto-aims turret yaw; `ty` computes planar goal distance and interpolates `15°–0°` pitch + flywheel RPM).
+2. **Layer 2 — Standalone Mechanism Test OpModes (`@TeleOp(group = "Test")`)**:
+   - **[DrivetrainTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/DrivetrainTestOpMode.java)** (`"Test: Drivetrain Only"`): Tests `MecanumDrivetrain` by itself (normal joystick driving plus `RB + X/Y/A/B` single-wheel 25% power tests) without requiring the Pinpoint to be wired.
+   - **[PinpointTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PinpointTestOpMode.java)** (`"Test: Pinpoint Odometry Only"`): Tests `PinpointOdometry` by itself with motors unpowered so you can push the robot by hand and verify X, Y, Heading, and raw 4-bar pod counts.
+   - **[ServoZeroCalibrationOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/ServoZeroCalibrationOpMode.java)** (`"Test: Set All Servos to 0"`): Commands all turret Axon MAX servos (`turret_pitch`, `turret_servo_1`, `turret_servo_2`) to `0.0` on start for horn installation, with buttons to test `0.5` turret home (`B`) and `0°` pitch (`X`).
+   - **[TurretTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/TurretTestOpMode.java)** (`"Test: Turret & Limelight Only"`): Tests `TurretSubsystem` in isolation (manual rotation, `15°–0°` pitch stepping, 6000 RPM flywheel motor, Through-Bore Encoder verification, and Limelight 3A auto-aiming).
+3. **Layer 3 — Combined TeleOp (`@TeleOp(group = "Drive")`)**:
+   - **[MecanumTeleOp.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/MecanumTeleOp.java)** (`"Mecanum TeleOp"`): Combines `MecanumDrivetrain`, `PinpointOdometry`, and `TurretSubsystem` on **Controller 1 (`gamepad1`)** and **Controller 2 (`gamepad2`)**.
+
+---
+
 ## NOTICE
 
 This repository contains the public FTC SDK for the BIOBUZZ (2026-2027) competition season.
