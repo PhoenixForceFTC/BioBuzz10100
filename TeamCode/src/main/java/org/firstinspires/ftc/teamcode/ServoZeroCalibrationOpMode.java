@@ -6,109 +6,93 @@ import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 
+import java.util.List;
+
 /**
- * Layer 2 Standalone Test OpMode: Commands all Turret Axon MAX servos to {@code 0.0} on start
- * so you can install servo horns/gears at a known reference, and lets you toggle between
- * {@code 0.0} (raw zero) and {@code 0.5} (turret center home = 0 deg, opposite the +/-10 deg left deadzone).
- *
- * <p>Hardware used (Expansion Hub via goBILDA 6V Power Distribution Hub):
- * <ul>
- *     <li>Servo Port 0: {@code "turret_pitch"} (Axon MAX 2:1 Pitch Servo, 0.0 = 15 deg)</li>
- *     <li>Servo Port 1: {@code "turret_servo_1"} (Axon MAX 1:1 Rotation Servo 1)</li>
- *     <li>Servo Port 2: {@code "turret_servo_2"} (Axon MAX 1:1 Rotation Servo 2)</li>
- * </ul>
- *
- * <p>Controls (Gamepad 1):
- * <ul>
- *     <li>Default on Start / A Button: Set ALL servos (ports 0, 1, 2) to {@code 0.0}</li>
- *     <li>B Button: Set Rotation Servos (ports 1 & 2) to {@code 0.5} (Turret 0 deg Home, right side) and Pitch (port 0) to {@code 0.0} (15 deg)</li>
- *     <li>X Button: Set Pitch Servo (port 0) to {@code 0.0845} (0 deg flat pitch via 2:1 linkage)</li>
- *     <li>Y Button: Set ALL servos (ports 0, 1, 2) to {@code 1.0}</li>
- * </ul>
+ * Calibration for every positional Servo in the active Robot Configuration, on every hub.
+ * Start / A commands the normalized midpoint (0.5); X commands 0.0; Y commands 1.0.
+ * The midpoint is a calibration reference, not each mechanism's individual home position.
+ * Turret rotation, pitch, encoder, and shooter tests belong in Test: Turret.
  */
 @TeleOp(name = "Test: Set All Servos to 0", group = "Test")
 public class ServoZeroCalibrationOpMode extends LinearOpMode {
 
+    private static final double CENTER_SERVO_POS = 0.5;
+    private static final double MIN_SERVO_POS = 0.0;
+    private static final double MAX_SERVO_POS = 1.0;
+
     @Override
     public void runOpMode() {
-        Servo pitchServo = getServo("turret_pitch", "turretPitch", "hood_servo", "pitch_servo");
-        Servo rotationServo1 = getServo("turret_servo_1", "turretServo1", "turret_left", "turret1");
-        Servo rotationServo2 = getServo("turret_servo_2", "turretServo2", "turret_right", "turret2");
+        List<Servo> configuredServos = hardwareMap.getAll(Servo.class);
 
-        configureAxonServo(pitchServo, TurretSubsystem.PITCH_SERVO_DIRECTION);
-        configureAxonServo(rotationServo1, TurretSubsystem.ROTATION_SERVO_1_DIRECTION);
-        configureAxonServo(rotationServo2, TurretSubsystem.ROTATION_SERVO_2_DIRECTION);
+        // Apply known hardware settings without constructing subsystems or moving servos in INIT.
+        configureServo(TurretSubsystem.PITCH_SERVO_DIRECTION,
+                TurretSubsystem.AXON_MIN_PULSE_US, TurretSubsystem.AXON_MAX_PULSE_US,
+                TurretSubsystem.HW_PITCH_SERVO, "turretPitch", "hood_servo", "pitch_servo");
+        configureServo(TurretSubsystem.ROTATION_SERVO_1_DIRECTION,
+                TurretSubsystem.AXON_MIN_PULSE_US, TurretSubsystem.AXON_MAX_PULSE_US,
+                TurretSubsystem.HW_ROTATION_SERVO_1, "turretServo1", "turret_left", "turret1");
+        configureServo(TurretSubsystem.ROTATION_SERVO_2_DIRECTION,
+                TurretSubsystem.AXON_MIN_PULSE_US, TurretSubsystem.AXON_MAX_PULSE_US,
+                TurretSubsystem.HW_ROTATION_SERVO_2, "turretServo2", "turret_right", "turret2");
+        configureServo(GateSubsystem.SERVO_DIRECTION,
+                GateSubsystem.MIN_PULSE_US, GateSubsystem.MAX_PULSE_US,
+                GateSubsystem.HW_GATE_SERVO);
+        configureServo(DepollinatorSubsystem.SERVO_DIRECTION,
+                DepollinatorSubsystem.MIN_PULSE_US, DepollinatorSubsystem.MAX_PULSE_US,
+                DepollinatorSubsystem.HW_DEPOLLINATOR);
 
-        telemetry.addLine("Test: Set All Turret Axon MAX Servos to 0.0");
-        telemetry.addData("Port 0 (Pitch)", pitchServo != null ? "Connected (turret_pitch)" : "MISSING");
-        telemetry.addData("Port 1 (Rot 1)", rotationServo1 != null ? "Connected (turret_servo_1)" : "MISSING");
-        telemetry.addData("Port 2 (Rot 2)", rotationServo2 != null ? "Connected (turret_servo_2)" : "MISSING");
-        telemetry.addLine("Press PLAY to drive all servos to 0.0 immediately.");
+        String[] servoLabels = new String[configuredServos.size()];
+        telemetry.addLine("All configured positional servos: Start / A = 0.5 midpoint | X = 0.0 | Y = 1.0");
+        telemetry.addData("Servo devices found", configuredServos.size());
+        if (configuredServos.isEmpty()) {
+            telemetry.addLine("No Servo devices are in the active Robot Configuration.");
+            telemetry.addLine("Save/select the correct RC configuration and check Hub/port assignments.");
+        }
+        for (int i = 0; i < configuredServos.size(); i++) {
+            Servo servo = configuredServos.get(i);
+            servoLabels[i] = hardwareMap.getNamesOf(servo)
+                    + " | " + servo.getController().getConnectionInfo()
+                    + " | port " + servo.getPortNumber();
+            telemetry.addData("Servo " + i, servoLabels[i]);
+        }
+        telemetry.addLine("Press PLAY to command every listed servo to 0.5 (midpoint).");
         telemetry.update();
 
         waitForStart();
 
-        double rotTargetPos = 0.0;
-        double pitchTargetPos = 0.0;
-        String modeLabel = "ALL SERVOS = 0.0 (Raw Zero)";
-
+        double targetPos = CENTER_SERVO_POS;
         while (opModeIsActive()) {
             if (gamepad1.a) {
-                rotTargetPos = 0.0;
-                pitchTargetPos = 0.0;
-                modeLabel = "ALL SERVOS = 0.0 (Raw Zero)";
-            } else if (gamepad1.b) {
-                rotTargetPos = TurretSubsystem.ROTATION_HOME_SERVO_POS; // 0.5 center (0 deg right, deadzone left)
-                pitchTargetPos = TurretSubsystem.PITCH_SERVO_POS_AT_15_DEG; // 0.0 (15 deg pitch)
-                modeLabel = "TURRET HOME: Rot=0.5 (0 deg Right), Pitch=0.0 (15 deg)";
+                targetPos = CENTER_SERVO_POS;
             } else if (gamepad1.x) {
-                rotTargetPos = TurretSubsystem.ROTATION_HOME_SERVO_POS;
-                pitchTargetPos = TurretSubsystem.pitchDegreesToServoPos(0.0); // 0 deg pitch (30 deg servo travel)
-                modeLabel = "PITCH 0 DEG TEST: Rot=0.5, Pitch=" + String.format("%.4f", pitchTargetPos) + " (0 deg)";
+                targetPos = MIN_SERVO_POS;
             } else if (gamepad1.y) {
-                rotTargetPos = 1.0;
-                pitchTargetPos = 1.0;
-                modeLabel = "ALL SERVOS = 1.0 (Full Max)";
+                targetPos = MAX_SERVO_POS;
             }
 
-            if (pitchServo != null) {
-                pitchServo.setPosition(pitchTargetPos);
+            for (int i = 0; i < configuredServos.size(); i++) {
+                configuredServos.get(i).setPosition(targetPos);
+                telemetry.addData("Servo " + i, "%s | command=%.2f", servoLabels[i], targetPos);
             }
-            if (rotationServo1 != null) {
-                rotationServo1.setPosition(rotTargetPos);
-            }
-            if (rotationServo2 != null) {
-                rotationServo2.setPosition(rotTargetPos);
-            }
-
-            telemetry.addData("Mode", modeLabel);
-            telemetry.addData("Pitch Servo (Port 0)", "%.4f", pitchTargetPos);
-            telemetry.addData("Rotation Servos (Ports 1 & 2)", "%.4f", rotTargetPos);
-            telemetry.addLine("Controls: A = All 0.0 | B = Center Rot (0.5) & Pitch 15 deg (0.0) | X = Pitch 0 deg | Y = All 1.0");
+            telemetry.addData("Servo devices controlled", configuredServos.size());
+            telemetry.addData("All Servo Target (0..1)", "%.2f", targetPos);
+            telemetry.addLine("A = All 0.5 (Midpoint) | X = All 0.0 | Y = All 1.0");
             telemetry.update();
         }
     }
 
-    private Servo getServo(String... names) {
+    private void configureServo(Servo.Direction direction, int minPulseUs, int maxPulseUs,
+                                String... names) {
         for (String name : names) {
-            Servo s = hardwareMap.tryGet(Servo.class, name);
-            if (s != null) {
-                return s;
+            Servo servo = hardwareMap.tryGet(Servo.class, name);
+            if (servo != null) {
+                servo.setDirection(direction);
+                if (servo instanceof ServoImplEx) {
+                    ((ServoImplEx) servo).setPwmRange(new PwmControl.PwmRange(minPulseUs, maxPulseUs));
+                }
+                return;
             }
-        }
-        return null;
-    }
-
-    private void configureAxonServo(Servo servo, Servo.Direction direction) {
-        if (servo == null) {
-            return;
-        }
-        servo.setDirection(direction);
-        if (servo instanceof ServoImplEx) {
-            ((ServoImplEx) servo).setPwmRange(
-                    new PwmControl.PwmRange(
-                            TurretSubsystem.AXON_MIN_PULSE_US,
-                            TurretSubsystem.AXON_MAX_PULSE_US));
         }
     }
 }

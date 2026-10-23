@@ -48,6 +48,14 @@ public class PinpointOdometry {
             GoBildaPinpointDriver.EncoderDirection.REVERSED;
 
     private final GoBildaPinpointDriver pinpoint;
+    private Pose2D cachedPose = new Pose2D(DistanceUnit.MM, 0, 0, AngleUnit.RADIANS, 0);
+    private MotionSample sample = new MotionSample(0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, "Not sampled");
+    private boolean fieldReferenced;
+    private double lastVelocityTime = Double.NaN, lastVx, lastVy, lastOmega;
+    private double referenceTime = Double.NaN;
+    private GoBildaPinpointDriver.DeviceStatus cachedStatus;
+    public MotionSample getSample() { return sample; }
+    public boolean hasFieldReference() { return fieldReferenced; }
 
     public PinpointOdometry(HardwareMap hardwareMap) {
         pinpoint = getPinpoint(hardwareMap, "pinpoint", "odo", "odometry");
@@ -62,6 +70,7 @@ public class PinpointOdometry {
         pinpoint.setOffsets(PINPOINT_X_POD_OFFSET_MM, PINPOINT_Y_POD_OFFSET_MM, DistanceUnit.MM);
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pinpoint.setEncoderDirections(X_POD_DIRECTION, Y_POD_DIRECTION);
+        fieldReferenced = false; lastVelocityTime = Double.NaN;
         pinpoint.resetPosAndIMU();
         pinpoint.setPosition(new Pose2D(DistanceUnit.MM, 0, 0, AngleUnit.DEGREES, 0));
     }
@@ -72,12 +81,30 @@ public class PinpointOdometry {
      */
     public void update() {
         pinpoint.update();
+        double now = System.nanoTime() * 1e-9;
+        cachedPose = pinpoint.getPosition();
+        cachedStatus = pinpoint.getDeviceStatus();
+        // Pinpoint fixed/global X/Y velocity: same axes as its reported X/Y position.
+        // setPosition establishes our team field frame; do not rotate global velocities again.
+        double vx = pinpoint.getVelX(DistanceUnit.METER), vy = pinpoint.getVelY(DistanceUnit.METER);
+        double dt = now - lastVelocityTime;
+        double acceleration = Double.isNaN(lastVelocityTime) || dt <= 0 || dt > .1
+                ? Double.POSITIVE_INFINITY : Math.hypot(vx - lastVx, vy - lastVy) / dt;
+        double omega = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
+        double angularAcceleration = Double.isNaN(lastVelocityTime) || dt <= 0 || dt > .1
+                ? Double.POSITIVE_INFINITY : Math.abs(omega - lastOmega) / dt;
+        sample = new MotionSample(now, cachedPose.getX(DistanceUnit.METER), cachedPose.getY(DistanceUnit.METER),
+                cachedPose.getHeading(AngleUnit.RADIANS), vx, vy, omega,
+                acceleration, angularAcceleration, fieldReferenced ? .02 + Math.max(0, now - referenceTime) * .001 : 1,
+                cachedStatus == GoBildaPinpointDriver.DeviceStatus.READY, fieldReferenced, String.valueOf(cachedStatus));
+        lastVelocityTime = now; lastVx = vx; lastVy = vy; lastOmega = omega;
     }
 
     /**
      * Zeroes the current robot pose to (0, 0, 0 deg) without recalibrating the IMU.
      */
     public void zeroPose() {
+        fieldReferenced = false; lastVelocityTime = Double.NaN;
         pinpoint.setPosition(new Pose2D(DistanceUnit.MM, 0, 0, AngleUnit.DEGREES, 0));
     }
 
@@ -85,22 +112,53 @@ public class PinpointOdometry {
      * Sets the current robot pose to a known field position.
      */
     public void setPose(Pose2D pose) {
-        pinpoint.setPosition(pose);
+        if (pose == null || !RobotMath.finite(pose.getX(DistanceUnit.METER), pose.getY(DistanceUnit.METER), pose.getHeading(AngleUnit.RADIANS)))
+            throw new IllegalArgumentException("Invalid starting field pose");
+        pinpoint.setPosition(pose); cachedPose = pose;
+        fieldReferenced = true; referenceTime = System.nanoTime() * 1e-9; lastVelocityTime = Double.NaN;
+    }
+
+    /**
+     * Sets the current robot pose in inches and degrees.
+     */
+    public void setPoseInches(double xInches, double yInches, double headingDegrees) {
+        setPose(new Pose2D(DistanceUnit.INCH, xInches, yInches, AngleUnit.DEGREES, headingDegrees));
+    }
+
+    /**
+     * Updates the robot's (X, Y) field position in inches while keeping the current Pinpoint IMU heading.
+     */
+    public void setPositionInchesPreservingHeading(double xInches, double yInches) {
+        double currentHeadingDeg = cachedPose.getHeading(AngleUnit.DEGREES);
+        setPoseInches(xInches, yInches, currentHeadingDeg);
+    }
+
+    public double getXInches() {
+        return cachedPose.getX(DistanceUnit.INCH);
+    }
+
+    public double getYInches() {
+        return cachedPose.getY(DistanceUnit.INCH);
+    }
+
+    public double getHeadingDegrees() {
+        return cachedPose.getHeading(AngleUnit.DEGREES);
     }
 
     /**
      * Resets the pose to (0, 0, 0 deg) and recalibrates the IMU (robot must be stationary).
      */
     public void resetPoseAndIMU() {
+        fieldReferenced = false; lastVelocityTime = Double.NaN;
         pinpoint.resetPosAndIMU();
     }
 
     public Pose2D getPose() {
-        return pinpoint.getPosition();
+        return cachedPose;
     }
 
     public GoBildaPinpointDriver.DeviceStatus getDeviceStatus() {
-        return pinpoint.getDeviceStatus();
+        return cachedStatus;
     }
 
     public GoBildaPinpointDriver getDriver() {
@@ -121,7 +179,7 @@ public class PinpointOdometry {
      * Does not call telemetry.update() so the caller OpMode can flush telemetry once per loop.
      */
     public void addTelemetry(Telemetry telemetry) {
-        Pose2D pose = pinpoint.getPosition();
+        Pose2D pose = cachedPose;
         telemetry.addData("Pinpoint", "Status: %s | Loop: %d us (%.1f Hz)",
                 pinpoint.getDeviceStatus(), pinpoint.getLoopTime(), pinpoint.getFrequency());
         telemetry.addData("Pose (mm, deg)", "X: %.1f mm | Y: %.1f mm | Hdg: %.2f deg",
@@ -132,10 +190,9 @@ public class PinpointOdometry {
                 pose.getX(DistanceUnit.INCH),
                 pose.getY(DistanceUnit.INCH),
                 pose.getHeading(AngleUnit.DEGREES));
+        telemetry.addData("Field reference", fieldReferenced ? "EXPLICIT" : "LOCAL ONLY: automatic shooting inhibited");
         telemetry.addData("Pinpoint Vel", "Vx: %.1f mm/s | Vy: %.1f mm/s | Vh: %.1f deg/s",
-                pinpoint.getVelX(DistanceUnit.MM),
-                pinpoint.getVelY(DistanceUnit.MM),
-                pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.DEGREES));
+                sample.vx * 1000, sample.vy * 1000, Math.toDegrees(sample.omega));
         telemetry.addData("4-Bar Pods (raw)", "X (fwd) enc: %d | Y (strafe) enc: %d",
                 pinpoint.getEncoderX(), pinpoint.getEncoderY());
     }
