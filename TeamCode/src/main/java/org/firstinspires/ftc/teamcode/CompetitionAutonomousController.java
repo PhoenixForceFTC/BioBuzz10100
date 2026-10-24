@@ -2,11 +2,12 @@ package org.firstinspires.ftc.teamcode;
 
 /** Match sequencing reuses the collection controller and shared firing path. Outputs stop every update. */
 public final class CompetitionAutonomousController {
-    public static final double STATIONARY_SPEED_METERS_PER_SECOND = .03, STATIONARY_TURN_RAD_PER_SECOND = .03;
+    public static final double STATIONARY_SPEED_METERS_PER_SECOND = StationaryMotion.SPEED_METERS_PER_SECOND, STATIONARY_TURN_RAD_PER_SECOND = StationaryMotion.TURN_RAD_PER_SECOND;
     public static final double COLLECTION_LOOKAHEAD_METERS = .3;
     public enum State { IDLE, PRELOAD, TO_COLLECTION, COLLECTING, TO_SCORING, SCORING, PARKING, COMPLETE, FAULT }
     private final AutonomousStrategy strategy;
     private final PollenNavigator collection;
+    private final StationaryMotion stationary = new StationaryMotion();
     private final WaypointFollower navigation = new WaypointFollower();
     private State state = State.IDLE;
     private double start, entered, axial, lateral, yaw, intake;
@@ -31,6 +32,7 @@ public final class CompetitionAutonomousController {
         if (pose == null || !pose.fieldReferenced || !pose.fresh(now, .1)) {
             enter(State.FAULT, now, "Localization unavailable: stop fallback"); navigation.stop(); return;
         }
+        stationary.update(now, pose, 0);
         if (!strategy.segmentClear(pose.x, pose.y, pose.x, pose.y)) {
             enter(State.FAULT, now, "Current pose violates robot clearance"); navigation.stop(); return;
         }
@@ -70,7 +72,7 @@ public final class CompetitionAutonomousController {
         }
         if (state == State.PRELOAD || state == State.SCORING) {
             // Otherwise stationary shots only. Never steer in response to a failed shot solution.
-            fire = Math.hypot(pose.vx, pose.vy) <= STATIONARY_SPEED_METERS_PER_SECOND && Math.abs(pose.omega) <= STATIONARY_TURN_RAD_PER_SECOND;
+            fire = stationary.qualified();
             if (now - entered >= strategy.scoreSeconds) {
                 fire = false;
                 if (state == State.PRELOAD || repeats++ < strategy.repeats) travel(State.TO_COLLECTION, now, strategy.collection());

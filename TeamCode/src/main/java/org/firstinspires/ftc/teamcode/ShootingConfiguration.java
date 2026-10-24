@@ -5,6 +5,11 @@ import org.firstinspires.ftc.teamcode.RobotMath.Vec;
 /** Enter measured values here. Numeric examples remain explicitly ineligible for automatic shots. */
 public final class ShootingConfiguration {
     private ShootingConfiguration() { }
+    // Team-confirmed raised/high-goal geometry, identical dimensions on both alliance sides.
+    public static final double HIGH_GOAL_CENTER_HEIGHT_METERS = 1.50;
+    public static final double HIGH_GOAL_TAG_CENTER_HEIGHT_METERS = 1.25;
+    // Opening plane relative to horizontal, not a launch/hood angle. Retained for shot calibration.
+    public static final double HIGH_GOAL_OPENING_PLANE_DEG = 60;
     public static final double TURRET_PIVOT_FORWARD_MM = 50.68184865;
     public static final double TURRET_PIVOT_LEFT_MM = 0;
     public static final double CAMERA_FORWARD_FROM_PIVOT_MM = -99.53073974;
@@ -20,6 +25,14 @@ public final class ShootingConfiguration {
             new Vec(CAMERA_FORWARD_FROM_PIVOT_MM / 1000, CAMERA_LEFT_FROM_PIVOT_MM / 1000),
             new Vec(0, 0), -Math.PI / 2, Math.toRadians(CAMERA_YAW_FROM_MUZZLE_DEG),
             Math.toRadians(CAMERA_PITCH_UP_DEG), CAMERA_HEIGHT_MM / 1000, true);
+    // Cluster spacing is known; front/underside-to-aim-point references are not yet verified.
+    // Fill tag-local +Y and +Z offsets AND verify axes/reference points before enabling.
+    public static final OpeningGeometry OPENING = new OpeningGeometry("TU06-high-transform-unverified", false, 0, 0);
+    public static final String CALIBRATION_GEOMETRY_ID = "TU06-high-1.50m-tag1.25m-plane60deg";
+    // No measured low-state pose supplied: unsupported low observations remain TRANSITIONING.
+    public static final double LOWERED_TAG_HEIGHT_METERS = Double.NaN, LOWERED_TAG_PLANE_DEG = Double.NaN;
+    public static final boolean GOAL_OBSERVATION_VALIDATED = false; // Camera settings / pose quality / tolerances await validation.
+    public static final boolean LEVEL_CHASSIS_ASSUMED = true; // No chassis pitch/roll sensor is supplied.
     public static final ShotProfile PROFILE = ShotProfile.example();
     // Chassis limits await validation; auto-aim uses the same rated 6 V turret speed as manual control.
     public static final ShotPlanner.Envelope ENVELOPE = new ShotPlanner.Envelope(.6, .6, 1.0, .15,
@@ -33,7 +46,8 @@ public final class ShootingConfiguration {
     public static final boolean STARTING_FIELD_POSE_CONFIGURED = false;
     public static final double START_X_METERS = 0, START_Y_METERS = 0, START_HEADING_RAD = 0;
     public static GoalTarget target(TurretSubsystem.Alliance alliance, TurretSubsystem.HiveSide side) {
-        // Replace with surveyed, state-specific tag positions and actual opening geometry.
+        // Heights/plane are known; opening/tag field X/Y and actual raised state remain unconfigured.
+        // Use HIGH_GOAL_TAG_CENTER_HEIGHT_METERS for the high-goal tag when its X/Y is supplied.
         return GoalTarget.unknown(alliance, side);
     }
     public static FiringCoordinator firing() {

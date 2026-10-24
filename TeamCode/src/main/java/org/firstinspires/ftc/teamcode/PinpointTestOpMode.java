@@ -16,12 +16,13 @@ public class PinpointTestOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         PinpointOdometry odometry = new PinpointOdometry(hardwareMap);
 
         telemetry.addLine("Pinpoint Odometry Standalone Test (push robot by hand)");
         odometry.addInitTelemetry(telemetry);
         telemetry.addLine("Gamepad 1: A = Zero Pose | B = Recalibrate IMU & Zero Pose");
-        telemetry.update();
+        loop.addTelemetry(telemetry); telemetry.update();
 
         waitForStart();
 
@@ -29,6 +30,7 @@ public class PinpointTestOpMode extends LinearOpMode {
         boolean previousB = false;
 
         while (opModeIsActive()) {
+            loop.begin();
             boolean currentA = gamepad1.a;
             boolean currentB = gamepad1.b;
             if (currentA && !previousA) {
@@ -42,7 +44,7 @@ public class PinpointTestOpMode extends LinearOpMode {
 
             odometry.update();
             odometry.addTelemetry(telemetry);
-            telemetry.update();
+            loop.addTelemetry(telemetry); telemetry.update();
         }
     }
 }

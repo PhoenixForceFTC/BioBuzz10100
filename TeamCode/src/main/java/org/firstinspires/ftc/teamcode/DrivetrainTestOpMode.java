@@ -19,18 +19,20 @@ public class DrivetrainTestOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         MecanumDrivetrain drivetrain = new MecanumDrivetrain(hardwareMap);
 
         telemetry.addData("Status", "Drivetrain Test Initialized (%.0f PPR, %.0f RPM)",
                 MecanumDrivetrain.BARE_MOTOR_TICKS_PER_REV, MecanumDrivetrain.BARE_MOTOR_MAX_RPM);
         telemetry.addLine("Normal Drive: Left Stick = Translate | Right Stick X = Rotate");
         telemetry.addLine("Single Wheel Test: Hold RB + X (FL), Y (FR), A (BL), or B (BR)");
-        telemetry.update();
+        loop.addTelemetry(telemetry); telemetry.update();
 
         waitForStart();
 
         try {
             while (opModeIsActive()) {
+                loop.begin();
                 if (gamepad1.right_bumper) {
                     double fl = gamepad1.x ? SINGLE_WHEEL_TEST_POWER : 0.0;
                     double fr = gamepad1.y ? SINGLE_WHEEL_TEST_POWER : 0.0;
@@ -48,7 +50,7 @@ public class DrivetrainTestOpMode extends LinearOpMode {
                 }
 
                 drivetrain.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
             }
         } finally {
             drivetrain.stop();

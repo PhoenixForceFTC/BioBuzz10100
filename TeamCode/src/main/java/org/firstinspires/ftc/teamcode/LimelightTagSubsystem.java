@@ -26,6 +26,8 @@ public class LimelightTagSubsystem implements AutoCloseable {
         result = limelight.getLatestResult();
     }
 
+    public LLResult getResult() { return result; }
+
     public double getFrameTimestamp() {
         return result == null ? Double.NEGATIVE_INFINITY : result.getTimestamp();
     }

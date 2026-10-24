@@ -36,6 +36,7 @@ public final class TurretHomingController {
             }
         }
     }
+    public boolean commandsHome() { return state == State.MOVING_HOME || state == State.SETTLING; }
     public boolean ready() { return state == State.READY; }
     public State state() { return state; }
     public String reason() { return reason; }

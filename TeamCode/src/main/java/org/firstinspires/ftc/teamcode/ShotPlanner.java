@@ -51,19 +51,24 @@ public final class ShotPlanner {
                     flightSeconds, effectiveRange, lead, releasePosition, inheritedVelocity, iterations);
         }
     }
+    private final StationaryMotion stationary = new StationaryMotion();
+    public boolean stationaryQualified() { return stationary.qualified(); }
     private final ShooterMount mount;
     private final Envelope envelope;
     public ShotPlanner(ShooterMount mount, Envelope envelope) { this.mount = mount; this.envelope = envelope; }
     public Solution solve(double now, MotionSample pose, GoalTarget target, ShotProfile profile,
                           double turretYaw, double measuredTurretRate, double releaseDelay) {
         if (pose == null || !pose.fresh(now, MAX_SAMPLE_AGE_SECONDS)) return Solution.invalid("Stale / invalid pose or velocity");
-        if (!pose.fieldReferenced) return Solution.invalid("Starting field pose not configured");
+        if (!pose.fieldReferenced && (target == null || target.frame == GoalTarget.Frame.FIELD)) return Solution.invalid("Starting field pose not configured");
         if (target == null || !target.scoreable()) return Solution.invalid("Hive state / opening geometry unavailable");
         if (profile == null || !profile.calibrated) return Solution.invalid("Shot profile UNCALIBRATED");
         if (!profile.geometryId.equals(target.geometryId)) return Solution.invalid("Profile does not support target geometry");
         if (!mount.measured) return Solution.invalid("Camera/pivot/muzzle mounting UNMEASURED");
         if (!RobotMath.finite(now, turretYaw, measuredTurretRate, releaseDelay) || releaseDelay < 0 || releaseDelay > MAX_RELEASE_DELAY_SECONDS)
             return Solution.invalid("Invalid release timing");
+        boolean stopped = stationary.update(now, pose, measuredTurretRate);
+        pose = stationary.stationarySample(pose);
+        if (stopped) measuredTurretRate = 0;
         if (Math.hypot(pose.vx, pose.vy) > envelope.speed || Math.abs(pose.omega) > envelope.turnRate
                 || pose.acceleration > envelope.acceleration || pose.angularAcceleration > envelope.angularAcceleration || pose.uncertainty > envelope.uncertainty)
             return Solution.invalid("Outside speed / turn / acceleration / uncertainty envelope");
@@ -90,7 +95,7 @@ public final class ShotPlanner {
         Vec goal = new Vec(target.x, target.y);
         Vec direction = goal.minus(pivot);
         double flight = 0;
-        boolean moving = Math.hypot(p.vx, p.vy) > 1e-6 || Math.abs(p.omega) > 1e-6 || Math.abs(turretRate) > 1e-6;
+        boolean moving = !stationary.qualified();
         for (int i = 0; i < MAX_ITERATIONS; i++) {
             Vec muzzleOffset = mount.muzzle.rotate(direction.angle());
             Vec release = pivot.plus(muzzleOffset);

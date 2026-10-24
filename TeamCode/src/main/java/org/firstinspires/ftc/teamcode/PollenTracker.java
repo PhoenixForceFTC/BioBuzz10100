@@ -19,6 +19,9 @@ public final class PollenTracker {
     private String rejection = "No frame";
     public PollenTracker(PollenConfiguration config) { this.config = config; }
     public PollenTarget select(long timestamp, List<Detection> detections, double fx, double fy, double cx, double cy) {
+        return select(timestamp,detections,new PollenCameraModel(320,240,fx,fy,cx,cy,null));
+    }
+    public PollenTarget select(long timestamp, List<Detection> detections, PollenCameraModel model) {
         if (timestamp <= lastFrame) { rejection = "Duplicate / out-of-order pollen frame"; return null; }
         lastFrame = timestamp;
         boolean lock = last != null && timestamp >= last.captureTimeNanos && (timestamp - last.captureTimeNanos) * 1e-9 <= .4;
@@ -28,8 +31,7 @@ public final class PollenTracker {
             if (!RobotMath.finite(d.x, d.y, d.contactX, d.contactY, d.area, d.density, d.aspect, d.circularity)) { rejection = "Invalid contour"; continue; }
             if (d.clipped) { rejection = "Clipped contact / blind spot"; continue; }
             if (d.area < 60 || d.area > 16000 || d.density < .65 || d.aspect > 1.8 || d.circularity < .45) { rejection = "Blob shape / area rejected"; continue; }
-            PollenTarget candidate = PollenTarget.fromFloorContact(timestamp, d.x, d.y, d.contactX, d.contactY, d.area,
-                    fx, fy, cx, cy, config.heightMm, config.pitchDeg, config.forwardMm, config.rightMm);
+            PollenTarget candidate = model.project(config,timestamp,d.x,d.y,d.contactX,d.contactY,d.area);
             if (candidate == null || candidate.forwardMm > 2200) { rejection = "Invalid floor ray / outside range"; continue; }
             double motion = lock ? Math.hypot(candidate.centerXPx - last.centerXPx, candidate.centerYPx - last.centerYPx) : 0;
             if (lock && motion > 65) { rejection = "Outside continuity gate"; continue; }

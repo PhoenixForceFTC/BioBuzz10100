@@ -39,45 +39,59 @@ public abstract class MecanumTeleOp extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         MecanumDrivetrain drivetrain = new MecanumDrivetrain(hardwareMap);
-        PinpointOdometry odometry = new PinpointOdometry(hardwareMap);
-        IntakeSubsystem intake = new IntakeSubsystem(hardwareMap);
-        GateSubsystem gate = new GateSubsystem(hardwareMap);
-        TransferSubsystem transfer = new TransferSubsystem(hardwareMap);
-        DepollinatorSubsystem depollinator = new DepollinatorSubsystem(hardwareMap);
+        PinpointOdometry odometry;
+        IntakeSubsystem intake = null;
+        GateSubsystem gate = null;
+        TransferSubsystem transfer = null;
+        DepollinatorSubsystem depollinator;
         TurretSubsystem turret = null;
         try {
-            turret = new TurretSubsystem(hardwareMap);
-            turret.setTargetHiveCell(getAlliance(), TurretSubsystem.HiveSide.FAR);
-        } catch (Exception e) {
-            telemetry.addData("Turret Warning", "Turret hardware not fully plugged in (%s)", e.getMessage());
-        }
+            odometry = new PinpointOdometry(hardwareMap);
+            intake = new IntakeSubsystem(hardwareMap);
+            gate = new GateSubsystem(hardwareMap);
+            transfer = new TransferSubsystem(hardwareMap);
+            depollinator = new DepollinatorSubsystem(hardwareMap);
+            try {
+                turret = new TurretSubsystem(hardwareMap);
+                turret.setTargetHiveCell(getAlliance(), TurretSubsystem.HiveSide.FAR);
+            } catch (Exception e) {
+                telemetry.addData("Turret Warning", "Turret hardware not fully plugged in (%s)", e.getMessage());
+            }
 
-        ShotCoordinator shots = turret == null ? null : new ShotCoordinator(turret,
-                ShootingConfiguration.target(getAlliance(), TurretSubsystem.HiveSide.FAR));
-        telemetry.addData("Status", "Initialized (Bare Motor: %.0f PPR, %.0f RPM)",
-                MecanumDrivetrain.BARE_MOTOR_TICKS_PER_REV, MecanumDrivetrain.BARE_MOTOR_MAX_RPM);
-        odometry.addInitTelemetry(telemetry);
-        telemetry.addData("Alliance", getAlliance());
-        telemetry.addLine("GP1: LS = Drive | RS-X = Turn");
-        telemetry.addLine("GP1: RS Click = Deploy Depollinator | LS Click = Home Depollinator");
-        telemetry.addLine("GP1/2 Intake: RB = Forward (Motor CCW) | LB = Reverse");
-        telemetry.addLine("Intake bumpers override auto reversal | Opposing bumpers = Stop");
-        telemetry.addLine("GP1: RT = Auto-Aim + Fire When Ready | LT = Manual Gate + Feed");
-        telemetry.addLine("GP2 RS-X = Turret Yaw");
-        telemetry.addLine("GP2: D-Pad U/D = Hood +/-0.5 deg | Y/A = Flywheel +/-50 RPM");
-        telemetry.addLine("GP2: RT = Manual Gate + Feed | LT = Close Gate + Stop Transfer (Priority) | B = Stop Flywheel");
-        telemetry.addLine("Flywheel starts at 4200 RPM after START; auto-aim overrides manual hood/RPM");
-        telemetry.addLine("Transfer: Automatic after START | HIGH for 2 s = Stop | LOW = Run");
-        telemetry.addLine("Full queue reverses intake until GP1 RT release | Both transfer stages run during feed");
-        transfer.addTelemetry(telemetry);
-        telemetry.update();
+            ShotCoordinator shots = turret == null ? null : new ShotCoordinator(turret,
+                    ShootingConfiguration.target(getAlliance(), TurretSubsystem.HiveSide.FAR));
+            telemetry.addData("Status", "Initialized (Bare Motor: %.0f PPR, %.0f RPM)",
+                    MecanumDrivetrain.BARE_MOTOR_TICKS_PER_REV, MecanumDrivetrain.BARE_MOTOR_MAX_RPM);
+            odometry.addInitTelemetry(telemetry);
+            telemetry.addData("Alliance", getAlliance());
+            telemetry.addLine("GP1: LS = Drive | RS-X = Turn");
+            telemetry.addLine("GP1: RS Click = Deploy Depollinator | LS Click = Home Depollinator");
+            telemetry.addLine("GP1/2 Intake: RB = Forward (Motor CCW) | LB = Reverse");
+            telemetry.addLine("Intake bumpers override auto reversal | Opposing bumpers = Stop");
+            telemetry.addLine("GP1: RT = Auto-Aim + Fire When Ready | LT = Manual Gate + Feed");
+            telemetry.addLine("GP2 RS-X = Turret Yaw");
+            telemetry.addLine("GP2: D-Pad U/D = Hood +/-0.5 deg | Y/A = Flywheel +/-50 RPM");
+            telemetry.addLine("GP2: RT = Manual Gate + Feed | LT = Close Gate + Stop Transfer (Priority) | B = Stop Flywheel");
+            telemetry.addLine("Flywheel starts at 4200 RPM after START; auto-aim overrides manual hood/RPM");
+            telemetry.addLine("Transfer: Automatic after START | HIGH for 2 s = Stop | LOW = Run");
+            telemetry.addLine("Full queue reverses intake until GP1 RT release | Both transfer stages run during feed");
+            transfer.addTelemetry(telemetry);
+            loop.addTelemetry(telemetry); telemetry.update();
 
-        // Homing continues through INIT and an early START without blocking the drivetrain.
-        try {
+            // Homing continues through INIT and an early START without blocking the drivetrain.
             boolean startingPoseApplied = false;
+            boolean previousHome = false, previousSideLeft = false, previousSideRight = false;
             while (opModeInInit()) {
+                loop.begin();
                 odometry.update();
+                if (turret != null) {
+                    if (gamepad2.x && !previousHome) turret.homeTurretAndZeroEncoder();
+                    if (gamepad2.dpad_left && !previousSideLeft) shots.select(ShootingConfiguration.target(getAlliance(), TurretSubsystem.HiveSide.AUDIENCE));
+                    if (gamepad2.dpad_right && !previousSideRight) shots.select(ShootingConfiguration.target(getAlliance(), TurretSubsystem.HiveSide.FAR));
+                }
+                previousHome = gamepad2.x; previousSideLeft = gamepad2.dpad_left; previousSideRight = gamepad2.dpad_right;
                 if (!startingPoseApplied && ShootingConfiguration.STARTING_FIELD_POSE_CONFIGURED
                         && odometry.getDeviceStatus() == com.qualcomm.hardware.gobilda.GoBildaPinpointDriver.DeviceStatus.READY) {
                     odometry.setPoseInches(ShootingConfiguration.START_X_METERS / .0254,
@@ -86,7 +100,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 }
                 if (turret != null) { turret.update(); turret.addTelemetry(telemetry); }
                 telemetry.addLine("GP2 X = Rehome | GP2 Dpad L/R = Audience/Far target");
-                odometry.addTelemetry(telemetry); telemetry.update(); idle();
+                odometry.addTelemetry(telemetry); loop.addTelemetry(telemetry); telemetry.update(); idle();
             }
             waitForStart();
             if (isStopRequested()) return;
@@ -102,8 +116,8 @@ public abstract class MecanumTeleOp extends LinearOpMode {
             boolean previousDepollinatorHome = false;
 
             double previousLoopTime = System.nanoTime() * 1e-9;
-            boolean previousHome = false, previousSideLeft = false, previousSideRight = false;
             while (opModeIsActive()) {
+                loop.begin();
                 double now = System.nanoTime() * 1e-9;
                 double dt = Math.max(0, Math.min(.1, now - previousLoopTime)); previousLoopTime = now;
                 // 1. Update Pinpoint Odometry Computer
@@ -189,7 +203,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 }
                 FiringCoordinator firing = shots == null ? fallbackFiring : shots.firing();
                 gate.setOpen(openGate);
-                transfer.update(firing.feeding(), inhibitFeedHeld || autoAimHeld || openGate || firing.state() == FiringCoordinator.State.RECOVERY);
+                transfer.update(firing.feeding() && gate.isOpenAndSettled(), inhibitFeedHeld || autoAimHeld || openGate || firing.state() == FiringCoordinator.State.RECOVERY);
                 double intakePower = intakeControl.update(transfer.isFull(), autoAimHeld,
                         gamepad1.right_bumper || gamepad2.right_bumper, gamepad1.left_bumper || gamepad2.left_bumper);
                 intake.setIntakePower(intakePower);
@@ -208,16 +222,12 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 if (turret != null) {
                     turret.addTelemetry(telemetry);
                 }
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
             }
         } finally {
-            drivetrain.stop();
-            intake.stop();
-            transfer.stop();
-            if (turret != null) {
-                turret.stop();
-            }
-            gate.close();
+            RobotShutdown.stopAll(drivetrain::stop, intake == null ? null : intake::stop,
+                    transfer == null ? null : transfer::stop, gate == null ? null : gate::close,
+                    turret == null ? null : turret::stop);
         }
     }
 }

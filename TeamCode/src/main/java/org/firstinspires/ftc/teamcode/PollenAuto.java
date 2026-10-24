@@ -13,23 +13,29 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 public class PollenAuto extends LinearOpMode {
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         MecanumDrivetrain drivetrain = new MecanumDrivetrain(hardwareMap);
-        PinpointOdometry odometry = new PinpointOdometry(hardwareMap);
-        IntakeSubsystem intake = new IntakeSubsystem(hardwareMap);
-        GateSubsystem gate = new GateSubsystem(hardwareMap);
-        TransferSubsystem transfer = new TransferSubsystem(hardwareMap);
+        PinpointOdometry odometry;
+        IntakeSubsystem intake = null;
+        GateSubsystem gate = null;
+        TransferSubsystem transfer = null;
         PollenNavigator navigator = new PollenNavigator(PollenVision.CONFIG);
         PollenVision vision = null;
 
         try {
+            odometry = new PinpointOdometry(hardwareMap);
+            intake = new IntakeSubsystem(hardwareMap);
+            gate = new GateSubsystem(hardwareMap);
+            transfer = new TransferSubsystem(hardwareMap);
             vision = new PollenVision(hardwareMap);
             while (opModeInInit()) {
+                loop.begin();
                 odometry.update();
                 telemetry.addLine("Keep robot stationary during Pinpoint calibration.");
                 telemetry.addLine("C270 must face forward; clear collection area before START.");
                 telemetry.addData("Pinpoint Status", odometry.getDeviceStatus());
                 vision.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 idle();
             }
             waitForStart();
@@ -40,6 +46,7 @@ public class PollenAuto extends LinearOpMode {
             navigator.start(System.nanoTime(), initialPose.getX(DistanceUnit.MM), initialPose.getY(DistanceUnit.MM));
 
             while (opModeIsActive()) {
+                loop.begin();
                 odometry.update(); // One bulk read at the top of each loop.
                 Pose2D pose = odometry.getPose();
                 PollenTarget target = vision.getTarget();
@@ -64,20 +71,16 @@ public class PollenAuto extends LinearOpMode {
                 telemetry.addData("Pickup Attempts (not ball count)", navigator.getPickupAttempts());
                 vision.addTelemetry(telemetry);
                 transfer.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 if (navigator.isFinished()) {
                     break;
                 }
                 idle();
             }
         } finally {
-            drivetrain.stop();
-            intake.stop();
-            transfer.stop();
-            gate.close();
-            if (vision != null) {
-                vision.close(); // Stop motors before the potentially blocking camera shutdown.
-            }
+            RobotShutdown.stopAll(drivetrain::stop, intake == null ? null : intake::stop,
+                    transfer == null ? null : transfer::stop, gate == null ? null : gate::close,
+                    vision == null ? null : vision::close);
         }
     }
 }

@@ -2,6 +2,8 @@
 
 Scope: address the six review findings and add motion-compensated shooting. This is an implementation plan, not a claim that the robot is calibrated or competition-ready. Physical checks and measurements are listed separately at the end. Existing local changes are the baseline and must be preserved.
 
+Scope clarification, October 22, 2026: the team requests pollen detection and navigation only for autonomous work. Match paths, preload/repeat/scoring/parking strategies and their route data are deferred. Their appearance below records earlier planning, not a current requirement.
+
 ## 1. Establish a reproducible software baseline
 
 - Locate/configure the Android SDK through the ignored `local.properties` file or `ANDROID_HOME`; document the required SDK and Java versions from the existing Gradle configuration. Do not commit machine-specific paths.

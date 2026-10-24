@@ -22,6 +22,10 @@ public final class PollenTarget {
         bearingDeg = Math.toDegrees(Math.atan2(rightMm, forwardMm));
     }
 
+    public PollenTarget withContactPixels(double x, double y) {
+        return new PollenTarget(captureTimeNanos,centerXPx,centerYPx,areaPx,forwardMm,rightMm,x,y);
+    }
+
     /**
      * Intersects the ray through the blob's lowest contour point with the floor.
      * Camera axes: +X right, +Y down, +Z optical forward; pitch is positive downward.

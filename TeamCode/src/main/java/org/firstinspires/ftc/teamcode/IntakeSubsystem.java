@@ -19,6 +19,7 @@ public class IntakeSubsystem {
     public static final DcMotor.Direction MOTOR_DIRECTION = DcMotor.Direction.FORWARD;
 
     private final DcMotorEx motor;
+    private double currentAmps = Double.NaN, lastCurrentSample = Double.NEGATIVE_INFINITY;
     private double commandedPower = 0.0;
 
     public IntakeSubsystem(HardwareMap hardwareMap) {
@@ -33,6 +34,11 @@ public class IntakeSubsystem {
     public void setIntakePower(double power) {
         commandedPower = Range.clip(power, -1.0, 1.0);
         motor.setPower(commandedPower);
+        double now = System.nanoTime()*1e-9;
+        if (now-lastCurrentSample >= .2) {
+            currentAmps = motor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
+            lastCurrentSample = now;
+        }
     }
 
     /** Right bumper intakes; left bumper reverses. Both held stops the intake. */
@@ -43,10 +49,11 @@ public class IntakeSubsystem {
     }
 
     public void stop() {
-        setIntakePower(0.0);
+        commandedPower = 0; motor.setPower(0);
     }
 
     public void addTelemetry(Telemetry telemetry) {
+        telemetry.addData("Intake current (A, 5 Hz)", currentAmps);
         telemetry.addData("Intake Power", "%+.2f (open loop)", commandedPower);
     }
 }

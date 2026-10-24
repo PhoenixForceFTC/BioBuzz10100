@@ -9,7 +9,7 @@ public class PollenConfigurationTest {
     private PollenTracker.Detection blob(double x, double area, boolean clipped) {
         return new PollenTracker.Detection(x,180,x,200,area,.8,1,.8,clipped);
     }
-    @Test public void measuredZeroOffsetsAreValidAndUnknownMountIsDiagnosticOnly() {
+    @Test public void measuredZeroOffsetsStillRequireOtherCalibration() {
         assertFalse(PollenConfiguration.diagnostic().autonomousEligible(true));
         PollenConfiguration c = new PollenConfiguration(180,10,0,0,60,0,0,0,0,true,false,true,true,false,20,40,80,80,350,200);
         assertFalse(c.autonomousEligible(false)); assertTrue(c.autonomousEligible(true));

@@ -9,19 +9,21 @@ public class IntakeTestOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         IntakeSubsystem intake = new IntakeSubsystem(hardwareMap);
 
         telemetry.addLine("Intake: Expansion Hub motor port 1, intake_motor (no intake encoder)");
         telemetry.addLine("GP1 RB = Forward (Motor CCW) | LB = Reverse | Release/Both = Stop");
-        telemetry.update();
+        loop.addTelemetry(telemetry); telemetry.update();
 
         waitForStart();
 
         try {
             while (opModeIsActive()) {
+                loop.begin();
                 intake.setBumperInputs(gamepad1.right_bumper, gamepad1.left_bumper);
                 intake.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
             }
         } finally {
             intake.stop();

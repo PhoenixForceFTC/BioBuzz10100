@@ -23,8 +23,9 @@ public class TransferSubsystem {
     private final DcMotorEx motor;
     private final DcMotorEx stage2Motor;
     private final DigitalChannel fullSensor;
-    private final TransferController controller = new TransferController();
+    private final TransferController controller = new TransferController(TRANSFER_POWER, FULL_CONFIRM_TIME_SECONDS);
     private boolean sensorState;
+    private double current1 = Double.NaN, current2 = Double.NaN, lastCurrentSample = Double.NEGATIVE_INFINITY;
     private double commandedPower = 0.0;
     private double stage2Power = 0.0;
     private boolean feeding = false;
@@ -66,6 +67,19 @@ public class TransferSubsystem {
         motor.setPower(commandedPower);
         stage2Power = controller.stage2();
         stage2Motor.setPower(stage2Power);
+        double now = System.nanoTime()*1e-9;
+        if (now-lastCurrentSample >= .2) {
+            current1 = motor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
+            current2 = stage2Motor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
+            lastCurrentSample = now;
+        }
+    }
+
+    /** Deliberate hold-to-run diagnostic, caller must hold the physical gate closed. */
+    public void diagnosticStage2(boolean held) {
+        update(false, true);
+        stage2Power = held ? TRANSFER_POWER : 0;
+        stage2Motor.setPower(stage2Power);
     }
 
     public boolean isFull() {
@@ -77,12 +91,12 @@ public class TransferSubsystem {
         controller.stop();
         feeding = false;
         loadingPaused = false;
-        motor.setPower(0.0);
         stage2Power = 0.0;
-        stage2Motor.setPower(0.0);
+        RobotShutdown.stopAll(() -> motor.setPower(0), () -> stage2Motor.setPower(0));
     }
 
     public void addTelemetry(Telemetry telemetry) {
+        telemetry.addData("Transfer current (A, 5 Hz)", "stage 1 %.2f | stage 2 %.2f",current1,current2);
         telemetry.addData("Transfer Mode", feeding ? "FEEDING SHOT"
                 : loadingPaused ? "WAITING FOR SHOT / GATE" : "AUTOMATIC LOADING");
         telemetry.addData("Transfer Full Sensor", "%s | digital %s",

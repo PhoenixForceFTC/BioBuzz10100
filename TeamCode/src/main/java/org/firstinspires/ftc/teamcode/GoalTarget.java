@@ -6,6 +6,8 @@ import java.util.Map;
 
 /** One explicitly selected opening and hive state. Visibility never changes the selected side/state. */
 public final class GoalTarget {
+    public enum Frame { FIELD, LOCAL_ODOMETRY }
+    public final Frame frame;
     public enum HiveState { UNKNOWN, RAISED, LOWERED }
     public static final class Tag {
         public final int id;
@@ -24,6 +26,11 @@ public final class GoalTarget {
     public final Map<Integer, Tag> tags;
     public GoalTarget(TurretSubsystem.Alliance alliance, TurretSubsystem.HiveSide side, HiveState state,
                       double x, double y, double height, boolean calibrated, String geometryId, Tag... tags) {
+        this(alliance,side,state,x,y,height,calibrated,geometryId,Frame.FIELD,tags);
+    }
+    private GoalTarget(TurretSubsystem.Alliance alliance, TurretSubsystem.HiveSide side, HiveState state,
+                      double x, double y, double height, boolean calibrated, String geometryId, Frame frame, Tag... tags) {
+        this.frame = frame;
         if (alliance == null || side == null || state == null || geometryId == null || geometryId.isEmpty()
                 || !RobotMath.finite(x, y, height) || height <= 0) throw new IllegalArgumentException("Invalid target");
         this.alliance = alliance; this.side = side; this.state = state;
@@ -35,12 +42,15 @@ public final class GoalTarget {
         }
         this.tags = Collections.unmodifiableMap(map);
     }
+    public GoalTarget inLocalFrame() {
+        return new GoalTarget(alliance,side,state,x,y,height,calibrated,geometryId,Frame.LOCAL_ODOMETRY,tags.values().toArray(new Tag[0]));
+    }
     public boolean scoreable() { return calibrated && state == HiveState.RAISED && !tags.isEmpty(); }
-    public String identity() { return alliance + "/" + side + "/" + state + "/" + geometryId; }
+    public String identity() { return frame + "/" + alliance + "/" + side + "/" + state + "/" + geometryId; }
     public static GoalTarget unknown(TurretSubsystem.Alliance alliance, TurretSubsystem.HiveSide side) {
         return new GoalTarget(alliance, side, HiveState.UNKNOWN,
                 TurretSubsystem.getHiveOpeningCenterXInches(alliance) * .0254,
                 TurretSubsystem.getHiveOpeningCenterYInches(side) * .0254,
-                TurretSubsystem.GOAL_TARGET_HEIGHT_INCHES * .0254, false, "UNMEASURED");
+                ShootingConfiguration.HIGH_GOAL_CENTER_HEIGHT_METERS, false, "UNMEASURED");
     }
 }

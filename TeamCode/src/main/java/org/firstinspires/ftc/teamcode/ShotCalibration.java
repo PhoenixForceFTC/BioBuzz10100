@@ -14,6 +14,15 @@ public final class ShotCalibration {
             hoodDeg += (hoodTravelDeg - hoodDeg) / count;
         }
     }
+    public static final class Sample {
+        public final double distanceMeters, rpm, hoodDeg;
+        public final boolean hit;
+        Sample(double distanceMeters, double rpm, double hoodDeg, boolean hit) {
+            this.distanceMeters=distanceMeters; this.rpm=rpm; this.hoodDeg=hoodDeg; this.hit=hit;
+        }
+    }
+    private final java.util.List<Sample> samples = new java.util.ArrayList<>();
+    public Sample[] samples() { return samples.toArray(new Sample[0]); }
     private final TreeMap<Double, Average> averages = new TreeMap<>();
     private final TreeMap<Double, ShotProfile.Row> rows = new TreeMap<>();
     private double distanceInches = 24, rpm = 3200, hoodDeg = 0;
@@ -39,6 +48,7 @@ public final class ShotCalibration {
 
     /** Called once after the operator rates a completed feed attempt. Only confirmed hits contribute. */
     public void record(boolean hit) {
+        samples.add(new Sample(distanceInches*METERS_PER_INCH,rpm,hoodDeg,hit));
         if (hit) {
             Average average = averages.get(distanceInches);
             if (average == null) {

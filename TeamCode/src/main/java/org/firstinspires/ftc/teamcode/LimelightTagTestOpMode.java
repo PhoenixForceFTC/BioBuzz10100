@@ -8,14 +8,16 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 public class LimelightTagTestOpMode extends LinearOpMode {
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         try (LimelightTagSubsystem vision = new LimelightTagSubsystem(hardwareMap)) {
             while (opModeInInit()) {
+                loop.begin();
                 vision.update();
                 telemetry.addData("AprilTag pipeline", LimelightTagSubsystem.APRILTAG_PIPELINE);
                 telemetry.addLine("Configure this pipeline for AprilTags; all reported tag IDs are accepted.");
                 telemetry.addLine("After START: GP1 A starts/restarts a button-to-detection trial.");
                 vision.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 idle();
             }
 
@@ -30,6 +32,7 @@ public class LimelightTagTestOpMode extends LinearOpMode {
             double averageDelayMs = 0;
 
             while (opModeIsActive()) {
+                loop.begin();
                 boolean currentA = gamepad1.a;
                 if (currentA && !previousA) {
                     trialStartedNs = System.nanoTime();
@@ -63,7 +66,7 @@ public class LimelightTagTestOpMode extends LinearOpMode {
                     telemetry.addData("Last / average (ms)", "No completed trials");
                 }
                 vision.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 idle();
             }
         }

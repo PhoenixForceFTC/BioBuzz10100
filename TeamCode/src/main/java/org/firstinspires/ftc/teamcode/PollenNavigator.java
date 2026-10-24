@@ -19,18 +19,18 @@ public class PollenNavigator {
     public static final double DRIVE_ALIGNMENT_DEG = 12.0;
     public static final double PICKUP_ALIGNMENT_DEG = 4.0;
     // Tune from the robot center to the floor contact just before pollen leaves camera view.
-    public static final double PICKUP_START_FORWARD_MM = 350.0;
+    public static final double PICKUP_START_FORWARD_MM = PollenConfiguration.diagnostic().pickupStartMm;
     public static final double PICKUP_CONFIRM_SECONDS = 0.12;
     public static final int PICKUP_CONFIRM_FRAMES = 3;
     public static final double PICKUP_POWER = 0.16;
-    public static final double PICKUP_TRAVEL_MM = 200.0;
+    public static final double PICKUP_TRAVEL_MM = PollenConfiguration.diagnostic().pickupTravelMm;
     public static final double PICKUP_TIME_LIMIT_SECONDS = 0.9;
     public static final double INTAKE_SETTLE_SECONDS = 0.4;
 
     public enum State { WAITING_FOR_HARDWARE, SEARCHING, APPROACHING, COLLECTING, SETTLING, COMPLETE, TIMED_OUT, FAULT }
 
     private final double pickupStartMm, pickupTravelMm;
-    public PollenNavigator() { pickupStartMm = PICKUP_START_FORWARD_MM; pickupTravelMm = PICKUP_TRAVEL_MM; }
+    public PollenNavigator() { this(PollenConfiguration.diagnostic()); }
     public PollenNavigator(PollenConfiguration config) { pickupStartMm = config.pickupStartMm; pickupTravelMm = config.pickupTravelMm; }
     public void stop(long now) { stopCommands(); enter(State.COMPLETE, now, "Stopped"); started = false; }
     private State state = State.WAITING_FOR_HARDWARE;
@@ -40,7 +40,7 @@ public class PollenNavigator {
     private long stateStartNanos;
     private long lostSinceNanos;
     private long closeSinceNanos;
-    private long lastCloseCaptureNanos;
+    private long lastCloseCaptureNanos, lastTargetCaptureNanos;
     private int closeFrameCount;
     private double lastXMm;
     private double lastYMm;
@@ -58,7 +58,7 @@ public class PollenNavigator {
         lastXMm = xMm;
         lastYMm = yMm;
         totalTravelMm = 0.0;
-        pickupAttempts = 0;
+        pickupAttempts = 0; lastTargetCaptureNanos = 0;
         enter(State.WAITING_FOR_HARDWARE, nowNanos, "Waiting for camera and Pinpoint");
         stopCommands();
     }
@@ -105,6 +105,10 @@ public class PollenNavigator {
                 || secondsSince(nowNanos, target.captureTimeNanos) > MAX_TARGET_AGE_SECONDS)) {
             target = null;
         }
+        if (target != null) {
+            if (target.captureTimeNanos < lastTargetCaptureNanos) target = null;
+            else lastTargetCaptureNanos = target.captureTimeNanos;
+        }
         if (state == State.SEARCHING) {
             if (target == null) {
                 if (secondsSince(nowNanos, stateStartNanos) >= SEARCH_TIME_LIMIT_SECONDS
@@ -144,14 +148,14 @@ public class PollenNavigator {
             if (distanceErrorMm <= 0.0 && Math.abs(target.bearingDeg) <= PICKUP_ALIGNMENT_DEG) {
                 axial = 0.0;
                 if (closeSinceNanos == 0) {
-                    closeSinceNanos = nowNanos;
+                    closeSinceNanos = target.captureTimeNanos;
                 }
-                if (target.captureTimeNanos != lastCloseCaptureNanos) {
+                if (target.captureTimeNanos > lastCloseCaptureNanos) {
                     closeFrameCount++;
                     lastCloseCaptureNanos = target.captureTimeNanos;
                 }
                 if (closeFrameCount >= PICKUP_CONFIRM_FRAMES
-                        && secondsSince(nowNanos, closeSinceNanos) >= PICKUP_CONFIRM_SECONDS) {
+                        && secondsSince(target.captureTimeNanos, closeSinceNanos) >= PICKUP_CONFIRM_SECONDS) {
                     enter(State.COLLECTING, nowNanos, "Bounded pickup through camera blind spot");
                     pickupStartTravelMm = totalTravelMm;
                     referenceHeadingDeg = headingDeg;

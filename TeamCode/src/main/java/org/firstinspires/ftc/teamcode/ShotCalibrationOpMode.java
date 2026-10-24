@@ -17,6 +17,7 @@ public class ShotCalibrationOpMode extends LinearOpMode {
     private String message = "Measure horizontal distance from turret axis to raised cell opening center.";
 
     @Override public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         TurretSubsystem turret = new TurretSubsystem(hardwareMap, false);
         GateSubsystem gate = null;
         TransferSubsystem transfer = null;
@@ -24,13 +25,17 @@ public class ShotCalibrationOpMode extends LinearOpMode {
         try {
             gate = new GateSubsystem(hardwareMap);
             transfer = new TransferSubsystem(hardwareMap);
+            boolean previousInitHome = false;
             while (opModeInInit()) {
+                loop.begin();
+                if (gamepad1.left_stick_button && !previousInitHome) turret.homeTurretAndZeroEncoder();
+                previousInitHome = gamepad1.left_stick_button;
                 turret.update();
                 telemetry.addLine("Stationary calibration: turret + gate + both transfer stages + full sensor.");
                 telemetry.addLine("No drivetrain, intake, odometry or camera. Load ONE ball per trial.");
                 telemetry.addLine("Keep the same hive opening/height and muzzle reference for this session.");
                 turret.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 idle();
             }
             waitForStart();
@@ -42,6 +47,7 @@ public class ShotCalibrationOpMode extends LinearOpMode {
             int attemptsBefore = 0;
             double previewInches = notebook.distanceInches();
             while (opModeIsActive()) {
+                loop.begin();
                 double now = System.nanoTime() * 1e-9;
                 double dt = Math.max(0, Math.min(.1, now - lastTime));
                 lastTime = now;
@@ -117,6 +123,16 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                     stopOutputs(turret, gate, transfer, firing, now);
                     turret.homeTurretAndZeroEncoder();
                 }
+                if (current.right_stick_button && !previous.right_stick_button && step == Step.REVIEW) {
+                    stopOutputs(turret,gate,transfer,firing,now);
+                    try {
+                        java.io.File base = hardwareMap.appContext.getExternalFilesDir(null);
+                        if (base == null) throw new java.io.IOException("External files storage unavailable");
+                        java.io.File saved = ShotCalibrationExport.save(new java.io.File(base,"shot-calibration"),
+                                notebook,ShootingConfiguration.CALIBRATION_GEOMETRY_ID);
+                        message = "SAVED " + saved.getAbsolutePath() + " (session only; not activated)";
+                    } catch (java.io.IOException | IllegalArgumentException e) { message = "EXPORT FAILED: " + e.getMessage() + "; session retained"; }
+                }
                 boolean abort = current.left_bumper || (step == Step.FIRING && !current.right_bumper);
                 if (abort) {
                     step = Step.PLACE;
@@ -174,17 +190,15 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                             row.distance / ShotCalibration.METERS_PER_INCH, row.rpm,
                             TurretSubsystem.hoodTravelToLaunchAngleDegrees(row.hoodDeg), row.hoodDeg);
                 }
-                telemetry.addLine("Record these rows before STOP; session values reset on a new run.");
+                telemetry.addLine("REVIEW + RS click: SAVE samples/averages with units. Export does not activate competition profile.");
                 telemetry.addLine("LB: abort + stop | BACK: review (PLACE/TUNE) | STOP: exit");
                 turret.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 previous.copy(current);
                 idle();
             }
         } finally {
-            turret.stop();
-            if (gate != null) gate.close();
-            if (transfer != null) transfer.stop();
+            RobotShutdown.stopAll(turret::stop, gate == null ? null : gate::close, transfer == null ? null : transfer::stop);
         }
     }
 

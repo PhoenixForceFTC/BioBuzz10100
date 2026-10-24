@@ -7,11 +7,13 @@ import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 public abstract class CompetitionAutonomous extends LinearOpMode {
     protected abstract TurretSubsystem.Alliance alliance();
     @Override public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         AutonomousStrategy strategy = AutonomousStrategy.configured(alliance());
         if (strategy == null || !strategy.approved) {
             while (opModeInInit()) {
+                loop.begin();
                 telemetry.addData("Autonomous inhibited", "Configure an approved %s route in AutonomousStrategy", alliance());
-                telemetry.update(); idle();
+                loop.addTelemetry(telemetry); telemetry.update(); idle();
             }
             return;
         }
@@ -32,6 +34,7 @@ public abstract class CompetitionAutonomous extends LinearOpMode {
             catch (RuntimeException e) { telemetry.addData("Collection camera unavailable", e.getMessage()); }
             boolean referenced = false;
             while (opModeInInit()) {
+                loop.begin();
                 odometry.update(); turret.update();
                 if (!referenced && odometry.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
                     odometry.setPoseInches(strategy.start.x / .0254, strategy.start.y / .0254, Math.toDegrees(strategy.start.heading));
@@ -39,11 +42,12 @@ public abstract class CompetitionAutonomous extends LinearOpMode {
                 }
                 telemetry.addData("Strategy", strategy.name); turret.addTelemetry(telemetry);
                 if (vision != null) vision.addTelemetry(telemetry);
-                telemetry.update(); idle();
+                loop.addTelemetry(telemetry); telemetry.update(); idle();
             }
             waitForStart(); if (isStopRequested()) return;
             auto.start(System.nanoTime() * 1e-9);
             while (opModeIsActive() && !auto.finished()) {
+                loop.begin();
                 odometry.update(); turret.update();
                 double now = System.nanoTime() * 1e-9;
                 shots.updatePose(now, odometry.getSample());
@@ -53,17 +57,17 @@ public abstract class CompetitionAutonomous extends LinearOpMode {
                 shots.update(now, odometry.getSample(), auto.fireRequested(), false, auto.finished(), false);
                 drive.driveRobotCentric(auto.axial(), auto.lateral(), auto.yaw()); intake.setIntakePower(auto.intake());
                 gate.setOpen(shots.firing().gateOpen());
-                transfer.update(shots.firing().feeding(), !auto.loading() || auto.finished());
+                transfer.update(shots.firing().feeding() && gate.isOpenAndSettled(), !auto.loading() || auto.finished());
                 if (auto.finished()) transfer.stop();
                 telemetry.addData("Match autonomous", "%s | %s", auto.state(), auto.reason());
                 shots.addTelemetry(telemetry, now); if (vision != null) vision.addTelemetry(telemetry);
-                telemetry.update(); idle();
+                loop.addTelemetry(telemetry); telemetry.update(); idle();
             }
         } finally {
-            auto.stop(System.nanoTime() * 1e-9); drive.stop();
-            if (intake != null) intake.stop(); if (transfer != null) transfer.stop();
-            if (gate != null) gate.close(); if (turret != null) turret.stop();
-            if (vision != null) vision.close();
+            auto.stop(System.nanoTime() * 1e-9);
+            RobotShutdown.stopAll(drive::stop, intake == null ? null : intake::stop,
+                    transfer == null ? null : transfer::stop, gate == null ? null : gate::close,
+                    turret == null ? null : turret::stop, vision == null ? null : vision::close);
         }
     }
 }

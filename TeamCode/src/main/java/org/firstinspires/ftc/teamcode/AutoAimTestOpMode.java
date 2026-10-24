@@ -18,13 +18,16 @@ public class AutoAimTestOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         PinpointOdometry odometry = new PinpointOdometry(hardwareMap);
         TurretSubsystem turret = new TurretSubsystem(hardwareMap);
         try {
             ShotCoordinator shots = new ShotCoordinator(turret,
                     ShootingConfiguration.target(TurretSubsystem.Alliance.RED, TurretSubsystem.HiveSide.FAR));
             boolean startingPoseApplied = false;
+            boolean previousHome = false;
             while (opModeInInit()) {
+                loop.begin();
                 odometry.update();
                 if (!startingPoseApplied && ShootingConfiguration.STARTING_FIELD_POSE_CONFIGURED
                         && odometry.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
@@ -34,18 +37,20 @@ public class AutoAimTestOpMode extends LinearOpMode {
                     startingPoseApplied = true;
                 }
                 selectTarget(turret, shots);
+                if (gamepad1.a && !previousHome) turret.homeTurretAndZeroEncoder();
+                previousHome = gamepad1.a;
                 turret.update();
                 double now = System.nanoTime() * 1e-9;
                 shots.update(now, odometry.getSample(), false, false, true, true);
                 addTelemetry(odometry, turret, shots, now, false);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
                 idle();
             }
             waitForStart();
             if (isStopRequested()) return;
 
-            boolean previousHome = false;
             while (opModeIsActive()) {
+                loop.begin();
                 odometry.update();
                 selectTarget(turret, shots);
                 boolean home = gamepad1.a;
@@ -63,7 +68,7 @@ public class AutoAimTestOpMode extends LinearOpMode {
                 if (!spinFlywheel || !shots.solution().aimable) turret.stopShooter();
 
                 addTelemetry(odometry, turret, shots, now, aimHeld);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
             }
         } finally {
             turret.stop();

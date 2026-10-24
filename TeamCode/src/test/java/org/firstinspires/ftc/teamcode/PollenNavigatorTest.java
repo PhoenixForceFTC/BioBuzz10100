@@ -80,7 +80,7 @@ public class PollenNavigatorTest {
         update(0, target(START, 1200, 0), 0, 0, 0, true, false);
         double farPower = navigator.getAxialPower();
         assertEquals(PollenNavigator.MAX_DRIVE_POWER, farPower, 1e-9);
-        update(0.1, target(at(0.1), 500, 0), 50, 0, 0, true, false);
+        update(0.1, target(at(0.1), 800, 0), 50, 0, 0, true, false);
         assertTrue(navigator.getAxialPower() > 0.0);
         assertTrue(navigator.getAxialPower() < farPower);
     }
@@ -103,19 +103,19 @@ public class PollenNavigatorTest {
     }
 
     @Test public void pickupRequiresSustainedCloseAlignedDetection() {
-        update(0, target(START, 340, 0), 0, 0, 0, true, false);
+        update(0, target(START, 640, 0), 0, 0, 0, true, false);
         update(0.05, null, 0, 0, 0, true, false);
-        update(0.15, target(at(0.15), 340, 0), 0, 0, 0, true, false);
+        update(0.15, target(at(0.15), 640, 0), 0, 0, 0, true, false);
         assertEquals(PollenNavigator.State.APPROACHING, navigator.getState());
-        update(0.23, target(at(0.23), 340, 0), 0, 0, 0, true, false);
-        update(0.3, target(at(0.3), 340, 0), 0, 0, 0, true, false);
+        update(0.23, target(at(0.23), 640, 0), 0, 0, 0, true, false);
+        update(0.3, target(at(0.3), 640, 0), 0, 0, 0, true, false);
         assertEquals(PollenNavigator.State.COLLECTING, navigator.getState());
     }
 
     private void beginPickup() {
-        update(0, target(START, 340, 0), 0, 0, 0, true, false);
-        update(0.07, target(at(0.07), 340, 0), 0, 0, 0, true, false);
-        update(0.15, target(at(0.15), 340, 0), 0, 0, 0, true, false);
+        update(0, target(START, 640, 0), 0, 0, 0, true, false);
+        update(0.07, target(at(0.07), 640, 0), 0, 0, 0, true, false);
+        update(0.15, target(at(0.15), 640, 0), 0, 0, 0, true, false);
         assertEquals(PollenNavigator.State.COLLECTING, navigator.getState());
     }
 
@@ -124,11 +124,11 @@ public class PollenNavigatorTest {
         update(0.2, null, 30, 0, 5, true, false);
         assertEquals(PollenNavigator.PICKUP_POWER, navigator.getAxialPower(), 0.0);
         assertTrue(navigator.getYawPower() > 0.0); // Correct CCW heading error with CW power.
-        update(0.4, null, 201, 0, 0, true, false);
+        update(0.4, null, 451, 0, 0, true, false);
         assertEquals(PollenNavigator.State.SETTLING, navigator.getState());
         assertEquals(0.0, navigator.getAxialPower(), 0.0);
         assertEquals(1, navigator.getPickupAttempts());
-        update(0.81, null, 201, 0, 0, true, false);
+        update(0.81, null, 451, 0, 0, true, false);
         assertEquals(PollenNavigator.State.SEARCHING, navigator.getState());
         assertStopped();
     }
@@ -141,9 +141,9 @@ public class PollenNavigatorTest {
     }
 
     @Test public void headingHoldHandlesPinpointWrap() {
-        update(0, target(START, 340, 0), 0, 0, 179, true, false);
-        update(0.07, target(at(0.07), 340, 0), 0, 0, 179, true, false);
-        update(0.15, target(at(0.15), 340, 0), 0, 0, 179, true, false);
+        update(0, target(START, 640, 0), 0, 0, 179, true, false);
+        update(0.07, target(at(0.07), 640, 0), 0, 0, 179, true, false);
+        update(0.15, target(at(0.15), 640, 0), 0, 0, 179, true, false);
         update(0.2, null, 0, 0, -179, true, false);
         assertEquals(2 * PollenNavigator.YAW_KP_PER_DEG, navigator.getYawPower(), 1e-9);
     }
@@ -190,14 +190,14 @@ public class PollenNavigatorTest {
     }
 
     @Test public void rereadingOneCameraFrameCannotConfirmPickup() {
-        PollenTarget singleFrame = target(START, 340, 0);
+        PollenTarget singleFrame = target(START, 640, 0);
         update(0, singleFrame, 0, 0, 0, true, false);
         update(0.07, singleFrame, 0, 0, 0, true, false);
         update(0.15, singleFrame, 0, 0, 0, true, false);
         assertEquals(PollenNavigator.State.APPROACHING, navigator.getState());
         assertEquals(0.0, navigator.getAxialPower(), 0.0);
-        update(0.16, target(at(0.16), 340, 0), 0, 0, 0, true, false);
-        update(0.18, target(at(0.18), 340, 0), 0, 0, 0, true, false);
+        update(0.16, target(at(0.16), 640, 0), 0, 0, 0, true, false);
+        update(0.18, target(at(0.18), 640, 0), 0, 0, 0, true, false);
         assertEquals(PollenNavigator.State.COLLECTING, navigator.getState());
     }
 

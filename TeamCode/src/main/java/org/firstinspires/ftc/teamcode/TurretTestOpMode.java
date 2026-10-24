@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 /** Turret-only diagnostic. A rehomes; B toggles trim; X invalidates home with a diagnostic zero.
- * Y holds servo centers. RS-X is degrees/second. Dpad adjusts hood; RB spins the flywheel.
+ * Y explicitly requests home. RS-X is degrees/second. Dpad adjusts hood; RB spins the flywheel.
  * No Limelight or odometry is initialized; automatic aiming belongs in Test: Auto Aim.
  */
 @TeleOp(name = "Test: Turret", group = "Test")
@@ -14,30 +14,38 @@ public class TurretTestOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        RobotLoop loop = new RobotLoop(hardwareMap);
         TurretSubsystem turret = new TurretSubsystem(hardwareMap, false);
 
         telemetry.addLine("Manual Turret Standalone Test Initialized");
         telemetry.addLine("Home = All 3 Servos at 0.5 (Turret heading 90 deg Right, Launch +15 deg) | Left 260..280 deg excluded");
         telemetry.addLine("RS-X = Rotate | Dpad Up/Dn = Raise/Lower Launch (+15..-15 deg) | RB = Shooter");
-        telemetry.addLine("A = Home (All 0.5) & Zero Enc | B = Toggle Enc Trim | X = Zero Enc Here | Hold Y = All Servos 0.5");
+        telemetry.addLine("A = Home (All 0.5) & Zero Enc | B = Toggle Enc Trim | X = Zero Enc Here | Y = Request Home (bounded)");
         turret.addTelemetry(telemetry);
-        telemetry.update();
+        loop.addTelemetry(telemetry); telemetry.update();
 
+        boolean prevA = false;
+        boolean previousCenter = false;
         try {
-            while (opModeInInit()) { turret.update(); turret.addTelemetry(telemetry); telemetry.update(); idle(); }
+            while (opModeInInit()) {
+                loop.begin();
+                if (gamepad1.a && !prevA) turret.homeTurretAndZeroEncoder();
+                prevA = gamepad1.a;
+                turret.update(); turret.addTelemetry(telemetry); loop.addTelemetry(telemetry); telemetry.update(); idle();
+            }
             waitForStart();
             if (isStopRequested()) return;
 
-        boolean prevA = false;
-        boolean prevB = false;
-        boolean prevX = false;
-        boolean prevDpadUp = false;
-        boolean prevDpadDown = false;
-        boolean prevDpadLeft = false;
-        boolean prevDpadRight = false;
+            boolean prevB = false;
+            boolean prevX = false;
+            boolean prevDpadUp = false;
+            boolean prevDpadDown = false;
+            boolean prevDpadLeft = false;
+            boolean prevDpadRight = false;
 
-        double previousTime = System.nanoTime() * 1e-9;
+            double previousTime = System.nanoTime() * 1e-9;
             while (opModeIsActive()) {
+                loop.begin();
                 double now = System.nanoTime() * 1e-9;
                 double dt = Math.max(0, Math.min(.1, now - previousTime)); previousTime = now;
                 boolean curA = gamepad1.a;
@@ -48,16 +56,9 @@ public class TurretTestOpMode extends LinearOpMode {
                 boolean curDpadLeft = gamepad1.dpad_left;
                 boolean curDpadRight = gamepad1.dpad_right;
 
-                // Hold Y: drive all 3 servos directly to 0.5 middle zero position
-                if (gamepad1.y) {
-                    turret.setAllServosToZeroPosition();
-                    turret.stopShooter();
-                    telemetry.addLine("MODE: SERVO ZERO OVERRIDE (All 3 Servos = 0.5 Middle Zero Position)");
-                    turret.addTelemetry(telemetry);
-                    telemetry.update();
-                    turret.update();
-                    continue;
-                }
+                // Explicit home request on an edge, treating coupled yaw servos as one mechanism.
+                if (gamepad1.y && !previousCenter) turret.setAllServosToZeroPosition();
+                previousCenter = gamepad1.y;
 
                 // A: Home turret to center (0.5 = robot heading 90 deg) & zero relative encoder
                 if (curA && !prevA) {
@@ -119,7 +120,7 @@ public class TurretTestOpMode extends LinearOpMode {
                 }
 
                 turret.addTelemetry(telemetry);
-                telemetry.update();
+                loop.addTelemetry(telemetry); telemetry.update();
             }
         } finally {
             turret.stop();

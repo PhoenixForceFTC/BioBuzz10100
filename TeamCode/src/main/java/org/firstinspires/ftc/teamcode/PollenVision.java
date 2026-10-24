@@ -53,7 +53,7 @@ public class PollenVision implements AutoCloseable {
                 .build();
     }
 
-    public boolean isAutonomousReady() { return isReady() && config.autonomousEligible(processor.sdkCalibration); }
+    public boolean isAutonomousReady() { return isReady() && config.autonomousEligible(processor.sdkCalibration) && processor.model != null && processor.model.pickupVisible(config); }
     public PollenConfiguration configuration() { return config; }
     public boolean isReady() {
         long frameTimeNanos = processor.observation.captureTimeNanos;
@@ -77,7 +77,13 @@ public class PollenVision implements AutoCloseable {
         PollenTarget target = getTarget();
         telemetry.addData("Pollen Camera", "%s | %.1f FPS", portal.getCameraState(), portal.getFps());
         telemetry.addData("Pollen Model", config.status(processor.sdkCalibration));
-        telemetry.addData("Pollen Autonomous Eligible", config.autonomousEligible(processor.sdkCalibration));
+        telemetry.addData("Pollen Autonomous Eligible", isAutonomousReady());
+        if (processor.model != null) {
+            telemetry.addData("Visible pickup floor region (mm)", "near %.0f | far %.0f | %s",
+                    processor.model.nearestPickupVisibleMm(config),processor.model.farthestPickupVisibleMm(config),processor.model.distortionApplied() ? "undistorted" : "no distortion calibration");
+            telemetry.addData("Pickup transition / blind travel (mm)", "%.0f / %.0f | %s",config.pickupStartMm,config.pickupTravelMm,
+                    processor.model.pickupVisible(config) ? "visible transition" : "INVALID: transition outside visible region");
+        }
         telemetry.addData("Pollen Rejection", processor.rejection);
         telemetry.addData("Pollen Intrinsics (px)", "fx %.1f fy %.1f cx %.1f cy %.1f", processor.fxPx, processor.fyPx, processor.cxPx, processor.cyPx);
         telemetry.addData("Pollen Frame Age (ms)", frameTimeNanos == 0 ? -1.0
@@ -115,6 +121,7 @@ public class PollenVision implements AutoCloseable {
         }
         private volatile FrameObservation observation = new FrameObservation(0, null);
         private volatile boolean sdkCalibration;
+        private volatile PollenCameraModel model;
         private double fxPx;
         private double fyPx;
         private double cxPx;
@@ -133,6 +140,15 @@ public class PollenVision implements AutoCloseable {
             fyPx = config.intrinsicsMeasured ? config.fy : sdkCalibration ? calibration.focalLengthY : fxPx;
             cxPx = config.intrinsicsMeasured ? config.cx : sdkCalibration ? calibration.principalPointX : width / 2.0;
             cyPx = config.intrinsicsMeasured ? config.cy : sdkCalibration ? calibration.principalPointY : height / 2.0;
+            double[] distortion = config.distortionCoefficients();
+            if (!config.intrinsicsMeasured && sdkCalibration) {
+                distortion = new double[calibration.distortionCoefficients.length];
+                for (int i=0;i<distortion.length;i++) distortion[i]=calibration.distortionCoefficients[i];
+            }
+            model = new PollenCameraModel(width,height,fxPx,fyPx,cxPx,cyPx,distortion);
+            if (config.autonomousEligible(sdkCalibration) && !model.pickupVisible(config))
+                rejection = "Pickup transition outside active visible floor region: autonomous disabled";
+
         }
 
         @Override
@@ -154,7 +170,7 @@ public class PollenVision implements AutoCloseable {
                 if (contact != null) detections.add(new PollenTracker.Detection(box.center.x, box.center.y,
                         contact.x, contact.y, blob.getContourArea(), blob.getDensity(), blob.getAspectRatio(), blob.getCircularity(), clipped));
             }
-            PollenTarget best = tracker.select(captureTimeNanos, detections, fxPx, fyPx, cxPx, cyPx);
+            PollenTarget best = tracker.select(captureTimeNanos, detections, model);
             rejection = tracker.rejection();
             // Publish target and timestamp together; never reuse an old detection for a new frame.
             observation = new FrameObservation(captureTimeNanos, best);

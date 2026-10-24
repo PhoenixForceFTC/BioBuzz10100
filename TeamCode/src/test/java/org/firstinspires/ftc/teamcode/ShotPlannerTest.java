@@ -73,7 +73,9 @@ public class ShotPlannerTest {
     @Test public void stationaryOnlyProfilesMissingTimeRangeAndTurretLimits() {
         ShotProfile stationary = new ShotProfile("synthetic",true,new ShotProfile.Row(.2,1,3000,Double.NaN),new ShotProfile.Row(5,10,4000,Double.NaN));
         ShotPlanner p = planner(mount());
-        assertTrue(p.solve(1,pose(1,0,0,0,0,0,0),goal(2,0),stationary,0,0,.3).valid);
+        assertFalse(p.solve(1,pose(1,0,0,0,0,0,0),goal(2,0),stationary,0,0,.3).valid);
+        for (int i=1;i<=20;i++) p.solve(1+i*.01,pose(1+i*.01,0,0,0,.001,0,0),goal(2,0),stationary,0,0,.3);
+        assertTrue(p.solve(1.21,pose(1.21,0,0,0,.001,0,0),goal(2,0),stationary,0,0,.3).valid);
         assertFalse(p.solve(1,pose(1,0,0,0,.2,0,0),goal(2,0),stationary,0,0,.3).valid);
         assertFalse(p.solve(1,pose(1,0,0,0,0,0,0),goal(6,0),profile(),0,0,.3).valid);
         assertTrue(p.solve(1,pose(1,0,0,0,0,0,0),goal(-2,0),profile(),0,0,.3).reason.contains("unreachable"));

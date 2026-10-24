@@ -22,14 +22,14 @@ import java.util.List;
  * <p>Hardware Architecture (Expansion Hub + Control Hub USB 3.0):
  * <ul>
  *     <li><b>Turret Rotation Servos (2x Axon MAX+, Servo Mode, 1:1 with turret)</b>:
- *         Expansion Hub Servo Ports 1 & 2 (powered via goBILDA 6V Distribution Block).
+ *         Expansion Hub Servo Ports 1 & 2 (powered via goBILDA 6V Servo Power Injector 3125-0001-0001).
  *         Config names: {@code "turret_servo_1"} and {@code "turret_servo_2"}.</li>
  *     <li><b>Turret Rotation Encoder (REV Through-Bore Encoder V1, REV-11-1271)</b>:
  *         Expansion Hub Quadrature Port 1 (8192 CPR, geared 108T Turret : 40T Encoder = 2.7x faster).
  *         Read via Motor Port 1 {@code DcMotorEx} encoder channel.
  *         Config name: {@code "turret_encoder"}.</li>
  *     <li><b>Turret Pitch / Hood Servo (1x Axon MAX+, Servo Mode, 2:1 linkage with hood angle)</b>:
- *         Expansion Hub Servo Port 0 (powered via goBILDA 6V Distribution Block).
+ *         Expansion Hub Servo Port 0 (powered via goBILDA 6V Servo Power Injector 3125-0001-0001).
  *         Home is {@code 0.5}, the highest launch angle (+15 deg above horizontal).
  *         Counter-clockwise servo travel lowers launch angle to -15 deg (30 deg hood travel).
  *         Config name: {@code "turret_pitch"}.</li>
@@ -169,12 +169,10 @@ public class TurretSubsystem {
     public static final double HIVE_OPENING_PEAK_HEIGHT_IN = 14.0;
     public static final double HIVE_MOUTH_BOTTOM_Z_IN = 53.5;
 
-    // Raised Hive Cell opening center offset from Hive pivot:
-    // Along cell axis a2 = 18.84/2 + 12.04 = 21.46 in at 30 deg tilt:
-    // Mouth bottom is at (y = +/- 14.23 in, z = 53.50 in);
-    // Opening center (~7.0 in up the 30 deg mouth plane) is at (y = +/- 17.73 in, z = 59.56 in).
+    // Legacy raised opening Y offset still needs confirmation; do not infer tag positions from it.
+    // Height now uses the team's confirmed opening-center height, independently of legacy tilt math.
     public static final double HIVE_RAISED_MOUTH_CENTER_Y_OFFSET_IN = 17.73;
-    public static final double HIVE_RAISED_MOUTH_CENTER_Z_IN = 59.56;
+    public static final double HIVE_RAISED_MOUTH_CENTER_Z_IN = ShootingConfiguration.HIGH_GOAL_CENTER_HEIGHT_METERS / .0254;
     public static final double GOAL_TARGET_HEIGHT_INCHES = HIVE_RAISED_MOUTH_CENTER_Z_IN;
 
     // BIOBUZZ AprilTag IDs on each Hive Cell (4-tag clusters on the underside of each cell):
@@ -247,14 +245,19 @@ public class TurretSubsystem {
         limelight = enableVision ? tryGetDevice(hardwareMap, Limelight3A.class,
                 HW_LIMELIGHT, "limelight3a") : null;
 
-        configureServos();
-        configureShooterMotor();
-        // Intake owns the shared encoder channel mode/direction; do not configure/reset it here.
-        configureLimelight();
+        try {
+            configureServos();
+            configureShooterMotor();
+            // Intake owns the shared encoder channel mode/direction; do not configure/reset it here.
+            configureLimelight();
 
-        // Begin travel now; update during INIT and after an early START.
-        homeTurretAndZeroEncoder();
-        setPitchAngleDegrees(PITCH_HOME_DEG);
+            // Begin travel now; update during INIT and after an early START.
+            homeTurretAndZeroEncoder();
+            setPitchAngleDegrees(PITCH_HOME_DEG);
+        } catch (RuntimeException failure) {
+            try { stop(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            throw failure;
+        }
     }
 
     // =========================================================================
@@ -321,9 +324,9 @@ public class TurretSubsystem {
                 ROTATION_MIN_ANGLE_DEG - targetYawDeg, ROTATION_MAX_ANGLE_DEG - targetYawDeg);
         if (homing.ready()) {
             setRawRotationServoPosition(angleDegreesToRotationServoPos(clampYawAngle(targetYawDeg + encoderTrimDeg)));
-        } else {
+        } else if (homing.commandsHome()) {
             setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
-        }
+        } // UNHOMED / FAULT retain the last bounded command; only explicit home moves home.
         cachedResult = limelight == null ? null : limelight.getLatestResult();
         cachedTag = null;
         if (cachedResult != null && cachedResult.isValid() && cachedResult.getStaleness() >= 0
@@ -361,7 +364,9 @@ public class TurretSubsystem {
     }
     public boolean isEncoderCorrectionEnabled() { return encoderCorrectionEnabled; }
     public void setRawRotationServoPosition(double pos) {
-        lastCommandedRotationServoPos = Range.clip(pos, 0, 1);
+        if (!Double.isFinite(pos)) return;
+        lastCommandedRotationServoPos = Range.clip(pos, angleDegreesToRotationServoPos(ROTATION_MIN_ANGLE_DEG),
+                angleDegreesToRotationServoPos(ROTATION_MAX_ANGLE_DEG));
         rotationServo1.setPosition(lastCommandedRotationServoPos); rotationServo2.setPosition(lastCommandedRotationServoPos);
     }
     public double getLastCommandedRotationServoPos() { return lastCommandedRotationServoPos; }
@@ -382,7 +387,9 @@ public class TurretSubsystem {
         return LAUNCH_HOME_ANGLE_DEG - Range.clip(hoodTravelDeg, PITCH_MIN_DEG, PITCH_MAX_DEG);
     }
     public void setRawPitchServoPosition(double pos) {
-        lastCommandedPitchServoPos = Range.clip(pos, 0, 1); pitchServo.setPosition(lastCommandedPitchServoPos);
+        if (!Double.isFinite(pos)) return;
+        lastCommandedPitchServoPos = Range.clip(pos, pitchDegreesToServoPos(PITCH_MAX_DEG), PITCH_HOME_SERVO_POS);
+        pitchServo.setPosition(lastCommandedPitchServoPos);
     }
     public double getLastCommandedPitchServoPos() { return lastCommandedPitchServoPos; }
     public static double pitchDegreesToServoPos(double deg) {
@@ -429,10 +436,9 @@ public class TurretSubsystem {
     public static double normalizeAngleDegrees(double deg) { return Math.toDegrees(RobotMath.wrap(Math.toRadians(deg))); }
     public void setLimelightPipeline(int pipeline) { if (limelight != null) limelight.pipelineSwitch(pipeline); }
     public void setAllServosToZeroPosition() {
-        homing.invalidate(); control.reset(); encoderCorrectionEnabled = false;
-        targetPitchDeg = 0; setRawRotationServoPosition(.5); setRawPitchServoPosition(.5);
+        homeTurretAndZeroEncoder(); setPitchAngleDegrees(PITCH_HOME_DEG);
     }
-    public void stop() { stopShooter(); if (limelight != null) limelight.stop(); }
+    public void stop() { homing.invalidate(); control.reset(); RobotShutdown.stopAll(this::stopShooter, limelight == null ? null : limelight::stop); }
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Turret home", getHomingStatus());
         if (visionEnabled) {
@@ -448,38 +454,15 @@ public class TurretSubsystem {
     }
 
     private Servo getTurretServo(HardwareMap hwMap, int expectedPort, String... candidateNames) {
-        Servo namedServo = tryGetDevice(hwMap, Servo.class, candidateNames);
-        if (namedServo != null) {
-            return namedServo;
-        }
-
-        Servo portMatch = null;
-        for (Servo candidate : hwMap.getAll(Servo.class)) {
-            if (candidate.getPortNumber() == expectedPort) {
-                if (portMatch != null) {
-                    throw new IllegalStateException("More than one Servo is configured on port "
-                            + expectedPort + "; name the turret servo " + candidateNames[0]
-                            + " so HardwareMap selection is unambiguous.");
-                }
-                portMatch = candidate;
+        return NamedHardware.require(name -> hwMap.tryGet(Servo.class,name), () -> {
+            StringBuilder configured = new StringBuilder("Expected Expansion Hub port " + expectedPort + "; inventory: ");
+            for (Servo candidate : hwMap.getAll(Servo.class)) {
+                configured.append(hwMap.getNamesOf(candidate)).append(" [")
+                        .append(candidate.getController().getConnectionInfo()).append(", port ")
+                        .append(candidate.getPortNumber()).append("]; ");
             }
-        }
-        if (portMatch != null) {
-            return portMatch;
-        }
-
-        StringBuilder configured = new StringBuilder();
-        for (Servo candidate : hwMap.getAll(Servo.class)) {
-            if (configured.length() > 0) {
-                configured.append(", ");
-            }
-            configured.append(hwMap.getNamesOf(candidate))
-                    .append(" [").append(candidate.getController().getConnectionInfo())
-                    .append(", port ").append(candidate.getPortNumber()).append("]");
-        }
-        throw new IllegalArgumentException("No configured Servo named " + candidateNames[0]
-                + " or on expected port " + expectedPort
-                + ". Configured servos: " + (configured.length() == 0 ? "none" : configured));
+            return configured.toString();
+        }, candidateNames);
     }
 
     private <T> T getDevice(HardwareMap hwMap, Class<T> clazz, String... candidateNames) {
