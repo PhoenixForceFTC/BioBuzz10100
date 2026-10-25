@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-/** Turret-only diagnostic. A rehomes; B toggles trim; X invalidates home with a diagnostic zero.
+/** Turret-only diagnostic. A rehomes; B toggles encoder backup; X invalidates home with a diagnostic zero.
  * Y explicitly requests home. RS-X is degrees/second. Dpad adjusts hood; RB spins the flywheel.
  * No Limelight or odometry is initialized; automatic aiming belongs in Test: Auto Aim.
  */
@@ -20,7 +20,7 @@ public class TurretTestOpMode extends LinearOpMode {
         telemetry.addLine("Manual Turret Standalone Test Initialized");
         telemetry.addLine("Home = All 3 Servos at 0.5 (Turret heading 90 deg Right, Launch +15 deg) | Left 265..275 deg excluded");
         telemetry.addLine("RS-X = Rotate | Dpad Up/Dn = Raise/Lower Launch (+15..-15 deg) | RB = Shooter");
-        telemetry.addLine("A = Home (All 0.5) & Zero Enc | B = Toggle Enc Trim | X = Zero Enc Here | Y = Request Home (bounded)");
+        telemetry.addLine("A = Home (All 0.5) & Zero Enc | B = Toggle Encoder Backup | X = Zero Enc Here | Y = Request Home (bounded)");
         turret.addTelemetry(telemetry);
         loop.addTelemetry(telemetry); telemetry.update();
 
@@ -67,7 +67,7 @@ public class TurretTestOpMode extends LinearOpMode {
                     turret.setPitchAngleDegrees(TurretSubsystem.PITCH_HOME_DEG);
                 }
 
-                // B: Toggle Through-Bore Encoder closed-loop position trim
+                // B: Toggle Through-Bore Encoder backup position correction
                 if (curB && !prevB) {
                     turret.setEncoderCorrectionEnabled(!turret.isEncoderCorrectionEnabled());
                 }
@@ -115,7 +115,7 @@ public class TurretTestOpMode extends LinearOpMode {
                     } else {
                         turret.stopShooter();
                     }
-                    telemetry.addData("Mode", "MANUAL (EncTrim: %s)",
+                    telemetry.addData("Mode", "MANUAL (Encoder Backup: %s)",
                             turret.isEncoderCorrectionEnabled() ? "ON" : "OFF");
                 }
 

@@ -306,7 +306,6 @@ public class TurretSubsystem {
         targetYawDeg = 0; control.reset();
         double now = System.nanoTime() * 1e-9;
         homing.start(now);
-        control.resetYawCommand(now, ROTATION_HOME_ANGLE_DEG);
         setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
     }
     /** Diagnostic relative zero deliberately invalidates automatic firing until rehomed. */
@@ -321,14 +320,12 @@ public class TurretSubsystem {
         boolean wasReady = homing.ready();
         homing.update(now, rawTicks, rawTicks / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN);
         if (!wasReady && homing.ready()) encoderZeroOffsetTicks = homing.zeroTicks();
-        encoderTrimDeg = control.update(now, targetYawDeg - getEncoderAngleDegrees(), encoderVelocity,
-                homing.ready() && encoderCorrectionEnabled, targetPitchDeg,
-                ROTATION_MIN_ANGLE_DEG - targetYawDeg, ROTATION_MAX_ANGLE_DEG - targetYawDeg);
+        double commandedYawDeg = control.updateYawCommand(now, targetYawDeg, getEncoderAngleDegrees(), encoderVelocity,
+                homing.ready() && encoderCorrectionEnabled, targetPitchDeg);
+        encoderTrimDeg = control.getYawTrimDegrees();
         if (homing.ready()) {
-            double commandedYawDeg = control.limitYawCommand(now, clampYawAngle(targetYawDeg + encoderTrimDeg));
             setRawRotationServoPosition(angleDegreesToRotationServoPos(commandedYawDeg));
         } else if (homing.commandsHome()) {
-            control.resetYawCommand(now, ROTATION_HOME_ANGLE_DEG);
             setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
         } // UNHOMED / FAULT retain the last bounded command; only explicit home moves home.
         cachedResult = limelight == null ? null : limelight.getLatestResult();
@@ -450,7 +447,9 @@ public class TurretSubsystem {
             telemetry.addData("Selected goal", "%s / %s | tag %d", activeAlliance, activeHiveSide, cachedTag == null ? -1 : cachedTag.getFiducialId());
         }
         telemetry.addData("Turret robot heading (deg CW)", "%.2f / %.2f | rate %.1f deg/s", getRobotHeadingDegrees(), getTargetRobotHeadingDegrees(), -encoderVelocity);
-        telemetry.addData("Turret encoder PID correction (deg CCW)", encoderTrimDeg);
+        telemetry.addData("Turret encoder backup", !encoderCorrectionEnabled ? "DISABLED"
+                : !isHomed() ? "WAITING FOR HOME" : control.isBackupCorrectionActive() ? "RECOVERING" : "MONITORING");
+        telemetry.addData("Turret encoder backup correction (deg CCW)", encoderTrimDeg);
         telemetry.addData("Hood command (deg)", "%.2f | estimated tracking %s (no feedback)", targetPitchDeg, isHoodTracking());
         telemetry.addData("Launch elevation command (deg above horizontal)", hoodTravelToLaunchAngleDegrees(targetPitchDeg));
         telemetry.addData("Flywheel (RPM)", "%.0f / %.0f", currentRpm, targetShooterRpm);

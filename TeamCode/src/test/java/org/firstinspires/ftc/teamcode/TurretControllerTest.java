@@ -4,68 +4,120 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class TurretControllerTest {
-    @Test public void yawCommandRampsThroughRepeatedDirectionChangesAtDifferentLoopRates() {
+    @Test public void directYawCommandsAndReversalsHaveNoArtificialRamp() {
         for (int hz : new int[] { 10, 50, 100 }) {
             TurretControl c = new TurretControl();
-            c.resetYawCommand(0, 0);
-            double previousPosition = 0, previousVelocity = 0, previousAcceleration = 0;
             double dt = 1.0 / hz;
             for (int i = 1; i <= hz * 5; i++) {
-                // Swap the full target plus trim every half second, as with rapid stick reversals.
                 double target = ((i - 1) / (hz / 2)) % 2 == 0 ? 160 : -160;
-                double position = c.limitYawCommand(i * dt, target);
-                double velocity = (position - previousPosition) / dt;
-                double acceleration = (velocity - previousVelocity) / dt;
-                assertTrue(Math.abs(acceleration)
-                        <= TurretControl.YAW_COMMAND_MAX_ACCELERATION_DEG_PER_SECOND_SQUARED + 1e-7);
-                assertTrue(Math.abs(acceleration - previousAcceleration) / dt
-                        <= TurretControl.YAW_COMMAND_MAX_JERK_DEG_PER_SECOND_CUBED + 1e-6);
-                previousPosition = position; previousVelocity = velocity; previousAcceleration = acceleration;
+                assertEquals(target, c.updateYawCommand(i * dt, target, 0, 100, true, 0), 0);
+                assertFalse(c.isBackupCorrectionActive());
             }
         }
     }
-    @Test public void yawCommandCanExceedTheRemovedSpeedCapOnALongSweep() {
-        TurretControl c = new TurretControl(); c.resetYawCommand(0, -160);
-        double previousPosition = -160, peakVelocity = 0;
+    @Test public void normalHoldNoiseAndSmallPositionErrorDoNotEngageBackup() {
+        TurretControl c = new TurretControl();
+        for (int i = 0; i < 500; i++) {
+            assertEquals(90, c.updateYawCommand(i * .02, 90, 90 + (i % 2 == 0 ? .8 : -.8), 2, true, 0), 0);
+            assertFalse(c.isBackupCorrectionActive());
+        }
+    }
+    @Test public void backupRequiresPersistentSameDirectionErrorAtAStationaryTarget() {
+        TurretControl c = new TurretControl();
+        assertEquals(90, c.updateYawCommand(0, 90, 88, 0, true, 0), 0);
+        assertEquals(90, c.updateYawCommand(.2, 90, 88, 0, true, 0), 0);
+        // An error reversal and then a moving turret each restart qualification.
+        assertEquals(90, c.updateYawCommand(.26, 90, 92, 0, true, 0), 0);
+        assertEquals(90, c.updateYawCommand(.4, 90, 92, -10, true, 0), 0);
+        assertEquals(90, c.updateYawCommand(.5, 90, 88, 0, true, 0), 0);
+        assertEquals(90, c.updateYawCommand(.74, 90, 88, 0, true, 0), 0);
+        assertTrue(c.updateYawCommand(.76, 90, 88, 0, true, 0) > 90);
+        assertTrue(c.isBackupCorrectionActive());
+    }
+    @Test public void changingTargetsCannotQualifyBackupEvenWithSlowEncoderMotion() {
+        TurretControl c = new TurretControl();
+        for (int i = 0; i < 100; i++) {
+            double target = i;
+            assertEquals(target, c.updateYawCommand(i * .02, target, target - 2, 0, true, 0), 0);
+            assertFalse(c.isBackupCorrectionActive());
+        }
+    }
+    @Test public void backupPausesDuringRecoveryMotionThenHoldsTheCorrectedCommand() {
+        TurretControl c = new TurretControl();
+        c.updateYawCommand(0, 90, 88, 0, true, 0);
+        double corrected = c.updateYawCommand(.26, 90, 88, 0, true, 0);
+        assertTrue(corrected > 90);
+        assertEquals(corrected, c.updateYawCommand(.28, 90, 89, 10, true, 0), 0);
+        assertEquals(corrected, c.updateYawCommand(.3, 90, 90, 0, true, 0), 0);
+        assertFalse(c.isBackupCorrectionActive());
+        assertEquals(corrected, c.updateYawCommand(.6, 90, 90.2, 1, true, 0), 0);
+        // Preserve the learned offset on a new move, without further feedback during that move.
+        assertEquals(corrected - 90, c.updateYawCommand(.62, 0, 80, -100, true, 0), 1e-8);
+        assertEquals(0, c.updateYawCommand(.64, 0, 80, -100, false, 0), 0);
+        assertEquals(0, c.getYawTrimDegrees(), 0);
+        assertFalse(c.isBackupCorrectionActive());
+        assertEquals(0, c.updateYawCommand(.66, 0, 0, 0, true, 0), 0);
+    }
+    @Test public void largeOrFastMovesCannotWindUpTheHoldIntegrator() {
+        for (int hz : new int[] { 50, 100 }) {
+            TurretControl c = new TurretControl();
+            for (int i = 0; i <= hz * 5; i++) {
+                assertEquals(90, c.updateYawCommand(i / (double) hz, 90, 0, 50, true, 0), 0);
+            }
+            assertEquals(0, c.getYawTrimDegrees(), 0);
+            c.reset();
+            for (int i = 0; i <= hz * 5; i++) {
+                c.update(5 + i / (double) hz, 2, 50, true, 0, -25, 25);
+            }
+            assertEquals(-TurretControl.YAW_KD_SECONDS * 10,
+                    c.update(10.02, 0, 10, true, 0, -25, 25), 1e-8);
+        }
+    }
+    @Test public void servoResponseWithPositionBiasSettlesWithoutCommandHunting() {
+        // Synthetic internal servo response: 120 ms time constant, 300 deg/s limit, signed bias.
+        // This verifies feedback behavior, not the loaded robot's physical settling time.
+        for (int hz : new int[] { 50, 100 }) {
+            for (double bias : new double[] { -8, -1.5, 1.5, 8 }) {
+                TurretControl c = new TurretControl();
+                double position = 0, velocity = 0, command = 0, heldCommand = Double.NaN;
+                double dt = 1.0 / hz;
+                for (int i = 0; i <= hz * 25; i++) {
+                    command = c.updateYawCommand(i * dt, 90, position, velocity, true, 0);
+                    velocity = RobotMath.clip((command - bias - position) / .12, 300);
+                    position += velocity * dt;
+                    if (i == hz * 20) heldCommand = command;
+                    if (i > hz * 20) assertEquals(heldCommand, command, 1e-8);
+                }
+                assertEquals(90, position, TurretControl.TRIM_DEADBAND_DEG);
+                assertEquals(0, velocity, 1e-8);
+            }
+        }
+    }
+    @Test public void settledEncoderNoiseKeepsTheSuccessfulServoCommand() {
+        TurretControl c = new TurretControl();
+        double trim = c.update(0, 1, true, 0);
+        assertTrue(trim > 0);
         for (int i = 1; i <= 500; i++) {
-            double position = c.limitYawCommand(i * .02, 160);
-            peakVelocity = Math.max(peakVelocity, (position - previousPosition) / .02);
-            previousPosition = position;
+            double noise = i % 2 == 0 ? .3 : -.3;
+            assertEquals(trim, c.update(i * .02, noise, 2, true, 0, -25, 25), 0);
         }
-        assertTrue(peakVelocity > 180);
-        assertEquals(160, previousPosition, 1e-6);
+        assertTrue(c.update(10.02, -2, true, 0) < trim);
+        assertEquals(0, c.update(10.04, 0, false, 0), 0);
+        assertEquals(0, c.update(10.06, 0, true, 0), 0);
     }
-    @Test public void yawCommandSettlesAtTargetAndRespectsMechanicalLimits() {
-        TurretControl c = new TurretControl(); c.resetYawCommand(0, 0);
-        double position = 0;
-        for (int i = 1; i <= 500; i++) position = c.limitYawCommand(i * .02, 90);
-        assertEquals(90, position, 1e-6);
-        for (int i = 501; i <= 1000; i++) {
-            position = c.limitYawCommand(i * .02, 1000);
-            assertTrue(position <= TurretSubsystem.ROTATION_MAX_ANGLE_DEG);
-        }
-        for (int i = 1001; i <= 1500; i++) {
-            position = c.limitYawCommand(i * .02, -1000);
-            assertTrue(position >= TurretSubsystem.ROTATION_MIN_ANGLE_DEG);
-        }
-        assertEquals(TurretSubsystem.ROTATION_MIN_ANGLE_DEG, position, 0);
-    }
-    @Test public void pidResetPreservesYawRampAndDelayedUpdatesCannotJumpPosition() {
-        TurretControl c = new TurretControl(); c.resetYawCommand(0, 0);
-        double first = c.limitYawCommand(.02, 90);
+    @Test public void directYawAndTrimRespectBothTravelLimitsAndReset() {
+        TurretControl c = new TurretControl();
+        assertEquals(175, c.updateYawCommand(0, 1000, 0, 0, true, 0), 0);
+        assertEquals(-175, c.updateYawCommand(.02, -1000, 0, 0, true, 0), 0);
         c.reset();
-        double second = c.limitYawCommand(.04, 90);
-        TurretControl uninterrupted = new TurretControl(); uninterrupted.resetYawCommand(0, 0);
-        uninterrupted.limitYawCommand(.02, 90);
-        assertEquals(uninterrupted.limitYawCommand(.04, 90), second, 1e-8);
-        assertEquals(second, c.limitYawCommand(.04, -90), 0);
-        double velocity = (second - first) / .02;
-        double maxDt = TurretControl.MAX_UPDATE_SECONDS;
-        assertTrue(Math.abs(c.limitYawCommand(10, -90) - second)
-                <= (Math.abs(velocity) + TurretControl.YAW_COMMAND_MAX_ACCELERATION_DEG_PER_SECOND_SQUARED * maxDt) * maxDt);
-        c.resetYawCommand(11, 0);
-        assertEquals(0, c.limitYawCommand(11, 90), 0);
-        assertEquals(first, c.limitYawCommand(11.02, 90), 1e-8);
+        assertEquals(0, c.getYawTrimDegrees(), 0);
+        assertEquals(90, c.updateYawCommand(10, 90, 90, 0, true, 0), 0);
+    }
+    @Test public void delayedUpdatesCannotAccumulateMoreThanOneBoundedIntegralStep() {
+        TurretControl delayed = new TurretControl(), regular = new TurretControl();
+        delayed.update(0, 2, true, 0); regular.update(0, 2, true, 0);
+        assertEquals(regular.update(TurretControl.MAX_UPDATE_SECONDS, 2, true, 0),
+                delayed.update(10, 2, true, 0), 1e-8);
     }
     @Test public void zeroIsCapturedOnlyAfterTravelAndStableWindowEvenIfStartIsEarly() {
         TurretHomingController h = new TurretHomingController(1, .3, 4, .2);
@@ -150,15 +202,22 @@ public class TurretControllerTest {
     }
     @Test public void pidRespondsImmediatelyDampsMotionAndDoesNotWindUpAtLimits() {
         TurretControl c = new TurretControl();
-        assertEquals(2.5, c.update(0, 10, 0, true, 0, -25, 25), 1e-8);
-        assertTrue(c.update(.02, 10, 50, true, 0, -25, 25) < 2.5);
+        double proportional = TurretControl.YAW_KP * (10 - TurretControl.TRIM_DEADBAND_DEG);
+        assertEquals(proportional, c.update(0, 10, 0, true, 0, -25, 25), 1e-8);
+        assertTrue(c.update(.02, 10, 50, true, 0, -25, 25) < proportional);
         c.reset();
         for (int i = 2; i < 500; i++) {
-            assertEquals(0, c.update(i * .02, 20, 0, true, 0, -25, 0), 1e-8);
+            // Settled error qualifies for integration, but the travel limit must block accumulation.
+            assertEquals(0, c.update(i * .02, 2, 0, true, 0, -25, 0), 1e-8);
         }
         assertTrue(c.update(10, -1, 0, true, 0, -25, 0) < 0);
         assertEquals(0, c.update(10.02, 100, 0, false, 0, -25, 25), 1e-8);
         assertEquals(0, c.update(10.04, 0, 0, true, 0, -25, 25), 1e-8);
+        c.reset();
+        for (int i = 0; i < 500; i++) {
+            assertEquals(0, c.update(11 + i * .02, -2, 0, true, 0, 0, 25), 1e-8);
+        }
+        assertTrue(c.update(21, 1, 0, true, 0, 0, 25) > 0);
     }
     @Test public void hoodHomeIsHighestAndCounterclockwiseTravelLowersLaunchAngle() {
         assertEquals(15, TurretSubsystem.hoodTravelToLaunchAngleDegrees(0), 0);

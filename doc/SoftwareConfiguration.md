@@ -111,13 +111,19 @@ JUnit tests cover homing travel/stability/timeout/rehome, loop-rate independence
 
 Keep using isolated mechanism tests before combined operation. Compensated aiming diagnostics in competition TeleOp require drivetrain/Pinpoint, turret/Limelight, gate and transfer hardware. Physical measurements and moving-shot accuracy checks remain the separate dependencies listed in `SoftwareImplementationPlan.md`.
 
-### Turret manual hold and external encoder PID
+### Turret manual hold and external encoder backup
 
 Auto-aim uses the same shared `TurretControl.MAX_YAW_DEG_PER_SECOND` (521.74 deg/s at 6 V with 1:1 gearing) as manual control for its slew and tracking feasibility checks. Positional commands go directly to the target without an additional software speed cap; feeding still waits for measured yaw/rate readiness.
 
 GP2 right-stick X sets proportional clockwise yaw speed, up to the Axon MAX+ 6 V rating of 60/0.115 = 521.74 deg/s at full stick with 1:1 gearing. Releasing the stick captures the measured encoder angle as the hold target, discarding queued manual travel. GP1 RT overrides GP2 yaw and rehome; releasing RT hands control back at the measured angle. Both rotation servos always receive the same position command.
 
-The positional servo mapping supplies feedforward; external encoder PID adds bounded correction with measured-velocity damping and anti-windup at correction/travel limits. Gains in `TurretControl` are initial values requiring loaded-robot tuning; the speed rating is not a measured loaded speed. Without shot calibration, fresh selected-hive tags can still be tracked in yaw, once per camera frame; automatic firing remains inhibited. This fallback centers the selected tag, not a calibrated opening offset.
+The positional servos' internal feedback handles normal travel and holding. The Through-Bore encoder continues reporting actual position and velocity for telemetry, aiming and firing readiness. External correction is a backup: an error greater than 1 degree must persist in the same direction for 250 ms at an unchanged target with measured turret speed no higher than 3 deg/s. Target changes, faster motion, or an error returning within 1 degree restart qualification. Ordinary encoder noise and normal travel do not add live PID correction.
+
+Once qualified, backup PID adjusts the bounded offset only while measured motion is slow; it pauses adjustment during recovery motion. It returns to monitoring within the 0.35-degree hold deadband, retaining the successful offset as a fixed position correction, including on later moves. Disabling backup or explicitly resetting trim clears that offset. Integral correction accumulates only during qualified, slow recovery, with anti-windup at correction/travel limits; total correction remains limited to +/-25 degrees. Telemetry distinguishes MONITORING, RECOVERING, DISABLED and WAITING FOR HOME. Gains and thresholds in `TurretControl` require loaded-robot tuning; desktop tests do not establish physical settling time. The encoder verifies position but cannot prove an absolute home or independently detect every encoder failure.
+
+Without shot calibration, fresh selected-hive tags can still be tracked in yaw, once per camera frame; automatic firing remains inhibited. This fallback centers the selected tag, not a calibrated opening offset.
+
+The October 25 port uses the direct, identical position commands demonstrated by `master` commit `6c475c2` (`basicTurretAim`). That commit has no external-encoder PID; its physical hold uses the positional servos' internal feedback. V1 retains its Through-Bore correction, time-based proportional joystick input, measured-angle capture on release, homing, and +/-175-degree travel bounds. The acceleration/jerk ramp introduced in V1 commit `fed0bd5` has been removed so it cannot delay either a destination or an encoder correction. Validate release, reversals and loaded settling with `Test: Turret` (B compares correction on/off); desktop feedback tests do not establish robot settling time.
 
 ### Turret and Limelight mounting
 
