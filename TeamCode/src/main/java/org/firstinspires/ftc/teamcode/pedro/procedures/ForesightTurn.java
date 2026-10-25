@@ -1,27 +1,32 @@
 package org.firstinspires.ftc.teamcode.pedro.procedures;
 
 import com.pedropathing.api.PoseFactory;
+import com.pedropathing.controllers.Controller;
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.drivetrain.Drivetrain;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
+import com.pedropathing.math.Vector2D;
 import com.pedropathing.utils.Angle;
 import com.pedropathing.utils.Utils;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.pedro.Constants;
+
 /**
  * In-place turn using Pedro's Foresight heading law (the same one ForesightTuner uses):
  *
- *   power = headingKP * (remainingAngle - predictedBrakingAngle(omega))
+ *   power = headingFeedback(remainingAngle - predictedBrakingAngle(omega))
  *   predictedBrakingAngle = linear * omega + quadratic * omega^2 * sign(omega)
  *
- * The coefficients are the ones the Foresight Tuner measured on this robot. The robot
- * spins at up to `speed` power, brakes when its own braking data says to, then hands
- * off to follower.hold() for the final settle and x/y correction. Heading is tracked
- * unwrapped, so turns larger than 180 degrees go the way you ask.
+ * By default the heading feedback and braking coefficients are read at runtime from
+ * Constants.foresightConfig, so re-running the Foresight Tuner updates turns too.
+ * The robot spins at up to `speed` power, brakes when its own braking data says to,
+ * then hands off to follower.hold() for the final settle and x/y correction. Heading
+ * is tracked unwrapped, so turns larger than 180 degrees go the way you ask.
  *
  * Usage:
- *   ForesightTurn turn = new ForesightTurn(follower, drivetrain, kP, linear, quadratic);
+ *   ForesightTurn turn = new ForesightTurn(follower);   // after Constants.create(hardwareMap)
  *   turn.start(90, 0.5);          // 90 deg left (negative = right), half power
  *   // every loop, after follower.update():
  *   turn.update();
@@ -45,7 +50,7 @@ public class ForesightTurn {
 
     private final Follower follower;
     private final Drivetrain drivetrain;
-    private final double headingKP;
+    private final Controller headingFeedback;   // heading error (rad) -> turn power
     private final double headingBrakeLinear;
     private final double headingBrakeQuadratic;
     private final PoseFactory p = PoseFactory.degrees();
@@ -63,18 +68,48 @@ public class ForesightTurn {
     private final ElapsedTime loopTimer = new ElapsedTime();
 
     /**
-     * @param drivetrain            the same drivetrain your Constants gives the Follower
-     * @param headingKP             Foresight Tuner "heading kP"
-     * @param headingBrakeLinear    Foresight Tuner "headingBrakingLinearCoefficient"
-     * @param headingBrakeQuadratic Foresight Tuner "headingBrakingQuadraticCoefficient"
+     * Uses Constants.drivetrain and reads heading feedback and braking coefficients
+     * from Constants.foresightConfig. Call Constants.create(hardwareMap) first.
      */
-    public ForesightTurn(Follower follower, Drivetrain drivetrain,
+    public ForesightTurn(Follower follower) {
+        this(follower, drivetrainFromConstants(),
+                Constants.foresightConfig.headingFeedback.get(),
+                brakeCoefficientsFromConfig().x(),   // cartesian(linear, quadratic): x = linear
+                brakeCoefficientsFromConfig().y());  //                              y = quadratic
+    }
+
+    /**
+     * Explicit values, for experimenting without editing Constants.
+     * @param headingKP             heading gain (power per radian of error)
+     * @param headingBrakeLinear    linear braking coefficient
+     * @param headingBrakeQuadratic quadratic braking coefficient
+     */
+    public ForesightTurn(Follower follower,
                          double headingKP, double headingBrakeLinear, double headingBrakeQuadratic) {
+        this(follower, drivetrainFromConstants(), Controller.proportional(headingKP),
+                headingBrakeLinear, headingBrakeQuadratic);
+    }
+
+    private ForesightTurn(Follower follower, Drivetrain drivetrain, Controller headingFeedback,
+                          double headingBrakeLinear, double headingBrakeQuadratic) {
         this.follower = follower;
         this.drivetrain = drivetrain;
-        this.headingKP = headingKP;
+        this.headingFeedback = headingFeedback;
         this.headingBrakeLinear = headingBrakeLinear;
         this.headingBrakeQuadratic = headingBrakeQuadratic;
+    }
+
+    /** The drivetrain Constants.create() built for the Follower, so both share one object. */
+    private static Drivetrain drivetrainFromConstants() {
+        if (Constants.drivetrain == null) {
+            throw new IllegalStateException(
+                    "Constants.drivetrain is null. Call Constants.create(hardwareMap) before creating ForesightTurn.");
+        }
+        return Constants.drivetrain;
+    }
+
+    private static Vector2D brakeCoefficientsFromConfig() {
+        return Constants.foresightConfig.headingBrakeCoefficients.get();
     }
 
     /**
@@ -95,6 +130,7 @@ public class ForesightTurn {
         target = Math.toRadians(degrees);
         this.speed = Math.max(MIN_SPEED, Math.min(1.0, speed));
         omega = 0;
+        headingFeedback.reset();   // clears any stored state (matters for PID-style controllers)
 
         // Generous upper bound: a stuck turn ends instead of running forever.
         timeout = 2.0 + Math.abs(degrees) / (90.0 * this.speed);
@@ -153,7 +189,10 @@ public class ForesightTurn {
         // Foresight heading law: aim at where the robot will actually stop, given its speed.
         double brakingAngle = headingBrakeLinear * omega
                 + headingBrakeQuadratic * omega * omega * Math.signum(omega);
-        double power = Utils.clamp(headingKP * (remaining - brakingAngle), -speed, speed);
+        // Controller.calculate(target, error). A proportional controller only uses the error.
+        double power = Utils.clamp(
+                headingFeedback.calculate(startHeading + target, remaining - brakingAngle),
+                -speed, speed);
 
         drivetrain.drive(new DrivePowers(0.0, 0.0, power), false);
     }

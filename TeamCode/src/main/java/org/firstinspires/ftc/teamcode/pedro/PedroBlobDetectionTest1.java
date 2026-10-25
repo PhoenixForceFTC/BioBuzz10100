@@ -23,7 +23,7 @@ import java.util.List;
 @Autonomous(name = "blob detection 1")
 public class PedroBlobDetectionTest1 extends OpMode {
 
-    int dilateSize = 15; int erodeSize = 15; double circularity = 0.4;
+    int dilateSize = 15; int erodeSize = 15; double circularity = 0.2;
     boolean ballFound = false;
 
     private Follower follower;
@@ -63,7 +63,7 @@ public class PedroBlobDetectionTest1 extends OpMode {
                 .build();
 
         // AUTOMATIC is the default: each move starts when the last one finishes.
-        driver.turn(359, AutoDriver.Direction.LEFT, 10);    // turn 360 deg
+        driver.turn(359, AutoDriver.Direction.LEFT, 0.7);    // turn 360 deg
 
         // For MANUAL mode instead:
         // driver.setMode(AutoDriver.Mode.MANUAL);
@@ -90,7 +90,7 @@ public class PedroBlobDetectionTest1 extends OpMode {
 
         if(!ballFound){
             for(ColorBlobLocatorProcessor.Blob b : blobs){
-                if (b.getCircle().getRadius() > 30){
+                if (b.getCircle().getRadius() > 10){
                     driver.stopAll();
                     Pose currentPose = driver.getPose();
 

@@ -47,6 +47,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
  */
 public class Constants {
 
+    public static Mecanum drivetrain;
+
 
     // =====================================================================
     // 1. DRIVETRAIN CONFIG (Mecanum)
@@ -163,7 +165,7 @@ public class Constants {
     // Call Constants.create(hardwareMap) from your OpModes.
     public static Follower create(HardwareMap h) {
         // The three parts you hand to the Follower.
-        Mecanum drivetrain = new Mecanum(h, drivetrainConfig);                   // how wheels are driven
+        drivetrain = new Mecanum(h, drivetrainConfig);                   // how wheels are driven
         PinpointLocalizer localizer = new PinpointLocalizer(h, localizerConfig); // where the robot is
         Foresight algorithm = new Foresight(foresightConfig);                    // how paths are followed
 

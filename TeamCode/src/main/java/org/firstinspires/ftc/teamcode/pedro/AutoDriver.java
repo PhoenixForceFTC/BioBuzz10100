@@ -5,6 +5,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
+import org.firstinspires.ftc.teamcode.pedro.procedures.ForesightTurn;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
@@ -13,16 +14,18 @@ import static com.pedropathing.api.Paths.*;
 /**
  * Queue of moves for a Pedro Pathing Follower.
  *
- *   driver.moveTo(20, 0, 0);                         // default speed
- *   driver.moveTo(20, 20, 90, 0.5);                  // half speed
- *   driver.turn(45, AutoDriver.Direction.LEFT);      // rotate 45 deg left, in place
+ *   driver.moveTo(20, 0, 0);                          // default speed
+ *   driver.moveTo(20, 20, 90, 0.5);                   // half speed
+ *   driver.turn(45, AutoDriver.Direction.LEFT);       // rotate 45 deg left, in place
+ *   driver.turn(359, AutoDriver.Direction.LEFT, 0.3); // slow full spin, one move
  *   // every loop(): driver.update();
  *
  * AUTOMATIC: starts the next queued move as soon as the current one finishes.
  * MANUAL:    queued moves only start when you call next().
  *
  * Positions are field coordinates in inches, rotation is in degrees.
- * Speed is a proportion (0 to 1) of the robot's max achievable path speed.
+ * Speed is a proportion (0 to 1) of full power.
+ * Turns are run by procedures/ForesightTurn.
  */
 public class AutoDriver {
 
@@ -30,12 +33,9 @@ public class AutoDriver {
 
     public enum Direction { LEFT, RIGHT }
 
-    /** A turn counts as finished once the heading is within this many degrees of the target. */
-    private static final double TURN_TOLERANCE_DEGREES = 2.0;
-
     private static class Move {
         final Pose target;          // for moveTo moves
-        final double speed;         // for moveTo moves
+        final double speed;         // moveTo: path speed; turn: max turn power
         final boolean isTurn;
         final double turnDegrees;   // for turns: positive = left (counter-clockwise)
 
@@ -50,29 +50,52 @@ public class AutoDriver {
             return new Move(target, speed, false, 0);
         }
 
-        static Move turn(double signedDegrees) {
-            return new Move(null, 1.0, true, signedDegrees);
+        static Move turn(double signedDegrees, double speed) {
+            return new Move(null, speed, true, signedDegrees);
         }
     }
 
     private final Follower follower;
+    private final ForesightTurn turner;
     private final PoseFactory p = PoseFactory.degrees();
     private final Queue<Move> queue = new ArrayDeque<>();
 
     private Mode mode = Mode.AUTOMATIC;
     private double defaultSpeed = 1.0;
+    private double defaultTurnSpeed = 1.0;
 
     private boolean moving = false;
     private boolean currentIsTurn = false;
-    private double currentTurnHeading = 0; // target heading of the running turn
 
+    /**
+     * Uses Constants.drivetrain and reads heading tuning from Constants.foresightConfig.
+     * Call Constants.create(hardwareMap) first.
+     */
     public AutoDriver(Follower follower) {
         this.follower = follower;
+        this.turner = new ForesightTurn(follower);
     }
+
+    /**
+     * Explicit heading tuning, for experimenting without editing Constants.
+     * @param headingKP             heading gain (power per radian of error)
+     * @param headingBrakeLinear    linear braking coefficient
+     * @param headingBrakeQuadratic quadratic braking coefficient
+     */
+//    public AutoDriver(Follower follower,
+//                      double headingKP, double headingBrakeLinear, double headingBrakeQuadratic) {
+//        this.follower = follower;
+//        this.turner = new ForesightTurn(follower,
+//                headingKP, headingBrakeLinear, headingBrakeQuadratic);
+//    }
 
     /** Call once per frame. Also runs follower.update(). */
     public void update() {
         follower.update();
+
+        if (moving && currentIsTurn) {
+            turner.update();
+        }
 
         if (moving && isCurrentDone()) {
             moving = false;
@@ -94,43 +117,31 @@ public class AutoDriver {
         return this;
     }
 
-    /**
-     * Queue an in-place turn, relative to the robot's heading at the moment the
-     * turn starts. LEFT is counter-clockwise, RIGHT is clockwise.
-     */
-    public AutoDriver turn(double degrees, Direction direction, int stepSize) {
-
-        double turndirection  = (direction == Direction.LEFT ? 1 : -1);
-        double remainingAngle = Math.abs(degrees);
-        while (remainingAngle > 0) {
-            double step = Math.min(stepSize, remainingAngle);
-            queue.add(Move.turn(step*turndirection));
-            remainingAngle -= stepSize;
-        }
-
-        double signed = Math.abs(degrees) * (direction == Direction.LEFT ? 1 : -1);
-        queue.add(Move.turn(signed));
-        return this;
+    /** Queue an in-place turn at the default turn speed. */
+    public AutoDriver turn(double degrees, Direction direction) {
+        return turn(degrees, direction, defaultTurnSpeed);
     }
 
-    public AutoDriver turn(double degrees, Direction direction) {
-
-        double turndirection  = (direction == Direction.LEFT ? 1 : -1);
-        double remainingAngle = Math.abs(degrees);
-        while (remainingAngle > 0) {
-            double step = Math.min(120, remainingAngle);
-            queue.add(Move.turn(step*turndirection));
-            remainingAngle -= 120;
-        }
-
+    /**
+     * Queue an in-place turn, relative to the robot's heading at the moment the
+     * turn starts. LEFT is counter-clockwise, RIGHT is clockwise. Any size works,
+     * including over 180 degrees. Speed is the maximum turning power (0.1 to 1).
+     */
+    public AutoDriver turn(double degrees, Direction direction, double speed) {
         double signed = Math.abs(degrees) * (direction == Direction.LEFT ? 1 : -1);
-        queue.add(Move.turn(signed));
+        queue.add(Move.turn(signed, clampTurn(speed)));
         return this;
     }
 
     /** Speed used by moveTo(x, y, rotation) for moves queued after this call. */
     public AutoDriver setDefaultSpeed(double speed) {
         this.defaultSpeed = clamp(speed);
+        return this;
+    }
+
+    /** Speed used by turn(degrees, direction) for turns queued after this call. */
+    public AutoDriver setDefaultTurnSpeed(double speed) {
+        this.defaultTurnSpeed = clampTurn(speed);
         return this;
     }
 
@@ -142,8 +153,13 @@ public class AutoDriver {
         Move move = queue.poll();
         if (move == null) return false;
 
+        if (moving && currentIsTurn) {
+            turner.stop();
+        }
+
         if (move.isTurn) {
-            startTurn(move);
+            currentIsTurn = true;
+            turner.start(move.turnDegrees, move.speed);
         } else {
             startMove(move);
         }
@@ -159,6 +175,9 @@ public class AutoDriver {
     /** Stop the current move only. In AUTOMATIC mode the next one then starts. */
     public AutoDriver stopCurrent() {
         if (moving) {
+            if (currentIsTurn) {
+                turner.stop();
+            }
             follower.stop();
             moving = false;
         }
@@ -174,6 +193,11 @@ public class AutoDriver {
     /** True if a move is running or any are queued. */
     public boolean isBusy() {
         return moving || !queue.isEmpty();
+    }
+
+    /** Current robot pose on the field, as tracked by the follower. Safe to call any time. */
+    public Pose getPose() {
+        return follower.pose();
     }
 
     // ------------------------------------------------------------------
@@ -192,35 +216,18 @@ public class AutoDriver {
         follower.follow(path);
     }
 
-    private void startTurn(Move move) {
-        currentIsTurn = true;
-
-        // Same x/y, heading rotated relative to where the robot is right now.
-        Pose now = follower.pose();
-        double targetDegrees = Math.toDegrees(now.heading()) + move.turnDegrees;
-        Pose target = p.of(now.x(), now.y(), targetDegrees);
-        currentTurnHeading = target.heading();
-
-        follower.hold(target);
-    }
-
     private boolean isCurrentDone() {
         if (currentIsTurn) {
-            // Judged by heading error rather than isBusy(), since a hold can report
-            // not-busy before the turn has actually finished.
-            double error = currentTurnHeading - follower.pose().heading();
-            error = Math.atan2(Math.sin(error), Math.cos(error)); // wrap to [-pi, pi]
-            return Math.abs(error) < Math.toRadians(TURN_TOLERANCE_DEGREES);
+            return turner.isDone();
         }
         return !follower.isBusy();
     }
 
-    /** Current robot pose on the field, as tracked by the follower. Safe to call any time. */
-    public Pose getPose() {
-        return follower.pose();
-    }
-
     private static double clamp(double speed) {
         return Math.max(0.0, Math.min(1.0, speed));
+    }
+
+    private static double clampTurn(double speed) {
+        return Math.max(ForesightTurn.MIN_SPEED, Math.min(1.0, speed));
     }
 }
