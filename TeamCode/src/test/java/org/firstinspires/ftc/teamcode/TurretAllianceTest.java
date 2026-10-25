@@ -37,7 +37,7 @@ public class TurretAllianceTest {
         assertEquals(0.5, GateSubsystem.CLOSED_ANGLE_DEG / GateSubsystem.SERVO_TRAVEL_DEG, 1e-9);
         assertEquals(-90.0, GateSubsystem.OPEN_ANGLE_DEG - GateSubsystem.CLOSED_ANGLE_DEG, 1e-9);
         assertEquals(0.2, GateSubsystem.OPEN_ANGLE_DEG / GateSubsystem.SERVO_TRAVEL_DEG, 1e-9);
-        assertEquals(com.qualcomm.robotcore.hardware.Servo.Direction.FORWARD, GateSubsystem.SERVO_DIRECTION);
+        assertEquals(com.qualcomm.robotcore.hardware.Servo.Direction.REVERSE, GateSubsystem.SERVO_DIRECTION);
     }
 
     @Test public void depollinatorDeploysClockwiseFromThirtyDegreeUpPosition() {

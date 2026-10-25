@@ -101,7 +101,7 @@ Implementation order: baseline → homing → geometry/profiles → pose/vision 
 
 ## Separate physical checks and measurements — recorded, not part of software work
 
-- Home alignment, servo directions/travel, encoder sign, mechanical limits, and realistic homing/settling times. Absolute home confirmation would require independent feedback beyond the current relative encoder.
+- [x] Turret physical checks: assembly/gear alignment, home alignment, servo directions/travel, encoder sign, mechanical limits, hood/flywheel operation and homing/settling behavior. Completed October 24, 2026 per operator confirmation after running `Test: Turret`; see [physical sign-off](HardwareReviewImplementationStatus.md#turret-physical-checks--complete-october-24-2026). Numerical timing calibration remains separate; absolute home confirmation would require independent feedback beyond the current relative encoder.
 - Actual camera-to-pivot, pivot-to-robot, and muzzle offsets; turret zero direction; tag-to-opening geometry and hive scoring states.
 - Measured stationary distance/hood/RPM profiles, flight times, launch consistency, gate travel, feed-to-exit delay, and flywheel recovery.
 - Camera intrinsics, mounting angle/height, lens distortion, pollen colors under field lighting, and pickup geometry.

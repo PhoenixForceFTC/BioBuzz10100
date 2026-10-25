@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
  *     <li><b>Transfer</b>: Stage 1 loads until full; stage 2 runs only during gate-open feeding; shots run both</li>
  *     <li><b>Full Queue</b>: Intake reverses after 2 seconds HIGH until GP1 right trigger is released</li>
  *     <li><b>Gamepad 2 Right Stick X</b>: Proportional clockwise turret speed, full stick = rated 6 V speed;
- *         release holds measured heading. Front=0, right/home=90, back=180, left=270 deg (260..280 excluded).</li>
+ *         release holds measured heading. Front=0, right/home=90, back=180, left=270 deg (265..275 excluded).</li>
  *     <li><b>Gamepad 2 D-Pad Up / Down</b>: Raise/lower launch elevation by 0.5 deg within -15..+15 deg when not auto-aiming</li>
  *     <li><b>Gamepad 2 Y / A</b>: Increase / decrease manual flywheel RPM by 50 within 0..6000 RPM when not auto-aiming</li>
  * </ul>

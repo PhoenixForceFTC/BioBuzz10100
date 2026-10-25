@@ -69,15 +69,15 @@ public class TurretSubsystem {
     // Robot headings are clockwise: front=0, right=90, back=180, left=270 deg.
     // Center (0.5) is home at robot heading 90 deg, internal servo-relative yaw 0 deg.
     // Internal yaw stays counterclockwise for field geometry; it is NOT a robot heading.
-    // Deadzone of +/-10 deg at the left (robot headings 260..280, internal yaw +/-180) prevents wire wrap
+    // Deadzone of +/-5 deg at the left (robot headings 265..275, internal yaw +/-180) prevents wire wrap
     // and keeps the servos safely away from the 0.0 / 1.0 PWM discontinuity.
     public static final double ROTATION_GEAR_RATIO = 1.0; // 1:1 servo-to-turret rotation
     public static final double ROTATION_HOME_SERVO_POS = 0.5;
     public static final double ROTATION_HOME_ROBOT_HEADING_DEG = 90.0;
     public static final double ROTATION_HOME_ANGLE_DEG = 0.0;
-    public static final double ROTATION_DEADZONE_HALF_DEG = 10.0; // +/- 10 deg deadzone on the left
-    public static final double ROTATION_MIN_ANGLE_DEG = -180.0 + ROTATION_DEADZONE_HALF_DEG; // -170.0 deg
-    public static final double ROTATION_MAX_ANGLE_DEG =  180.0 - ROTATION_DEADZONE_HALF_DEG; // +170.0 deg
+    public static final double ROTATION_DEADZONE_HALF_DEG = 5.0; // +/- 5 deg deadzone on the left
+    public static final double ROTATION_MIN_ANGLE_DEG = -180.0 + ROTATION_DEADZONE_HALF_DEG; // -175.0 deg
+    public static final double ROTATION_MAX_ANGLE_DEG =  180.0 - ROTATION_DEADZONE_HALF_DEG; // +175.0 deg
 
     // Set to -1.0 if positive angle commands move the turret in the opposite direction of encoder ticks
     public static final double ROTATION_SERVO_DIRECTION_SIGN = 1.0;
@@ -304,7 +304,9 @@ public class TurretSubsystem {
     /** Begins non-blocking estimated homing; zero is captured only after travel and stability. */
     public void homeTurretAndZeroEncoder() {
         targetYawDeg = 0; control.reset();
-        homing.start(System.nanoTime() * 1e-9);
+        double now = System.nanoTime() * 1e-9;
+        homing.start(now);
+        control.resetYawCommand(now, ROTATION_HOME_ANGLE_DEG);
         setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
     }
     /** Diagnostic relative zero deliberately invalidates automatic firing until rehomed. */
@@ -323,8 +325,10 @@ public class TurretSubsystem {
                 homing.ready() && encoderCorrectionEnabled, targetPitchDeg,
                 ROTATION_MIN_ANGLE_DEG - targetYawDeg, ROTATION_MAX_ANGLE_DEG - targetYawDeg);
         if (homing.ready()) {
-            setRawRotationServoPosition(angleDegreesToRotationServoPos(clampYawAngle(targetYawDeg + encoderTrimDeg)));
+            double commandedYawDeg = control.limitYawCommand(now, clampYawAngle(targetYawDeg + encoderTrimDeg));
+            setRawRotationServoPosition(angleDegreesToRotationServoPos(commandedYawDeg));
         } else if (homing.commandsHome()) {
+            control.resetYawCommand(now, ROTATION_HOME_ANGLE_DEG);
             setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
         } // UNHOMED / FAULT retain the last bounded command; only explicit home moves home.
         cachedResult = limelight == null ? null : limelight.getLatestResult();

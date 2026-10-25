@@ -4,6 +4,69 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class TurretControllerTest {
+    @Test public void yawCommandRampsThroughRepeatedDirectionChangesAtDifferentLoopRates() {
+        for (int hz : new int[] { 10, 50, 100 }) {
+            TurretControl c = new TurretControl();
+            c.resetYawCommand(0, 0);
+            double previousPosition = 0, previousVelocity = 0, previousAcceleration = 0;
+            double dt = 1.0 / hz;
+            for (int i = 1; i <= hz * 5; i++) {
+                // Swap the full target plus trim every half second, as with rapid stick reversals.
+                double target = ((i - 1) / (hz / 2)) % 2 == 0 ? 160 : -160;
+                double position = c.limitYawCommand(i * dt, target);
+                double velocity = (position - previousPosition) / dt;
+                double acceleration = (velocity - previousVelocity) / dt;
+                assertTrue(Math.abs(acceleration)
+                        <= TurretControl.YAW_COMMAND_MAX_ACCELERATION_DEG_PER_SECOND_SQUARED + 1e-7);
+                assertTrue(Math.abs(acceleration - previousAcceleration) / dt
+                        <= TurretControl.YAW_COMMAND_MAX_JERK_DEG_PER_SECOND_CUBED + 1e-6);
+                previousPosition = position; previousVelocity = velocity; previousAcceleration = acceleration;
+            }
+        }
+    }
+    @Test public void yawCommandCanExceedTheRemovedSpeedCapOnALongSweep() {
+        TurretControl c = new TurretControl(); c.resetYawCommand(0, -160);
+        double previousPosition = -160, peakVelocity = 0;
+        for (int i = 1; i <= 500; i++) {
+            double position = c.limitYawCommand(i * .02, 160);
+            peakVelocity = Math.max(peakVelocity, (position - previousPosition) / .02);
+            previousPosition = position;
+        }
+        assertTrue(peakVelocity > 180);
+        assertEquals(160, previousPosition, 1e-6);
+    }
+    @Test public void yawCommandSettlesAtTargetAndRespectsMechanicalLimits() {
+        TurretControl c = new TurretControl(); c.resetYawCommand(0, 0);
+        double position = 0;
+        for (int i = 1; i <= 500; i++) position = c.limitYawCommand(i * .02, 90);
+        assertEquals(90, position, 1e-6);
+        for (int i = 501; i <= 1000; i++) {
+            position = c.limitYawCommand(i * .02, 1000);
+            assertTrue(position <= TurretSubsystem.ROTATION_MAX_ANGLE_DEG);
+        }
+        for (int i = 1001; i <= 1500; i++) {
+            position = c.limitYawCommand(i * .02, -1000);
+            assertTrue(position >= TurretSubsystem.ROTATION_MIN_ANGLE_DEG);
+        }
+        assertEquals(TurretSubsystem.ROTATION_MIN_ANGLE_DEG, position, 0);
+    }
+    @Test public void pidResetPreservesYawRampAndDelayedUpdatesCannotJumpPosition() {
+        TurretControl c = new TurretControl(); c.resetYawCommand(0, 0);
+        double first = c.limitYawCommand(.02, 90);
+        c.reset();
+        double second = c.limitYawCommand(.04, 90);
+        TurretControl uninterrupted = new TurretControl(); uninterrupted.resetYawCommand(0, 0);
+        uninterrupted.limitYawCommand(.02, 90);
+        assertEquals(uninterrupted.limitYawCommand(.04, 90), second, 1e-8);
+        assertEquals(second, c.limitYawCommand(.04, -90), 0);
+        double velocity = (second - first) / .02;
+        double maxDt = TurretControl.MAX_UPDATE_SECONDS;
+        assertTrue(Math.abs(c.limitYawCommand(10, -90) - second)
+                <= (Math.abs(velocity) + TurretControl.YAW_COMMAND_MAX_ACCELERATION_DEG_PER_SECOND_SQUARED * maxDt) * maxDt);
+        c.resetYawCommand(11, 0);
+        assertEquals(0, c.limitYawCommand(11, 90), 0);
+        assertEquals(first, c.limitYawCommand(11.02, 90), 1e-8);
+    }
     @Test public void zeroIsCapturedOnlyAfterTravelAndStableWindowEvenIfStartIsEarly() {
         TurretHomingController h = new TurretHomingController(1, .3, 4, .2);
         h.start(0); h.update(.1, 5000, 80); assertFalse(h.ready());
@@ -54,12 +117,12 @@ public class TurretControllerTest {
         assertEquals(0, TurretControl.yawToRobotHeadingDegrees(90), 1e-8);
         assertEquals(180, TurretControl.yawToRobotHeadingDegrees(-90), 1e-8);
         assertEquals(270, TurretControl.yawToRobotHeadingDegrees(180), 1e-8);
-        assertEquals(280, TurretControl.yawToRobotHeadingDegrees(170), 1e-8);
-        assertEquals(260, TurretControl.yawToRobotHeadingDegrees(-170), 1e-8);
+        assertEquals(275, TurretControl.yawToRobotHeadingDegrees(175), 1e-8);
+        assertEquals(265, TurretControl.yawToRobotHeadingDegrees(-175), 1e-8);
         for (int heading = 0; heading < 360; heading++) {
             double yaw = TurretControl.robotHeadingToYawDegrees(heading);
             assertEquals(heading, TurretControl.yawToRobotHeadingDegrees(yaw), 1e-8);
-            assertEquals(heading > 260 && heading < 280, Math.abs(yaw) > 170 + 1e-8);
+            assertEquals(heading > 265 && heading < 275, Math.abs(yaw) > 175 + 1e-8);
         }
         assertEquals(2, TurretControl.robotHeadingToYawDegrees(359)
                 - TurretControl.robotHeadingToYawDegrees(1), 1e-8);
@@ -113,12 +176,12 @@ public class TurretControllerTest {
         assertEquals(-90, ShotCoordinator.visualTrackingYawDegrees(90, 0, 180), 1e-8);
         assertEquals(90, ShotCoordinator.visualTrackingYawDegrees(-90, 0, 180), 1e-8);
         assertEquals(-100, ShotCoordinator.visualTrackingYawDegrees(90, 10, 180), 1e-8);
-        assertEquals(-170, ShotCoordinator.visualTrackingYawDegrees(-165, 20, 0), 1e-8);
+        assertEquals(-175, ShotCoordinator.visualTrackingYawDegrees(-170, 12, 0), 1e-8);
     }
     @Test public void visualHiveTrackingUsesClockwiseCameraErrorWithoutWrappingThroughLeft() {
         assertEquals(-10, ShotCoordinator.visualTrackingYawDegrees(0, 10, 0), 1e-8);
         assertEquals(15, ShotCoordinator.visualTrackingYawDegrees(10, 0, 5), 1e-8);
-        double desired = ShotCoordinator.visualTrackingYawDegrees(165, -20, 0);
-        assertEquals(170, TurretSubsystem.clampYawAngle(desired), 1e-8);
+        double desired = ShotCoordinator.visualTrackingYawDegrees(170, -12, 0);
+        assertEquals(175, TurretSubsystem.clampYawAngle(desired), 1e-8);
     }
 }

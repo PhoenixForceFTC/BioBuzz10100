@@ -12,15 +12,16 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 public class GateSubsystem {
 
     public static final String HW_GATE_SERVO = "gate_servo";
-    // goBILDA 2000-0025-0004 Super Speed, positional mode: 300 deg over 500..2500 us.
+    public static final String SERVO_MODEL = "goBILDA Dual Mode Super Speed (2000-0025-0004)";
+    // Servo must be programmed in positional mode: 300 deg over 500..2500 us.
     // https://www.gobilda.com/2000-series-dual-mode-servo-25-4-super-speed/
     public static final int MIN_PULSE_US = 500;
     public static final int MAX_PULSE_US = 2500;
     public static final double SERVO_TRAVEL_DEG = 300.0;
-    public static final Servo.Direction SERVO_DIRECTION = Servo.Direction.FORWARD;
+    public static final Servo.Direction SERVO_DIRECTION = Servo.Direction.REVERSE;
     public static final double CLOSED_ANGLE_DEG = SERVO_TRAVEL_DEG / 2.0;
     public static final double GATE_OPEN_TRAVEL_DEG = 90.0;
-    // Increasing PWM is CW viewed from the output shaft; decreasing from 0.5 to 0.2 is 90 deg CCW.
+    // REVERSE maps logical 0.5 -> 0.2 to physical 0.5 -> 0.8: 1500 -> 2100 us, 90 deg CW.
     public static final double OPEN_ANGLE_DEG = CLOSED_ANGLE_DEG - GATE_OPEN_TRAVEL_DEG;
     public static final double TRIGGER_DEADBAND = 0.1;
     public static final double SECONDS_PER_60_DEG_AT_6V = 0.043;
@@ -32,16 +33,14 @@ public class GateSubsystem {
     public static final double OPEN_SETTLE_TIME_SECONDS = Math.max(0.25,
             RATED_OPEN_TRAVEL_SECONDS + OPEN_SETTLE_MARGIN_SECONDS);
 
-    private final Servo servo;
+    private final ServoImplEx servo;
     private boolean open = false;
     private final ElapsedTime openTimer = new ElapsedTime();
 
     public GateSubsystem(HardwareMap hardwareMap) {
-        servo = hardwareMap.get(Servo.class, HW_GATE_SERVO);
+        servo = hardwareMap.get(ServoImplEx.class, HW_GATE_SERVO);
         servo.setDirection(SERVO_DIRECTION);
-        if (servo instanceof ServoImplEx) {
-            ((ServoImplEx) servo).setPwmRange(new PwmControl.PwmRange(MIN_PULSE_US, MAX_PULSE_US));
-        }
+        servo.setPwmRange(new PwmControl.PwmRange(MIN_PULSE_US, MAX_PULSE_US));
         close();
     }
 
@@ -64,6 +63,10 @@ public class GateSubsystem {
     }
 
     public void addTelemetry(Telemetry telemetry) {
+        telemetry.addData("Gate Servo", SERVO_MODEL);
+        telemetry.addData("Gate PWM Range (us)", "%d - %d | %s",
+                MIN_PULSE_US, MAX_PULSE_US, SERVO_DIRECTION);
+        telemetry.addData("Gate Open Travel (deg)", GATE_OPEN_TRAVEL_DEG);
         telemetry.addData("Gate Target (deg)", "%.0f (%s)",
                 open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG, open ? "OPEN" : "CLOSED");
     }

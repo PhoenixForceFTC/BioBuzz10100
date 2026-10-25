@@ -105,7 +105,8 @@ Review the final diff and update documentation, controls and calibration status.
 
 - Turret encoder port 1 versus a hardware-counted port: document the eventual wiring/software alias change together; do not remap software ahead of wiring.
 - Absolute turret home detection and measured hood/gate position require feedback the current hardware does not provide.
-- Actual servo programming, loaded travel, homing response and gate/feed/recovery delays.
+- [x] Turret physical checks, including gear/home alignment, servo directions/travel, encoder sign, mechanical limits, hood/flywheel operation and homing response: operator-confirmed complete October 24, 2026 after `Test: Turret`. See [physical sign-off](HardwareReviewImplementationStatus.md#turret-physical-checks--complete-october-24-2026).
+- Numerical turret timing calibration, other mechanisms' servo programming/loaded travel, and gate/feed/recovery delays remain open.
 - Limelight pipeline configuration, 3D pose quality, latency and state-classifier tolerances.
 - C270 intrinsics/distortion, HSV thresholds, intake capture location, pickup travel and usable drive powers.
 - Shot tables, moving-shot flight times and usable motion envelopes.

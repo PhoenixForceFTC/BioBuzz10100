@@ -18,7 +18,7 @@ public class TurretTestOpMode extends LinearOpMode {
         TurretSubsystem turret = new TurretSubsystem(hardwareMap, false);
 
         telemetry.addLine("Manual Turret Standalone Test Initialized");
-        telemetry.addLine("Home = All 3 Servos at 0.5 (Turret heading 90 deg Right, Launch +15 deg) | Left 260..280 deg excluded");
+        telemetry.addLine("Home = All 3 Servos at 0.5 (Turret heading 90 deg Right, Launch +15 deg) | Left 265..275 deg excluded");
         telemetry.addLine("RS-X = Rotate | Dpad Up/Dn = Raise/Lower Launch (+15..-15 deg) | RB = Shooter");
         telemetry.addLine("A = Home (All 0.5) & Zero Enc | B = Toggle Enc Trim | X = Zero Enc Here | Y = Request Home (bounded)");
         turret.addTelemetry(telemetry);

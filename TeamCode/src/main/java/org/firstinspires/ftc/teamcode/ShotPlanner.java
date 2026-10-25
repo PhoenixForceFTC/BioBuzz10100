@@ -6,7 +6,7 @@ import org.firstinspires.ftc.teamcode.RobotMath.Vec;
 public final class ShotPlanner {
     public static final int MAX_ITERATIONS = 24;
     public static final double MAX_SAMPLE_AGE_SECONDS = .1, MAX_RELEASE_DELAY_SECONDS = 1;
-    public static final double RATE_DIFFERENCE_SECONDS = .02, MAX_YAW_RAD = Math.toRadians(170);
+    public static final double RATE_DIFFERENCE_SECONDS = .02, MAX_YAW_RAD = Math.toRadians(TurretSubsystem.ROTATION_MAX_ANGLE_DEG);
     public static final double CONVERGENCE_METERS = .0001, CONVERGENCE_SECONDS = .0001;
     public static final double MIN_RANGE_METERS = .001, MIN_SLEW_HORIZON_SECONDS = .15;
     public static final class Envelope {

@@ -15,9 +15,47 @@ public final class TurretControl {
             / TurretSubsystem.ROTATION_GEAR_RATIO;
     public static final double MANUAL_STICK_DEADBAND = .08;
     public static final double MAX_UPDATE_SECONDS = .1;
+    // Conservative loaded-turret limits; tune on the robot if the gears still slip.
+    public static final double YAW_COMMAND_MAX_ACCELERATION_DEG_PER_SECOND_SQUARED = 360;
+    public static final double YAW_COMMAND_MAX_JERK_DEG_PER_SECOND_CUBED = 3600;
+    public static final double YAW_COMMAND_RESPONSE_PER_SECOND = 4;
     private double integral, estimatedHood, lastTime = Double.NaN;
+    private double commandedYawDeg, commandedYawVelocity, commandedYawAcceleration;
+    private double lastYawCommandTime = Double.NaN;
     private boolean previousManual, previousAutomatic;
     public void reset() { integral = 0; }
+    /** Synchronize after explicit homing; PID resets must not interrupt a moving command ramp. */
+    public void resetYawCommand(double now, double yawDeg) {
+        commandedYawDeg = yawDeg;
+        commandedYawVelocity = 0;
+        commandedYawAcceleration = 0;
+        lastYawCommandTime = now;
+    }
+    /** Ramp the final target plus PID trim so neither manual nor automatic reversals step the servos. */
+    public double limitYawCommand(double now, double desiredYawDeg) {
+        double dt = Double.isNaN(lastYawCommandTime) ? 0
+                : Math.max(0, Math.min(MAX_UPDATE_SECONDS, now - lastYawCommandTime));
+        lastYawCommandTime = now;
+        if (dt <= 0) return commandedYawDeg;
+        double error = desiredYawDeg - commandedYawDeg;
+        // Critically damped position tracking requests acceleration, with no velocity ceiling.
+        double response = YAW_COMMAND_RESPONSE_PER_SECOND;
+        double desiredAcceleration = RobotMath.clip(response * response * error
+                - 2 * response * commandedYawVelocity, YAW_COMMAND_MAX_ACCELERATION_DEG_PER_SECOND_SQUARED);
+        // Ramp acceleration itself: at 3600 deg/s^3, zero to full acceleration takes 0.1 s.
+        commandedYawAcceleration += RobotMath.clip(desiredAcceleration - commandedYawAcceleration,
+                YAW_COMMAND_MAX_JERK_DEG_PER_SECOND_CUBED * dt);
+        commandedYawVelocity += commandedYawAcceleration * dt;
+        double nextYaw = commandedYawDeg + commandedYawVelocity * dt;
+        commandedYawDeg = Math.max(TurretSubsystem.ROTATION_MIN_ANGLE_DEG,
+                Math.min(TurretSubsystem.ROTATION_MAX_ANGLE_DEG, nextYaw));
+        // Mechanical travel limits take priority over acceleration and jerk limits.
+        if (commandedYawDeg != nextYaw) {
+            commandedYawVelocity = 0;
+            commandedYawAcceleration = 0;
+        }
+        return commandedYawDeg;
+    }
     public double update(double now, double yawErrorDeg, boolean trimEnabled, double hoodCommandDeg) {
         return update(now, yawErrorDeg, 0, trimEnabled, hoodCommandDeg, -MAX_TRIM_DEG, MAX_TRIM_DEG);
     }

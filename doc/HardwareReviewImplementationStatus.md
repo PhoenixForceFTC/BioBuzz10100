@@ -2,6 +2,19 @@
 
 October 23, 2026. Implements the desktop software scope of [HardwareReviewImplementationPlan.md](HardwareReviewImplementationPlan.md). Existing local mount/field/configuration edits were preserved. No deployment, robot movement, camera settings changes or physical accuracy verification was performed. Match routes remain deferred.
 
+## Turret physical checks — complete October 24, 2026
+
+Operator confirmation: the turret is built, `Test: Turret` ran successfully, everything looks fine, and the gears are aligned. All turret assembly/mechanism physical checks are marked complete on that basis:
+
+- [x] Turret assembly and gear alignment.
+- [x] Home alignment and turret zero direction.
+- [x] Coupled rotation-servo directions, travel and mechanical clearance/limits.
+- [x] Through-Bore Encoder operation and sign.
+- [x] Homing and settling behavior in the turret test.
+- [x] Hood direction/travel and flywheel operation in the turret test.
+
+This records the operator's physical sign-off. No numerical loaded-speed, timing, PID-tuning or shot-calibration measurements were supplied. Those calibration dependencies remain open, along with camera/goal validation and other mechanisms. Relative homing still has no independent absolute-home sensor.
+
 ## Changes and acceptance evidence
 
 | Plan area | Implemented behavior | Desktop evidence |
@@ -36,7 +49,7 @@ The state detector assumes a level chassis; no chassis pitch/roll source is supp
 
 Pollen autonomous remains inhibited: the mount is confirmed, but color thresholds and pickup geometry are unmeasured, and approximate autonomous intrinsics are not approved. The 650/450-mm values are a computed visibility-compatible example, not an intake calibration. Active SDK/custom intrinsics can change visibility; invalid models keep autonomous unavailable. Blind travel never treats an absent blob before confirmation as acquisition.
 
-Relative homing remains an estimate without an absolute home sensor. Hood/gate timing remains estimated without position feedback. Servo programming, loaded travel, delays, shot rows, moving flight times, usable powers and jam thresholds remain physical dependencies. Turret encoder wiring stays on port 1; any future wiring/alias change must be made together. Confirmed 6-V injector, mounts, pod offsets, stage directions and depollinator clearance are preserved.
+Relative homing remains an estimate without an absolute home sensor. Turret mechanism physical checks are complete per the October 24 operator sign-off above. Hood/gate timing remains estimated without position feedback; numerical loaded timing, shot rows, moving flight times, usable powers and jam thresholds remain calibration dependencies. Servo programming and loaded travel checks for other mechanisms remain separate. Turret encoder wiring stays on port 1; any future wiring/alias change must be made together. Confirmed 6-V injector, mounts, pod offsets, stage directions and depollinator clearance are preserved.
 
 ## Verification
 
