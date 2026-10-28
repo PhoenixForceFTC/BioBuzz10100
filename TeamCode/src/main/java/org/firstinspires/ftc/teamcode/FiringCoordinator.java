@@ -42,7 +42,7 @@ public final class FiringCoordinator {
         if (state == State.PREPARING) {
             if (manual || tightTracking) {
                 if (Double.isNaN(stableSince)) stableSince = now;
-                if (manual || now - stableSince >= stableSeconds) enter(State.GATE_OPENING, now, "Gate travel estimate");
+                if (manual || now - stableSince >= stableSeconds) enter(State.GATE_OPENING, now, "Gate command-to-feed delay");
             } else { stableSince = Double.NaN; reason = "Waiting for stable turret / hood / RPM"; }
         }
         if (state == State.GATE_OPENING) {
@@ -59,11 +59,6 @@ public final class FiringCoordinator {
     private void enter(State next, double now, String reason) {
         if (state != next) { state = next; entered = now; stableSince = Double.NaN; }
         this.reason = reason;
-    }
-    public double releaseDelay(double now) {
-        if (state == State.FEEDING) return Math.max(0, feedToExitSeconds - Math.max(0, now - entered));
-        if (state == State.GATE_OPENING) return Math.max(0, gateTravelSeconds - Math.max(0, now - entered)) + feedToExitSeconds;
-        return gateTravelSeconds + feedToExitSeconds;
     }
     public void stop(double now) { gateOpen = feeding = false; enter(State.IDLE, now, "Stopped; a committed ball cannot be recalled"); }
     public State state() { return state; }

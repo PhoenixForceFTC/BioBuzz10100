@@ -4,10 +4,9 @@ package org.firstinspires.ftc.teamcode;
 public final class AutonomousStrategy {
     public static final class Waypoint {
         public final double x, y, heading;
-        public final boolean movingShots;
-        public Waypoint(double x, double y, double heading, boolean movingShots) {
+        public Waypoint(double x, double y, double heading) {
             if (!RobotMath.finite(x, y, heading)) throw new IllegalArgumentException("Invalid waypoint");
-            this.x = x; this.y = y; this.heading = heading; this.movingShots = movingShots;
+            this.x = x; this.y = y; this.heading = heading;
         }
     }
     /** Axis-aligned keep-out box in meters; inflated by the robot clearance radius. */
@@ -59,7 +58,7 @@ public final class AutonomousStrategy {
     public Waypoint[] scoring() { return scoring.clone(); }
     public Waypoint[] parking() { return parking.clone(); }
     public boolean segmentClear(double x0, double y0, double x1, double y1) {
-        double edge = 1.8288 - robotRadius;
+        double edge = FieldGeometry.FIELD_HALF_WIDTH_METERS - robotRadius;
         if (!RobotMath.finite(x0, y0, x1, y1) || Math.abs(x0) > edge || Math.abs(y0) > edge || Math.abs(x1) > edge || Math.abs(y1) > edge) return false;
         for (Obstacle o : obstacles) {
             double lo = 0, hi = 1;

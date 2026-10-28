@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-/** Turret-only diagnostic. A rehomes; B toggles encoder backup; X invalidates home with a diagnostic zero.
+/** Turret-only diagnostic. A rehomes; X invalidates home with a diagnostic zero.
  * Y explicitly requests home. RS-X is degrees/second. Dpad adjusts hood; RB spins the flywheel.
  * No Limelight or odometry is initialized; automatic aiming belongs in Test: Auto Aim.
  */
@@ -18,14 +18,16 @@ public class TurretTestOpMode extends LinearOpMode {
         TurretSubsystem turret = new TurretSubsystem(hardwareMap, false);
 
         telemetry.addLine("Manual Turret Standalone Test Initialized");
-        telemetry.addLine("Home = All 3 Servos at 0.5 (Turret heading 90 deg Right, Launch +15 deg) | Left 265..275 deg excluded");
-        telemetry.addLine("RS-X = Rotate | Dpad Up/Dn = Raise/Lower Launch (+15..-15 deg) | RB = Shooter");
-        telemetry.addLine("A = Home (All 0.5) & Zero Enc | B = Toggle Encoder Backup | X = Zero Enc Here | Y = Request Home (bounded)");
+        telemetry.addData("Home servo positions", "Yaw 0.5 | Hood %.5f (+15 deg reference) | Yaw right 90 deg",
+                TurretSubsystem.PITCH_HOME_SERVO_POS);
+        telemetry.addLine("RS-X = Rotate | Dpad Up/Dn = Lower/Raise Launch (+15..-15 deg) | RB = Shooter");
+        telemetry.addLine("A = Home & Zero Enc | X = Zero Enc Here | Y = Request Home (bounded)");
         turret.addTelemetry(telemetry);
         loop.addTelemetry(telemetry); telemetry.update();
 
         boolean prevA = false;
         boolean previousCenter = false;
+        boolean previousCorrectionToggle = false;
         try {
             while (opModeInInit()) {
                 loop.begin();
@@ -36,7 +38,6 @@ public class TurretTestOpMode extends LinearOpMode {
             waitForStart();
             if (isStopRequested()) return;
 
-            boolean prevB = false;
             boolean prevX = false;
             boolean prevDpadUp = false;
             boolean prevDpadDown = false;
@@ -49,7 +50,9 @@ public class TurretTestOpMode extends LinearOpMode {
                 double now = System.nanoTime() * 1e-9;
                 double dt = Math.max(0, Math.min(.1, now - previousTime)); previousTime = now;
                 boolean curA = gamepad1.a;
-                boolean curB = gamepad1.b;
+                if (gamepad1.b && !previousCorrectionToggle)
+                    turret.setEncoderCorrectionEnabled(!turret.isEncoderCorrectionEnabled());
+                previousCorrectionToggle = gamepad1.b;
                 boolean curX = gamepad1.x;
                 boolean curDpadUp = gamepad1.dpad_up;
                 boolean curDpadDown = gamepad1.dpad_down;
@@ -62,14 +65,8 @@ public class TurretTestOpMode extends LinearOpMode {
 
                 // A: Home turret to center (0.5 = robot heading 90 deg) & zero relative encoder
                 if (curA && !prevA) {
-                    turret.setEncoderCorrectionEnabled(true);
                     turret.homeTurretAndZeroEncoder();
                     turret.setPitchAngleDegrees(TurretSubsystem.PITCH_HOME_DEG);
-                }
-
-                // B: Toggle Through-Bore Encoder backup position correction
-                if (curB && !prevB) {
-                    turret.setEncoderCorrectionEnabled(!turret.isEncoderCorrectionEnabled());
                 }
 
                 // X: Zero Through-Bore Encoder at current physical angle
@@ -77,22 +74,21 @@ public class TurretTestOpMode extends LinearOpMode {
                     turret.zeroEncoderAtCurrentPosition();
                 }
 
-                // Up raises launch angle by reducing downward hood travel; down lowers it.
+                // Reversed controls: Up lowers launch; Down raises it toward home.
                 if (curDpadUp && !prevDpadUp) {
-                    turret.adjustPitchAngleDegrees(-PITCH_STEP_DEG);
+                    turret.adjustPitchAngleDegrees(+PITCH_STEP_DEG);
                 }
                 if (curDpadDown && !prevDpadDown) {
-                    turret.adjustPitchAngleDegrees(+PITCH_STEP_DEG);
+                    turret.adjustPitchAngleDegrees(-PITCH_STEP_DEG);
                 }
                 if (curDpadLeft && !prevDpadLeft) {
                     turret.setPitchAngleDegrees(TurretSubsystem.PITCH_MIN_DEG); // Home: launch +15 deg
                 }
                 if (curDpadRight && !prevDpadRight) {
-                    turret.setPitchAngleDegrees(TurretSubsystem.PITCH_MAX_DEG); // Full CCW: launch -15 deg
+                    turret.setPitchAngleDegrees(TurretSubsystem.PITCH_MAX_DEG); // Full downward travel: launch -15 deg
                 }
 
                 prevA = curA;
-                prevB = curB;
                 prevX = curX;
                 prevDpadUp = curDpadUp;
                 prevDpadDown = curDpadDown;
@@ -115,8 +111,7 @@ public class TurretTestOpMode extends LinearOpMode {
                     } else {
                         turret.stopShooter();
                     }
-                    telemetry.addData("Mode", "MANUAL (Encoder Backup: %s)",
-                            turret.isEncoderCorrectionEnabled() ? "ON" : "OFF");
+                    telemetry.addData("Mode", "MANUAL | B toggles encoder correction (default OFF)");
                 }
 
                 turret.addTelemetry(telemetry);

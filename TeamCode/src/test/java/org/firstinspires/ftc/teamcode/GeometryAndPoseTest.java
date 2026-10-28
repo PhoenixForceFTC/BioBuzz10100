@@ -96,11 +96,10 @@ public class GeometryAndPoseTest {
     }
     @Test public void profilesValidateCoverageLimitsAndInterpolation() {
         ShotProfile p=profile(); ShotProfile.Row r=p.sample(2);
-        assertEquals(.5,r.flightSeconds,1e-9); assertNull(p.sample(.1)); assertNull(p.sample(5.01)); assertNull(p.sample(Double.NaN));
-        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(2,1,3000,.5),new ShotProfile.Row(1,2,4000,.6)));
-        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(1,31,3000,.5),new ShotProfile.Row(2,2,4000,.6)));
-        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(1,1,Double.NaN,.5),new ShotProfile.Row(2,2,4000,.6)));
-        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(1,1,3000,0),new ShotProfile.Row(2,2,4000,.6)));
+        assertNull(p.sample(.1)); assertNull(p.sample(5.01)); assertNull(p.sample(Double.NaN));
+        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(2,1,3000),new ShotProfile.Row(1,2,3400)));
+        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(1,31,3000),new ShotProfile.Row(2,2,3400)));
+        assertThrows(IllegalArgumentException.class,()->new ShotProfile("x",true,new ShotProfile.Row(1,1,Double.NaN),new ShotProfile.Row(2,2,3400)));
         assertFalse(ShotProfile.example().calibrated);
     }
 }

@@ -32,7 +32,24 @@ public class HardwareReviewRegressionTest {
         assertTrue(Double.isNaN(h.delayedYaw(2,1,-.1,m)));
         assertTrue(Double.isNaN(h.delayedYaw(1.1,.8,-.1,m)));
     }
-    @Test public void acceptedVisionReducesUncertaintyForFullMatchAndThenDrifts() {
+    @Test public void entireMatchWithoutCameraDoesNotTimeOutOdometryAimingOrFeeding() {
+        PoseHistory h = new PoseHistory(); ShotPlanner planner = planner(mount());
+        FiringCoordinator firing = ShootingConfiguration.firing();
+        boolean fedNearEnd = false;
+        for (int i = 0; i <= 9000; i++) {
+            double now = i * .02;
+            h.add(pose(now, 0, 0, 0, .2, 0, 0), 0);
+            MotionSample current = h.current(now);
+            assertEquals(.02, current.uncertainty, 0);
+            ShotPlanner.Solution s = planner.solve(now, current, goal(2,0), profile());
+            assertTrue(s.reason, s.valid);
+            firing.update(now, true, false, false, false, s.valid, true, true, s.reason);
+            if (now > 178 && firing.feeding()) fedNearEnd = true;
+        }
+        assertTrue(fedNearEnd);
+        assertFalse(planner.solve(181, h.current(181), goal(2,0), profile()).valid);
+    }
+    @Test public void acceptedVisionKeepsQualityEstimateWithoutInventingDrift() {
         PoseHistory h=new PoseHistory(); GoalTarget g=goal(2,0); ShooterMount m=mount();
         double ty=Math.atan2(.7,2)-m.cameraPitch;
         for(int i=0;i<=18000;i++) {
@@ -45,7 +62,7 @@ public class HardwareReviewRegressionTest {
             }
         }
         double before=h.current(181).uncertainty;
-        assertTrue(h.current(183).uncertainty>before); assertFalse(h.targetFresh(183));
+        assertEquals(before,h.current(183).uncertainty,0); assertFalse(h.targetFresh(183));
     }
     @Test public void metricFusionRespectsJumpLimitAndDoesNotRewriteMeasuredVelocity() {
         PoseHistory h=new PoseHistory(); ShooterMount m=mount(); GoalTarget g=goal(2,0);
@@ -59,41 +76,19 @@ public class HardwareReviewRegressionTest {
         TagObservation jump=new TagObservation(30,0,t.y,t.z+2,Math.PI,0,0,1);
         assertFalse(h.observe3d(1.19,2,1.1,jump,g,m));
     }
-    @Test public void stationaryQualificationToleratesNoiseButRevokesActualMotionImmediately() {
-        StationaryMotion q=new StationaryMotion();
-        for(int i=0;i<=30;i++) {
-            double t=1+i*.01;
-            q.update(t,pose(t,0,0,0,i%2==0?.004:-.004,.002,.005),.01);
-        }
-        assertTrue(q.qualified());
-        assertEquals(0,q.stationarySample(pose(1.3,0,0,0,.002,0,0)).vx,0);
-        assertFalse(q.update(1.31,pose(1.31,0,0,0,.1,0,0),0));
-        assertFalse(q.update(1.32,pose(1.32,0,0,0,0,0,0),0));
-        assertFalse(q.update(2,pose(2,0,0,0,0,0,0),0));
-    }
-    @Test public void stationaryOnlyProfileNeedsQualificationAndMovingProfileStillNeedsFlightTimes() {
-        ShotPlanner planner=planner(mount()); ShotProfile stationary=new ShotProfile("synthetic",true,
-                new ShotProfile.Row(.2,1,3000,Double.NaN),new ShotProfile.Row(5,10,4000,Double.NaN));
-        for(int i=0;i<30;i++) {
-            double t=1+i*.01; ShotPlanner.Solution solution=planner.solve(t,pose(t,0,0,0,.001,0,.002),goal(2,0),stationary,0,.01,.3);
-            if(i>20) assertTrue(solution.reason,solution.valid); else if(i==0) assertFalse(solution.valid);
-        }
-        ShotPlanner.Solution moving=planner.solve(1.3,pose(1.3,0,0,0,.2,0,0),goal(2,0),stationary,0,0,.3);
-        assertFalse(moving.valid); assertTrue(moving.reason.contains("flight time"));
-    }
     @Test public void localTargetCanAimWithoutInventingFieldReference() {
         MotionSample local=new MotionSample(1,0,0,0,0,0,0,0,.03,true,false,"local startup");
         GoalTarget field=goal(2,0), relative=field.inLocalFrame();
-        assertFalse(planner(mount()).solve(1,local,field,profile(),0,0,.3).valid);
-        ShotPlanner.Solution s=planner(mount()).solve(1,local,relative,profile(),0,0,.3);
+        assertFalse(planner(mount()).solve(1,local,field,profile()).valid);
+        ShotPlanner.Solution s=planner(mount()).solve(1,local,relative,profile());
         assertTrue(s.reason,s.valid); assertFalse(local.fieldReferenced); assertEquals(GoalTarget.Frame.LOCAL_ODOMETRY,relative.frame);
     }
-    @Test public void transferTimingComesFromConfigurationAndLowImmediatelyClearsFull() {
+    @Test public void transferTimingComesFromConfigurationAndFullWaitsForFeed() {
         TransferController c=new TransferController(.6,.4);
         c.update(1,true,false,false); assertEquals(.6,c.stage1(),0); assertEquals(0,c.stage2(),0);
         c.update(1.39,true,false,false); assertFalse(c.full());
         c.update(1.41,true,false,false); assertTrue(c.full()); assertEquals(0,c.stage1(),0);
-        c.update(1.42,false,false,false); assertFalse(c.full()); assertEquals(.6,c.stage1(),0);
+        c.update(1.42,false,false,false); assertTrue(c.full()); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0);
         c.update(1.43,true,false,true); assertEquals(0,c.stage1(),0);
         c.update(1.5,true,true,true); assertEquals(.6,c.stage1(),0); assertEquals(.6,c.stage2(),0);
         c.stop(); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0); assertFalse(c.full());
@@ -102,32 +97,30 @@ public class HardwareReviewRegressionTest {
         FiringCoordinator f=ShootingConfiguration.firing(); TransferController c=new TransferController(1,2);
         c.stop(); assertEquals(0,c.stage1(),0);
         double opened=Double.NaN; boolean sawFeed=false;
-        for(int i=0;i<=100;i++) {
+        for(int i=0;i<=200;i++) {
             double t=i*.01;
-            boolean manual=t>=.7, inhibit=t>=.95, raised=t<.55;
+            boolean manual=t>=1.1, inhibit=t>=1.8, raised=t<.9;
             f.update(t,true,manual,inhibit,false,raised,true,true,"Goal UNKNOWN / moving");
             if(f.gateOpen() && Double.isNaN(opened)) opened=t;
             if(!f.gateOpen()) opened=Double.NaN;
-            boolean actualFeed=f.feeding() && !Double.isNaN(opened) && t-opened>=GateSubsystem.OPEN_SETTLE_TIME_SECONDS;
+            boolean actualFeed=f.feeding() && !Double.isNaN(opened) && t-opened>=GateSubsystem.FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS;
             c.update(t,i%3!=0,actualFeed,true);
-            if(actualFeed) { sawFeed=true; assertTrue(f.gateOpen()); assertTrue(t-opened>=.25); assertEquals(1,c.stage1(),0); assertEquals(1,c.stage2(),0); }
-            if(t>=.55 && t<.7 || inhibit) { assertFalse(f.gateOpen()); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0); }
+            if(actualFeed) { sawFeed=true; assertTrue(f.gateOpen()); assertTrue(t-opened>=GateSubsystem.FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS); assertEquals(1,c.stage1(),0); assertEquals(1,c.stage2(),0); }
+            else assertEquals(0,c.stage2(),0);
+            if(t>=.9 && t<1.1 || inhibit) { assertFalse(f.gateOpen()); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0); }
         }
         assertTrue(sawFeed);
         try { throw new IllegalStateException("simulated loop exception"); }
         catch(IllegalStateException expected) { /* adapter finally cleanup */ }
-        finally { f.stop(1.1); c.stop(); }
+        finally { f.stop(2.1); c.stop(); }
         assertFalse(f.gateOpen()); assertFalse(f.feeding()); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0);
     }
-    @Test public void referenceResetInvalidatesCorrectionsHistoryAndStationaryQualification() {
+    @Test public void referenceResetInvalidatesCorrectionsHistory() {
         PoseHistory history=new PoseHistory();
         for(int i=0;i<30;i++) history.add(pose(1+i*.01,0,0,0,0,0,0).withReference(1),0);
         history.acceptRelative(1.2,.03); assertTrue(history.targetFresh(1.29));
         history.add(pose(1.3,2,3,0,0,0,0).withReference(2),0);
         assertNull(history.at(1.2)); assertFalse(history.targetFresh(1.3)); assertEquals(2,history.current(1.3).referenceId);
-        StationaryMotion q=new StationaryMotion();
-        for(int i=0;i<30;i++) q.update(1+i*.01,pose(1+i*.01,0,0,0,0,0,0).withReference(1),0);
-        assertTrue(q.qualified()); assertFalse(q.update(1.3,pose(1.3,0,0,0,0,0,0).withReference(2),0));
     }
     @Test public void shutdownAttemptsAllDevicesAndPreservesFirstFailure() {
         java.util.List<String> called=new java.util.ArrayList<>();
@@ -147,25 +140,25 @@ public class HardwareReviewRegressionTest {
         assertTrue(Double.isNaN(h.delayedYaw(1.1,1,0,m)));
     }
 
-    @Test public void qualifiedBoundedNoiseDoesNotBecomeMovingShotOrFalseAccelerationRejection() {
+    @Test public void VelocityAndAccelerationDoNotGateCurrentPoseAiming() {
         ShotPlanner p=planner(mount()); ShotProfile table=new ShotProfile("synthetic",true,
-                new ShotProfile.Row(.2,1,3000,Double.NaN),new ShotProfile.Row(5,10,4000,Double.NaN));
+                new ShotProfile.Row(.2,1,3000),new ShotProfile.Row(5,10,3400));
         ShotPlanner.Solution result=null;
         for(int i=0;i<40;i++) {
             double t=1+i*.01;
             MotionSample noisy=new MotionSample(t,0,0,0,i%2==0?.015:-.015,0,.01,3,2,.03,true,true,"bounded velocity noise");
-            result=p.solve(t,noisy,goal(2,0),table,0,.01,.3);
+            result=p.solve(t,noisy,goal(2,0),table);
         }
         assertNotNull(result); assertTrue(result.reason,result.valid);
         MotionSample moving=new MotionSample(1.4,0,0,0,.1,0,.1,3,2,.03,true,true,"actual motion");
-        assertFalse(p.solve(1.4,moving,goal(2,0),table,0,0,.3).valid);
+        assertTrue(p.solve(1.4,moving,goal(2,0),table).valid);
     }
     @Test public void acceptedFusionKeepsUncorrectedResidualInUncertaintyBudget() {
         PoseHistory h=new PoseHistory(); ShooterMount m=mount();
         for(int i=0;i<20;i++) h.add(pose(1+i*.01,.4,0,0,0,0,0),0);
         assertTrue(h.observe(1.19,1,1.1,30,0,Math.atan2(.7,2)-m.cameraPitch,goal(2,0),m));
         assertTrue(h.current(1.19).uncertainty>.25); // .35 gain leaves .26 m of the .4 m innovation.
-        assertFalse(new ShotPlanner(m,ShootingConfiguration.ENVELOPE).solve(1.19,h.current(1.19),goal(2,0),profile(),0,0,.3).valid);
+        assertTrue(new ShotPlanner(m).solve(1.19,h.current(1.19),goal(2,0),profile()).valid);
     }
 
 }

@@ -25,7 +25,7 @@ public final class ShotCalibration {
     public Sample[] samples() { return samples.toArray(new Sample[0]); }
     private final TreeMap<Double, Average> averages = new TreeMap<>();
     private final TreeMap<Double, ShotProfile.Row> rows = new TreeMap<>();
-    private double distanceInches = 24, rpm = 3200, hoodDeg = 0;
+    private double distanceInches = 24, rpm = 3200 * ShooterSpeed.FLYWHEEL_REVS_PER_MOTOR_REV, hoodDeg = 0;
 
     public double distanceInches() { return distanceInches; }
     public double rpm() { return rpm; }
@@ -40,7 +40,7 @@ public final class ShotCalibration {
     /** Candidate changes preserve all previous confirmed hits at each exact entered distance. */
     public void configure(double inches, double rpm, double hoodDeg) {
         if (!Double.isFinite(inches) || inches <= 0 || !Double.isFinite(rpm) || rpm <= 0
-                || rpm > 6000 || !Double.isFinite(hoodDeg) || hoodDeg < TurretSubsystem.PITCH_MIN_DEG
+                || rpm > ShooterSpeed.FLYWHEEL_MAX_TARGET_RPM || !Double.isFinite(hoodDeg) || hoodDeg < TurretSubsystem.PITCH_MIN_DEG
                 || hoodDeg > TurretSubsystem.PITCH_MAX_DEG)
             throw new IllegalArgumentException("Invalid distance, RPM or hood angle");
         distanceInches = inches; this.rpm = rpm; this.hoodDeg = hoodDeg;
@@ -57,7 +57,7 @@ public final class ShotCalibration {
             }
             average.add(rpm, hoodDeg);
             rows.put(distanceInches, new ShotProfile.Row(distanceInches * METERS_PER_INCH,
-                    average.hoodDeg, average.rpm, Double.NaN));
+                    average.hoodDeg, average.rpm));
         }
     }
 

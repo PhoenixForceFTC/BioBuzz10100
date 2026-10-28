@@ -71,10 +71,10 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                     }
                 } else if (step == Step.TUNE) {
                     notebook.configure(notebook.distanceInches(),
-                            Math.max(RPM_STEP, Math.min(TurretSubsystem.SHOOTER_MOTOR_MAX_RPM,
+                            Math.max(RPM_STEP, Math.min(TurretSubsystem.SHOOTER_MAX_RPM,
                                     notebook.rpm() + (right ? RPM_STEP : 0) - (left ? RPM_STEP : 0))),
                             Math.max(TurretSubsystem.PITCH_MIN_DEG, Math.min(TurretSubsystem.PITCH_MAX_DEG,
-                                    notebook.hoodDeg() - (up ? HOOD_STEP_DEG : 0) + (down ? HOOD_STEP_DEG : 0))));
+                                    notebook.hoodDeg() + (up ? HOOD_STEP_DEG : 0) - (down ? HOOD_STEP_DEG : 0))));
                     turret.setPitchAngleDegrees(notebook.hoodDeg());
                     turret.updateManualYaw(current.right_stick_x, dt, false);
                     if (b) { step = Step.PLACE; message = "Recheck measured distance before tuning."; }
@@ -123,16 +123,6 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                     stopOutputs(turret, gate, transfer, firing, now);
                     turret.homeTurretAndZeroEncoder();
                 }
-                if (current.right_stick_button && !previous.right_stick_button && step == Step.REVIEW) {
-                    stopOutputs(turret,gate,transfer,firing,now);
-                    try {
-                        java.io.File base = hardwareMap.appContext.getExternalFilesDir(null);
-                        if (base == null) throw new java.io.IOException("External files storage unavailable");
-                        java.io.File saved = ShotCalibrationExport.save(new java.io.File(base,"shot-calibration"),
-                                notebook,ShootingConfiguration.CALIBRATION_GEOMETRY_ID);
-                        message = "SAVED " + saved.getAbsolutePath() + " (session only; not activated)";
-                    } catch (java.io.IOException | IllegalArgumentException e) { message = "EXPORT FAILED: " + e.getMessage() + "; session retained"; }
-                }
                 boolean abort = current.left_bumper || (step == Step.FIRING && !current.right_bumper);
                 if (abort) {
                     step = Step.PLACE;
@@ -159,12 +149,12 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                     }
                 } else firing.stop(now);
                 gate.setOpen(step == Step.FIRING && firing.gateOpen());
-                transfer.update(step == Step.FIRING && firing.feeding() && gate.isOpenAndSettled(), true);
+                transfer.update(step == Step.FIRING && firing.feeding() && gate.isOpenForFeeding(), true);
 
                 telemetry.addData("STEP", step);
                 telemetry.addLine(message);
                 telemetry.addData("Turret axis to raised opening, horizontal (in)", "%.1f", notebook.distanceInches());
-                telemetry.addData("Candidate", "%.0f motor RPM | %.1f deg travel | launch %+.1f deg",
+                telemetry.addData("Candidate", "%.0f flywheel RPM | %.1f deg travel | launch %+.1f deg",
                         notebook.rpm(), notebook.hoodDeg(), TurretSubsystem.hoodTravelToLaunchAngleDegrees(notebook.hoodDeg()));
                 telemetry.addData("Samples", "%d confirmed HITs here (unlimited) | %d distances",
                         notebook.hits(), notebook.size());
@@ -172,25 +162,27 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                 if (average != null) telemetry.addData("Distance average", "%.1f RPM | %.2f deg travel | launch %+.2f deg",
                         average.rpm, average.hoodDeg, TurretSubsystem.hoodTravelToLaunchAngleDegrees(average.hoodDeg));
                 if (step == Step.PLACE) telemetry.addLine("ENTER DISTANCE HERE: Dpad L/R +/-1 in | A: confirm | LS click: rehome");
-                if (step == Step.TUNE) telemetry.addLine("Dpad L/R: RPM +/-50 | U/D: raise/lower launch 0.5 deg | RS-X: aim\nRB hold: spin | X: trial | Y: next distance | B: edit distance");
+                if (step == Step.TUNE) telemetry.addLine("Dpad L/R: RPM +/-50 | Up: lower launch, Down: raise launch 0.5 deg | RS-X: aim\nRB hold: spin | X: trial | Y: next distance | B: edit distance");
                 if (step == Step.FIRING) telemetry.addData("Feed", firing.reason());
+                telemetry.addData("Timed shooting (s)", "gate %.2f | feed %.2f | recovery %.2f",
+                        firing.gateTravelSeconds, firing.feedWindowSeconds, firing.recoverySeconds);
                 if (step == Step.REVIEW) {
                     telemetry.addLine("Dpad L/R: query +/-1 in | BACK: return to measured-distance entry");
                     telemetry.addData("Lookup range (in)", previewInches);
                     ShotProfile.Row row = notebook.size() < 2 ? null
                             : notebook.profile("session-preview").sample(previewInches * ShotCalibration.METERS_PER_INCH);
                     telemetry.addData("Interpolated lookup", row == null ? "Need two distances / range outside table"
-                            : String.format(Locale.US, "%.0f motor RPM | %.2f deg travel | launch %+.2f deg",
+                            : String.format(Locale.US, "%.0f flywheel RPM | %.2f deg travel | launch %+.2f deg",
                                     row.rpm, row.hoodDeg, TurretSubsystem.hoodTravelToLaunchAngleDegrees(row.hoodDeg)));
                 }
-                telemetry.addLine("LIVE AVERAGES: distance (in) | motor RPM | launch deg above horizontal");
+                telemetry.addLine("LIVE AVERAGES: distance (in) | flywheel RPM | launch deg above horizontal");
                 int rowNumber = 0;
                 for (ShotProfile.Row row : notebook.rows()) {
                     telemetry.addData("Average " + (++rowNumber), "%.1f in | %.1f RPM | %+.2f deg (travel %.2f deg)",
                             row.distance / ShotCalibration.METERS_PER_INCH, row.rpm,
                             TurretSubsystem.hoodTravelToLaunchAngleDegrees(row.hoodDeg), row.hoodDeg);
                 }
-                telemetry.addLine("REVIEW + RS click: SAVE samples/averages with units. Export does not activate competition profile.");
+                telemetry.addLine("Display only: record distance/RPM/hood averages before STOP. No files are saved.");
                 telemetry.addLine("LB: abort + stop | BACK: review (PLACE/TUNE) | STOP: exit");
                 turret.addTelemetry(telemetry);
                 loop.addTelemetry(telemetry); telemetry.update();

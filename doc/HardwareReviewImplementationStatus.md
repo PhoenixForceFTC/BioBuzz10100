@@ -1,5 +1,10 @@
 # Hardware-review implementation status
 
+> Historical review/plan: October 26 decisions supersede the moving-shot solver, flight-time data, motion-based firing gates, hive-state gating in competition TeleOp, calibration-file saving, the earlier 1.50/1.25-m height estimates and time-based uncertainty cutoffs described below. These features have been removed from the competition workflow. See [current competition behavior](CompetitionTeleOp.md), [configuration](SoftwareConfiguration.md) and [tag map](FieldReference.md) for the implemented behavior.
+
+
+Historical review: the October 26 [competition decisions](CompetitionTeleOp.md) supersede competition intake, target/state selection, turret release/correction, initial RPM, feed controls and calibration storage described below. Diagnostic behavior remains separate.
+
 October 23, 2026. Implements the desktop software scope of [HardwareReviewImplementationPlan.md](HardwareReviewImplementationPlan.md). Existing local mount/field/configuration edits were preserved. No deployment, robot movement, camera settings changes or physical accuracy verification was performed. Match routes remain deferred.
 
 ## Turret physical checks — complete October 24, 2026
@@ -13,7 +18,19 @@ Operator confirmation: the turret is built, `Test: Turret` ran successfully, eve
 - [x] Homing and settling behavior in the turret test.
 - [x] Hood direction/travel and flywheel operation in the turret test.
 
-This records the operator's physical sign-off. No numerical loaded-speed, timing, PID-tuning or shot-calibration measurements were supplied. Those calibration dependencies remain open, along with camera/goal validation and other mechanisms. Relative homing still has no independent absolute-home sensor.
+This records the operator's physical sign-off. No numerical loaded-speed, timing, PID-tuning or shot-calibration measurements were supplied. Those calibration dependencies remain open, along with camera/goal validation. See the October 26 sign-off below for additional completed mechanism tests. Relative homing still has no independent absolute-home sensor.
+
+## Mechanism tests — complete October 26, 2026
+
+Operator confirmation: all transfer and intake tests are complete; turret rotation, shooting/angle and gate tests are good.
+
+- [x] All transfer tests.
+- [x] All intake tests.
+- [x] Turret rotation tests.
+- [x] Shooting and hood/angle tests.
+- [x] Gate tests.
+
+These mechanism tests are complete based on the operator's robot testing. Numerical calibration measurements and camera/automatic-aim validation remain separate; this sign-off does not supply new calibration values.
 
 ## Changes and acceptance evidence
 
@@ -24,7 +41,7 @@ This records the operator's physical sign-off. No numerical loaded-speed, timing
 | Observed goal state | Independent per-tag metric 3D height and underside plane, correct alliance/cell, finite nonzero pose, range/area/incidence checks, multiple-tag agreement, three distinct frames spanning 120 ms, hysteresis and immediate loss/conflict revocation. Capture age limit 150 ms. Lowered classification requires a supplied measured low pose; unsupported low poses are TRANSITIONING. | Synthetic tests for every alliance/side, raised/lowered/transitioning, camera pitch, zero/NaN/range/back-facing poses, duplicate/stale frames, tipping, conflicting tags, loss, reacquisition and selection changes. Camera-only `Test: Limelight Goal State 3D` exposes measurements and decisions. |
 | Aiming and firing | Metric tag observations are separate from field localization. Verified tag-local transforms can construct openings in local odometry. Delayed tracking uses capture history; metric tracking also accounts for translation. Angle-only fallback rejects appreciable parallax. Fresh stable observed RAISED state and validated detector configuration are additional automatic gates. Manual feed and operator inhibit keep their existing priority. | Reprojection from different tags, camera/chassis poses and rotations; delayed yaw and translation regressions; local/field provenance; integrated observer/planner/feed loss/requalification trace. |
 | Uncertainty and stationary shots | Accepted fusion retains observation quality, a 25-mm floor, residual correction uncertainty and subsequent drift growth. Shared filtered stationary envelope qualifies over 150 ms and revokes on raw excursions. Qualified bounded noise is treated as stationary; real motion still requires flight-time rows. | Full 180-second fresh-vision sequence remains below the uncertainty threshold; drift returns after loss; implausible corrections remain rejected. Noise, acceleration noise, moving-shot and reference-reset regressions. |
-| Transfer and diagnostics | Authoritative subsystem power/confirmation settings are injected into the controller. Stage-1-only loading, two-stage full-power shot feeding, full reset/chatter behavior and gate travel remain. All runtime feeding adapters also require the gate's settle estimate. Hold RB in transfer test runs stage 2 independently with gate closed. Intake/transfer current and commanded outputs are reported at 5 Hz. | Configured-time/power regression, full/chatter/loading traces, gate delay, readiness loss, manual override/inhibit and shutdown traces. No counts are inferred from the fourth-ball sensor and no automatic jam policy was invented. |
+| Transfer and diagnostics | Authoritative subsystem power/confirmation settings are injected into the controller. Stage 1 loading with stage 2 off, two-stage full-power shot feeding, confirmed-full holding until feeding, and gate travel are shared across OpModes. All runtime feeding adapters also require the gate's 0.20 s command-to-feed delay. Hold RB in the transfer test requests the shared gate-open timed feed for both stages; stage 2 has no gate-closed diagnostic bypass. Intake/transfer current and commanded outputs are reported at 5 Hz. | Configured-time/power regression, full/chatter/loading traces, gate delay, readiness loss, manual override/inhibit and shutdown traces. No counts are inferred from the fourth-ball sensor and no automatic jam policy was invented. |
 | Pollen visibility and pickup | One pickup configuration; active intrinsics and valid distortion determine floor rays. Full-contour clipping is retained. Near/far visibility is computed for the pickup cone; enabling an invisible transition is rejected. Default example is 650-mm visible confirmation then bounded 450-mm blind travel / 0.9-s limit. Premature loss stops; confirmed blind pickup still requires fresh camera operation and valid odometry. | Independent projection/undistortion round trips, rejection of the old 350-mm blind transition and invalid enabled models, distinct-frame confirmation, bounded blind travel, early loss, stale camera, invalid pose, full queue and STOP tests. |
 | Loop ownership and shutdown | Every team INIT/active loop calls `RobotLoop.begin()` exactly once; no subsystem clears hub caches. One Pinpoint update and one telemetry flush per owning loop. Java period/frequency/work telemetry is distinct from Pinpoint device frequency. Reference generations invalidate history/qualification on resets. Shutdown attempts all devices even after a failure. | Source inspection of all team OpModes and cache/telemetry/update call sites; reset and shutdown-failure regressions. SDK 12 Lynx bytecode confirms cache mode resets to OFF between OpModes. Actual robot loop frequency remains unmeasured. |
 | Calibration storage | Explicit REVIEW + right-stick click exports hit/miss samples and averaged rows, units, geometry/mount identity and unvalidated stationary-only status. Temporary output is parsed before finalization; failures preserve the session. Files never activate a competition profile. | Reader/writer round trips, persistent file readback, independent exports, bad units/counts/data and simulated writer/filesystem failures. |
@@ -34,7 +51,7 @@ This records the operator's physical sign-off. No numerical loaded-speed, timing
 - Competition INIT: GP2 X rehomes; GP2 D-pad left/right selects audience/far. Holding across START does not repeat the edge.
 - Turret test: A or Y explicitly requests bounded home; X sets a relative encoder zero and invalidates readiness without issuing a new yaw move. A works during INIT. B toggles trim. Y no longer bypasses the homing state machine every loop.
 - Auto-aim test: A rehome also works during INIT. Target controls remain B/X and D-pad left/right.
-- Transfer test: gate is required and stays closed. RB holds stage 2 alone; release stops it. LB pauses ordinary loading. No shooter is initialized.
+- Transfer test: gate is required. RB requests timed gate-open feeding of both stages; release closes the gate and stops stage 2. LB pauses loading and inhibits feeding. Stage 2 stays off during loading. No shooter is initialized; begin with an empty mechanism.
 - `Calibrate: DISCONNECTED Servo RAW`: select one servo with D-pad left/right. After START, both bumpers toggle arming, then RT plus A/X/Y deliberately requests .5/0/1. Disconnect all mechanical coupling first. Installed turret servos are exercised together in the bounded turret test.
 - `Test: Limelight Goal State 3D`: camera only; B/X selects red/blue and D-pad left/right selects audience/far in INIT and active operation. Shows every metric tag, selected-cell height/plane/age and rejection reason.
 - Shot calibration: BACK enters REVIEW; right-stick click explicitly saves to the app's external-files `shot-calibration/shot-session-*.properties`. Full path/success/failure appears in telemetry.

@@ -53,7 +53,7 @@ public class PollenAuto extends LinearOpMode {
                 boolean hardwareReady = odometry.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY
                         && vision.isAutonomousReady();
                 long nowNanos = System.nanoTime();
-                // Gate stays closed. Stage 1 loads only while seeking/collecting; stage 2 stays stopped.
+                // Gate stays closed. Stage 1 loads while seeking/collecting; stage 2 stays off.
                 transfer.update(false, !hardwareReady || navigator.isFinished());
                 navigator.update(nowNanos, target, pose.getX(DistanceUnit.MM),
                         pose.getY(DistanceUnit.MM), pose.getHeading(AngleUnit.DEGREES), hardwareReady, transfer.isFull());

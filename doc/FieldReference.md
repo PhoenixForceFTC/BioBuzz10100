@@ -1,6 +1,6 @@
 # BIOBUZZ TU06 field reference for robot software
 
-Reviewed October 23, 2026 against the supplied [Section 9 ARENA PDF](C:/Users/preco/Downloads/BIOBUZZ_CM_Section9_TU06.pdf), version TU06, printed pages 63-79 (17 PDF pages). The dimensioned hive, cell and tag diagrams were inspected visually; text extraction alone omits dimensions and mangles several tag IDs. This note records field data, not instructions to perform field setup or physical checks. Match paths remain deferred.
+Reviewed October 23 and October 26, 2026 against the supplied [Section 9 ARENA PDF](https://ftc-resources.firstinspires.org/ftc/game/manual-09), version TU06, printed pages 63-79 (17 PDF pages). The dimensioned hive, cell and tag diagrams were inspected visually; text extraction alone omits dimensions and mangles several tag IDs. This note records field data, not instructions to perform field setup or physical checks. Match paths remain deferred.
 
 Section 9.1, printed p.63, identifies the CAD model as the authoritative construction reference and describes manual dimensions as nominal, generally with +/- 1 in. (+/- 2.5 cm) tolerance unless otherwise specified. Numerical conversions below do not imply tighter accuracy. No dimensions were measured from image pixels.
 
@@ -22,7 +22,7 @@ Section 9.1, printed p.63, identifies the CAD model as the authoritative constru
 
 The code's 144-in. field, 25.5-in. hive spacing, 43.95-in. pivot height, 18.84/12.04-in. cell geometry and 20/14/7.61-in. opening dimensions agree with this reference. The 30-degree hive-tilt constant and the team's 60-degree opening-plane angle describe different planes; they are not competing values.
 
-The midpoint of the manual's opening top/bottom heights is about **1.513 m**, consistent with the team's **1.50 m opening-center** value at the manual's stated dimensional precision. This midpoint is a geometric comparison, not a newly selected aim point or the centroid of the pentagonal opening. Preserve the team's confirmed aim height.
+Per the latest October 26 instruction to prefer drawing values, the nominal aim height is now the midpoint of the drawing's opening top/bottom heights: `(65.6 + 53.5)/2 * 0.0254 = 1.51257 m`. This replaces the earlier 1.50-m estimate. Mid-height is the chosen software aim point; it is not the pentagonal opening's area centroid or the SDK virtual cluster origin. The shared `FieldGeometry` class supplies all nominal structural dimensions to the other subsystems.
 
 ## AprilTag clusters and ordering
 
@@ -45,24 +45,53 @@ Additional dimensions in Figure 9-15:
 - Consequently, the tag-center line is **7.188 in. (182.5752 mm)** behind that reference in the cell plane. This is not a field-horizontal distance.
 - The sticker sits on the bottom of the cell, with its bottom edge toward field center (p.75).
 
-Under an ideal 30-degree raised-cell floor tilt, that 7.188-in. setback has a horizontal component of about **158.1 mm** and a vertical component of about **91.3 mm**. Using the nominal 53.5-in. front/bottom height gives a rough tag-height consistency estimate of **1.268 m**, close to the team's **1.25 m**. This is not a replacement measurement: the exact front-edge/surface references and construction offsets need the CAD transform. The team's confirmed heights remain unchanged.
+Under the drawing's 30-degree raised-cell floor tilt, the 7.188-in. setback projects to about **158.1 mm horizontally** and **91.3 mm vertically**. The configured nominal tag height is now `53.5*0.0254 - 7.188*0.0254*sin(30 degrees) = 1.2676124 m`, replacing the earlier 1.25-m estimate. This is a drawing-derived surface model; the exact front-edge/underside construction references still require CAD or installed-field verification.
 
-Configure the Limelight AprilTag pipeline for **36h11 and 3.25-in. individual tags** when configuring the camera. Java currently selects pipeline 0; it does not set tag family/size. Camera configuration was not accessed or changed here. The current angle-based geometry does not obtain metric range from tag size, but any camera-reported metric pose depends on correct configuration.
+Configure the Limelight AprilTag pipeline for **36h11 and 3.25-in. individual tags** when configuring the camera. Java currently selects pipeline 0; it does not set tag family/size. Camera configuration was not accessed or changed here. The metric 3D observation path depends on correct camera tag family and size configuration.
 
 ## Moving hive state
 
-Section 9.6, printed p.69, states that each hive pivots between two stable positions, with one cell facing upward. The AprilTag clusters are attached to those cells and move with them. A tag ID identifies a cell, not its current raised/lowered state. Low-goal shooting is outside the team's scope, but automatic shooting must still distinguish a lowered or transitioning selected cell from a raised one.
+Section 9.6, printed p.69, states that each hive pivots between two stable positions, with one cell facing upward. The AprilTag clusters are attached to those cells and move with them. A tag ID identifies a cell, not its current raised/lowered state. Low-goal shooting is outside the team's scope. Per the October 26 decision, competition TeleOp does not track hive state: drivers decide when to shoot. The state observer remains a standalone diagnostic/legacy adapter. A moving cell must still be rejected as an incompatible localization landmark; its ID alone cannot certify a fixed field position.
 
-The PDF's linked [Event Field Setup Guide, section 11.1, p.23](https://ftc-resources.firstinspires.org/ftc/archive/2027/field/eventfieldguide) specifies the initial raised cells as **red audience** and **blue scoring/far**. This is an initial setup condition, not a state guarantee later in the match. No runtime state or default target was enabled from this fact.
+The PDF's linked [Event Field Setup Guide, section 11.1, p.23](https://ftc-resources.firstinspires.org/ftc/archive/2027/field/eventfieldguide) specifies the initial raised cells as **red audience** and **blue scoring/far**. This is an initial setup condition, not a state guarantee later in the match. This does not determine the competition target; odometry chooses the nearest cell of the selected alliance.
 
-## Remaining field-coordinate dependency
+## October 26 nominal opening and individual-tag field map
 
-This dependency applies to the existing absolute field-localization path. Raised/low state can instead be estimated from an independent Limelight 3D tag pose and the known camera mounting, without first supplying a full field map. Target-relative aiming also needs the local tag-to-opening transform. See the [implementation plan](HardwareReviewImplementationPlan.md); the metric detector and target-relative software path are now implemented, with calibration boundaries recorded in [implementation status](HardwareReviewImplementationStatus.md).
+Figure 9-9 labels the full hive length as 42.91 in. (109.0 cm). The inch value now supplies the common source: half-length is **0.544957 m**, replacing the rounded 0.545 m. Retaining the approved half-length projection, the opening Y magnitude is `0.544957*cos(30 degrees) - (1.51257 - 53.5*0.0254)/tan(60 degrees) = 0.38322519 m`. Competition uses X = +/-0.32385 m (blue/red), Y = +/-0.38322519 m (far/audience), Z = 1.51257 m.
 
-This reference resolves tag IDs, ordering, cluster spacing, sticker-to-front dimensions, field orientation and nominal structural dimensions. It does **not directly dimension the raised cell's complete transform from the hive pivot to its front/underside reference**, including offsets introduced by the connecting assembly. The existing **17.73-in. opening Y offset is not independently established by these labeled dimensions** and must remain an unapproved example.
+The longitudinal projection still assumes the half-length locates the front relative to the pivot. The drawings do not fully specify the pivot-to-floor surface offset, so this is a nominal approximation, not a verified absolute transform. The separately dimensioned pivot height does not make that missing surface reference disappear; an exact field Y map requires the CAD transform or a field measurement. No image-pixel measurements were used.
 
-For a complete field-localization map, obtain a CAD-derived raised-cell opening center and tag-cluster center relative to the hive pivot. The confirmed tag spacing/order then gives the individual tag coordinates; there is no need to measure every sticker separately. Match paths are not required for this step. Keep the team's 1.50-m opening and 1.25-m tag heights unless explicitly superseded.
+Applying the same approved half-length projection to the underside tag row gives `Y magnitude = (0.544957 - (9.938 - 2.75)*0.0254)*cos(30 degrees)`, approximately **0.31383184 m**. `HiveTagGeometry` now supplies all 16 individual tag centers using this nominal Y and the manual's lateral offsets. This extends the approved drawing model; it is not a survey or a CAD-verified transform. Coordinates use the field-center origin, +X toward blue, +Y away from the audience and +Z upward. Each row describes that cell **when raised**, so the four clusters do not occupy these raised poses simultaneously.
 
-The PDF links to the [official field CAD](https://ftc-resources.firstinspires.org/ftc/archive/2027/field/field-cad), which redirects to an Onshape assembly. The web fetch could not inspect that assembly during this review. The linked event setup guide was readable, but did not supply the missing pivot-to-cell transform. Physical checks remain deferred.
+| Tag ID | Cell | X (m) | Y (m, nominal) | Z (m, nominal) |
+| --- | --- | ---: | ---: | ---: |
+| 30 | Red far | -0.15875 | +0.31383 | 1.26761 |
+| 31 | Red far | -0.25400 | +0.31383 | 1.26761 |
+| 32 | Red far | -0.39370 | +0.31383 | 1.26761 |
+| 33 | Red far | -0.48895 | +0.31383 | 1.26761 |
+| 34 | Red audience | -0.48895 | -0.31383 | 1.26761 |
+| 35 | Red audience | -0.39370 | -0.31383 | 1.26761 |
+| 36 | Red audience | -0.25400 | -0.31383 | 1.26761 |
+| 37 | Red audience | -0.15875 | -0.31383 | 1.26761 |
+| 38 | Blue audience | +0.15875 | -0.31383 | 1.26761 |
+| 39 | Blue audience | +0.25400 | -0.31383 | 1.26761 |
+| 40 | Blue audience | +0.39370 | -0.31383 | 1.26761 |
+| 41 | Blue audience | +0.48895 | -0.31383 | 1.26761 |
+| 42 | Blue far | +0.48895 | +0.31383 | 1.26761 |
+| 43 | Blue far | +0.39370 | +0.31383 | 1.26761 |
+| 44 | Blue far | +0.25400 | +0.31383 | 1.26761 |
+| 45 | Blue far | +0.15875 | +0.31383 | 1.26761 |
 
-The code therefore retains its incomplete target-map status and automatic-shooting inhibits. This review updates source provenance and narrows the missing coordinate data; it does not certify a field map, change autonomous routes or resolve the separate software findings in HardwareSoftwareReview.md.
+The table now consistently uses the drawing-derived tag height. Per the team's instruction, competition TeleOp enables periodic relocalization using this nominal map and the documented Limelight mount. Accepted frames are limited to one per 0.5 s and must pass capture-age, finite-pose, tag identity, height and position-jump checks. The SDK's capture/pipeline latency is used; additional transport delay remains at its existing zero estimate. No drift is assumed between corrections, and neither uncertainty nor loss of a camera target creates a feeding timeout. Camera and installed-field validation remain physical checks, not software enable switches.
+
+## SDK cluster origin versus individual tag centers
+
+The [FIRST AprilTag-cluster technical note](https://ftc-docs.firstinspires.org/en/latest/tech_tips/tech-tips/tech-tip-apriltag-clusters/tech-tip-apriltag-clusters.html) explains that SDK 12 returns an `AprilTagClusterDetection` for a recognized cluster, with a virtual pose origin near the cell opening. That origin is different from the sticker center and from the center of an individual tag. Detecting different members of a cluster still refers to the same cluster origin; do not add a member's offset again to an already resolved cluster pose.
+
+The installed FTC Vision **12.0.0** source, `AprilTagGameDatabase.getBioBuzzCluster`, specifies these member coordinates relative to the SDK cluster origin (inches): X = **-6.5, -2.75, +2.75, +6.5**, Y = **+7.1874**, Z = **-5.622**, with 3.25-in. tags. The code records these as SDK reference constants, not as field coordinates. Its four cluster entries use zero field-position placeholders and identity field orientation, so that database does not supply a verified absolute field map.
+
+This robot reads Limelight `FiducialResult` poses for **individual tags**, not the SDK cluster-detection API. The legacy `OpeningGeometry` conversion therefore remains unverified until the SDK cluster axes/origin are explicitly reconciled with the Limelight tag-local frame. Copying the SDK Y/Z values directly into that conversion would mix coordinate systems. Competition current-pose aiming uses the field opening coordinates above and does not need this diagnostic conversion.
+
+Both competition TeleOps currently start at the blue loading-zone end, rear against the blue wall and a side against the audience wall, facing red. Robot center is (1.566319, -1.670450) m at 180 degrees; see [current decisions](CompetitionTeleOp.md) for footprint references. Existing +32/-74 mm Pinpoint pod offsets describe sensor placement relative to that robot center and are not additional field-position offsets.
+
+The [official field CAD](https://ftc-resources.firstinspires.org/ftc/archive/2027/field/field-cad) is the remaining reference for verifying the nominal pivot-to-cluster transform. Pollen and autonomous route work remain deferred primitive examples. An external landmark can relocalize odometry; resetting Pinpoint alone cannot establish an unknown absolute field pose.

@@ -27,11 +27,9 @@ public class GateSubsystem {
     public static final double SECONDS_PER_60_DEG_AT_6V = 0.043;
     public static final double RATED_OPEN_TRAVEL_SECONDS = GATE_OPEN_TRAVEL_DEG
             / 60.0 * SECONDS_PER_60_DEG_AT_6V;
-    // This delays feeding, not servo movement: setOpen sends the final target immediately.
-    // Retain at least the previous 0.25 s allowance until loaded travel is measured.
-    public static final double OPEN_SETTLE_MARGIN_SECONDS = 0.075;
-    public static final double OPEN_SETTLE_TIME_SECONDS = Math.max(0.25,
-            RATED_OPEN_TRAVEL_SECONDS + OPEN_SETTLE_MARGIN_SECONDS);
+    // The gate receives its target immediately; start transfers 0.20 s after that command.
+    // This is the operator-requested feed delay, not an additional servo settling allowance.
+    public static final double FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS = 0.20;
 
     private final ServoImplEx servo;
     private boolean open = false;
@@ -45,21 +43,20 @@ public class GateSubsystem {
     }
 
     public void setOpen(boolean open) {
-        if (open && !this.open) {
-            openTimer.reset();
-        }
+        boolean opening = open && !this.open;
         this.open = open;
         double angleDeg = open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG;
         servo.setPosition(angleDeg / SERVO_TRAVEL_DEG);
+        if (opening) openTimer.reset();
     }
 
     public void close() {
         setOpen(false);
     }
 
-    /** Estimates travel time; the servo has no physical position feedback. */
-    public boolean isOpenAndSettled() {
-        return open && openTimer.seconds() >= OPEN_SETTLE_TIME_SECONDS;
+    /** Gate is commanded open and its command-to-feed delay has elapsed; no position feedback. */
+    public boolean isOpenForFeeding() {
+        return open && openTimer.seconds() >= FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS;
     }
 
     public void addTelemetry(Telemetry telemetry) {
@@ -67,6 +64,7 @@ public class GateSubsystem {
         telemetry.addData("Gate PWM Range (us)", "%d - %d | %s",
                 MIN_PULSE_US, MAX_PULSE_US, SERVO_DIRECTION);
         telemetry.addData("Gate Open Travel (deg)", GATE_OPEN_TRAVEL_DEG);
+        telemetry.addData("Gate Command-to-Feed Delay (s)", FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS);
         telemetry.addData("Gate Target (deg)", "%.0f (%s)",
                 open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG, open ? "OPEN" : "CLOSED");
     }

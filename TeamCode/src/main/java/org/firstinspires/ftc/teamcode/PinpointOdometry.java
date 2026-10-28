@@ -53,7 +53,8 @@ public class PinpointOdometry {
     private boolean fieldReferenced;
     private long referenceId;
     private double lastVelocityTime = Double.NaN, lastVx, lastVy, lastOmega;
-    private double referenceTime = Double.NaN;
+    // Team policy: assume no odometry drift; placement uncertainty is telemetry, not a timer.
+    public static final double STARTING_POSE_UNCERTAINTY_METERS = .02;
     private GoBildaPinpointDriver.DeviceStatus cachedStatus;
     public MotionSample getSample() { return sample; }
     public boolean hasFieldReference() { return fieldReferenced; }
@@ -98,7 +99,7 @@ public class PinpointOdometry {
                 ? Double.POSITIVE_INFINITY : Math.abs(omega - lastOmega) / dt;
         sample = new MotionSample(now, cachedPose.getX(DistanceUnit.METER), cachedPose.getY(DistanceUnit.METER),
                 cachedPose.getHeading(AngleUnit.RADIANS), vx, vy, omega,
-                acceleration, angularAcceleration, fieldReferenced ? .02 + Math.max(0, now - referenceTime) * .001 : 1,
+                acceleration, angularAcceleration, fieldReferenced ? STARTING_POSE_UNCERTAINTY_METERS : 1,
                 cachedStatus == GoBildaPinpointDriver.DeviceStatus.READY, fieldReferenced, String.valueOf(cachedStatus)).withReference(referenceId);
         lastVelocityTime = now; lastVx = vx; lastVy = vy; lastOmega = omega;
     }
@@ -118,7 +119,7 @@ public class PinpointOdometry {
         if (pose == null || !RobotMath.finite(pose.getX(DistanceUnit.METER), pose.getY(DistanceUnit.METER), pose.getHeading(AngleUnit.RADIANS)))
             throw new IllegalArgumentException("Invalid starting field pose");
         pinpoint.setPosition(pose); cachedPose = pose;
-        referenceId++; fieldReferenced = true; referenceTime = System.nanoTime() * 1e-9; lastVelocityTime = Double.NaN;
+        referenceId++; fieldReferenced = true; lastVelocityTime = Double.NaN;
     }
 
     /**

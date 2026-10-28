@@ -118,25 +118,29 @@ public class GoalObservationTest {
         GoalStateObserver observer=new GoalStateObserver(m); observer.select(TurretSubsystem.Alliance.RED,TurretSubsystem.HiveSide.FAR);
         ShotPlanner planner=planner(m); FiringCoordinator firing=ShootingConfiguration.firing(); TransferController transfer=new TransferController(1,2);
         boolean initialFeed=false,recoveredFeed=false,manualFeed=false;
-        for(int i=0;i<200;i++) {
-            double now=1+i*.01, capture=1+(i/5)*.05;
-            boolean visible=i<75 || i>=95, manual=i>=80&&i<90, inhibit=i>=180;
+        // Each visible/manual interval allows readiness, the command-to-feed delay and feeding.
+        for(int i=0;i<320;i++) {
+            // Use the same tick scale so rounding cannot put capture slightly in the future.
+            double now=1+i*.01, capture=1+(i-i%5)*.01;
+            boolean visible=i<110 || i>=195, manual=i>=115&&i<190, inhibit=i>=300;
             TagObservation t=tag(30,1.25,30,m.cameraPitch);
             observer.update(now,i/5,capture,visible?Collections.singletonList(t):Collections.emptyList(),true);
             MotionSample local=new MotionSample(now,0,0,0,0,0,0,0,.03,true,false,"local");
             double[] opening=geometry.opening(t,m,local,0); assertNotNull(opening);
             GoalTarget target=new GoalTarget(TurretSubsystem.Alliance.RED,TurretSubsystem.HiveSide.FAR,GoalTarget.HiveState.RAISED,
                     opening[0],opening[1],opening[2],true,"synthetic",new GoalTarget.Tag(30,2,.1651,1.25)).inLocalFrame();
-            ShotPlanner.Solution s=planner.solve(now,local,target,profile(),0,0,firing.releaseDelay(now));
+            ShotPlanner.Solution s=planner.solve(now,local,target,profile());
             firing.update(now,true,manual,inhibit,false,s.valid&&observer.raised(now),true,true,observer.reason());
             transfer.update(now,false,firing.feeding(),true);
-            if(i<75) initialFeed|=firing.feeding();
-            if(i>=95&&i<180) recoveredFeed|=firing.feeding();
-            manualFeed|=manual&&firing.gateOpen();
-            if(i>=75&&i<80 || i>=90&&i<107 || inhibit) { assertFalse(firing.gateOpen()); assertEquals(0,transfer.stage1(),0); assertEquals(0,transfer.stage2(),0); }
+            if(i<110) initialFeed|=firing.feeding();
+            if(i>=195&&i<300) recoveredFeed|=firing.feeding();
+            manualFeed|=manual&&firing.feeding();
+            if(i>=110&&i<115 || i>=190&&i<207 || inhibit) { assertFalse(firing.gateOpen()); assertEquals(0,transfer.stage1(),0); assertEquals(0,transfer.stage2(),0); }
             if(firing.feeding()) { assertTrue(firing.gateOpen()); assertEquals(1,transfer.stage1(),0); assertEquals(1,transfer.stage2(),0); }
         }
-        assertTrue(initialFeed); assertTrue(recoveredFeed); assertTrue(manualFeed);
+        assertTrue("Initial qualified feed", initialFeed);
+        assertTrue("Feed after visibility/readiness requalification", recoveredFeed);
+        assertTrue("Manual override feeds after gate travel", manualFeed);
     }
 
     @Test public void sameHeightAndPlaneCannotHideConflictingClusterPositions() {

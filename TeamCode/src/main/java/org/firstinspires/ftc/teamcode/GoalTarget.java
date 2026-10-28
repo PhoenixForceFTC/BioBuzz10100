@@ -45,7 +45,9 @@ public final class GoalTarget {
     public GoalTarget inLocalFrame() {
         return new GoalTarget(alliance,side,state,x,y,height,calibrated,geometryId,Frame.LOCAL_ODOMETRY,tags.values().toArray(new Tag[0]));
     }
-    public boolean scoreable() { return calibrated && state == HiveState.RAISED && !tags.isEmpty(); }
+    // Field aim geometry does not require a visible tag or a localization tag map.
+    public boolean scoreable() { return calibrated && state == HiveState.RAISED
+            && (frame == Frame.FIELD || !tags.isEmpty()); }
     public String identity() { return frame + "/" + alliance + "/" + side + "/" + state + "/" + geometryId; }
     public static GoalTarget unknown(TurretSubsystem.Alliance alliance, TurretSubsystem.HiveSide side) {
         return new GoalTarget(alliance, side, HiveState.UNKNOWN,

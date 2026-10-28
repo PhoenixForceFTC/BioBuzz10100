@@ -11,7 +11,7 @@ public final class GoalStateObserver {
     public enum State { UNKNOWN, TRANSITIONING, RAISED, LOWERED }
     public static final double MAX_AGE_SECONDS = .15, STABLE_SECONDS = .12;
     public static final int CONSISTENT_FRAMES = 3;
-    public static final double RAISED_TAG_PLANE_DEG = 30;
+    public static final double RAISED_TAG_PLANE_DEG = FieldGeometry.HIVE_TILT_DEG;
     public static final double HEIGHT_ENTER_TOLERANCE_METERS = .07, HEIGHT_RETAIN_TOLERANCE_METERS = .10;
     public static final double PLANE_ENTER_TOLERANCE_DEG = 8, PLANE_RETAIN_TOLERANCE_DEG = 12;
     public static final double TAG_HEIGHT_AGREEMENT_METERS = .06, TAG_CLUSTER_AGREEMENT_METERS = .08, TAG_AXES_AGREEMENT_DEG = 8;

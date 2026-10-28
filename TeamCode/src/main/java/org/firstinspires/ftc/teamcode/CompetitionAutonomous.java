@@ -24,11 +24,12 @@ public abstract class CompetitionAutonomous extends LinearOpMode {
         TurretSubsystem turret = null;
         PollenVision vision = null;
         CompetitionAutonomousController auto = new CompetitionAutonomousController(strategy, PollenVision.CONFIG);
+        IntakeQueueController intakeControl = new IntakeQueueController();
         try {
             PinpointOdometry odometry = new PinpointOdometry(hardwareMap);
             intake = new IntakeSubsystem(hardwareMap); transfer = new TransferSubsystem(hardwareMap);
             gate = new GateSubsystem(hardwareMap); turret = new TurretSubsystem(hardwareMap);
-            ShotCoordinator shots = new ShotCoordinator(turret, strategy.target);
+            ShotCoordinator shots = new ShotCoordinator(turret, strategy.target, ShotCoordinator.AimMode.AUTONOMOUS_ODOMETRY);
             // Collection camera failure is bounded by the strategy's collection timeout.
             try { vision = new PollenVision(hardwareMap); }
             catch (RuntimeException e) { telemetry.addData("Collection camera unavailable", e.getMessage()); }
@@ -54,10 +55,13 @@ public abstract class CompetitionAutonomous extends LinearOpMode {
                 MotionSample pose = shots.pose();
                 auto.update(now, pose, vision == null ? null : vision.getTarget(),
                         vision != null && vision.isAutonomousReady(), transfer.isFull(), isStopRequested());
-                shots.update(now, odometry.getSample(), auto.fireRequested(), false, auto.finished(), false);
-                drive.driveRobotCentric(auto.axial(), auto.lateral(), auto.yaw()); intake.setIntakePower(auto.intake());
+                shots.update(now, odometry.getSample(), !auto.finished(), auto.fireRequested(), false, auto.finished(), false);
+                drive.driveRobotCentric(auto.axial(), auto.lateral(), auto.yaw());
                 gate.setOpen(shots.firing().gateOpen());
-                transfer.update(shots.firing().feeding() && gate.isOpenAndSettled(), !auto.loading() || auto.finished());
+                transfer.update(shots.firing().feeding() && gate.isOpenForFeeding(), !auto.loading() || auto.finished());
+                intake.setIntakePower(auto.finished() ? 0 : intakeControl.update(transfer.isFull(),
+                        gamepad1.right_bumper || gamepad2.right_bumper,
+                        gamepad1.left_bumper || gamepad2.left_bumper));
                 if (auto.finished()) transfer.stop();
                 telemetry.addData("Match autonomous", "%s | %s", auto.state(), auto.reason());
                 shots.addTelemetry(telemetry, now); if (vision != null) vision.addTelemetry(telemetry);

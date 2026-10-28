@@ -1,13 +1,20 @@
 package org.firstinspires.ftc.teamcode;
 
-/** Bumpers always win. A newly full queue reverses intake until the GP1 auto trigger is released. */
+/** Automatic queue-based intake direction; either bumper overrides and opposing bumpers stop. */
 public final class IntakeQueueController {
-    private boolean previousFull, previousAuto, reverse;
-    public double update(boolean full, boolean autoHeld, boolean forwardBumper, boolean reverseBumper) {
-        if (full && !previousFull) reverse = true;
-        if (previousAuto && !autoHeld) reverse = false;
-        previousFull = full; previousAuto = autoHeld;
+    private final double fullQueuePower;
+
+    /** Preserve the existing reverse-on-full policy for autonomous callers. */
+    public IntakeQueueController() { this(-1.0); }
+
+    public IntakeQueueController(double fullQueuePower) {
+        if (!Double.isFinite(fullQueuePower) || fullQueuePower < -1 || fullQueuePower > 1)
+            throw new IllegalArgumentException("Invalid full-queue intake power");
+        this.fullQueuePower = fullQueuePower;
+    }
+
+    public double update(boolean full, boolean forwardBumper, boolean reverseBumper) {
         if (forwardBumper || reverseBumper) return (forwardBumper ? 1 : 0) - (reverseBumper ? 1 : 0);
-        return reverse ? -1 : 0;
+        return full ? fullQueuePower : 1;
     }
 }

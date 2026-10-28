@@ -50,5 +50,4 @@ public final class WaypointFollower {
     public double axial() { return axial; }
     public double lateral() { return lateral; }
     public double yaw() { return yaw; }
-    public boolean movingShotsAllowed() { return state == State.DRIVING && route[index].movingShots; }
 }

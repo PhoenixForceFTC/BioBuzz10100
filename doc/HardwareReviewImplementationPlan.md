@@ -1,5 +1,10 @@
 # Implementation plan from the hardware/software review
 
+> Historical review/plan: October 26 decisions supersede the moving-shot solver, flight-time data, motion-based firing gates, hive-state gating in competition TeleOp, calibration-file saving, the earlier 1.50/1.25-m height estimates and time-based uncertainty cutoffs described below. These features have been removed from the competition workflow. See [current competition behavior](CompetitionTeleOp.md), [configuration](SoftwareConfiguration.md) and [tag map](FieldReference.md) for the implemented behavior.
+
+
+Historical review: the October 26 [competition decisions](CompetitionTeleOp.md) supersede competition intake, target/state selection, turret release/correction, initial RPM, feed controls and calibration storage described below. Diagnostic behavior remains separate.
+
 October 23, 2026. This plan covers the [review findings](HardwareSoftwareReview.md), the team's confirmed mechanism/mounting details, the [TU06 field reference](FieldReference.md), and the proposed Limelight high/low detector. This is the implementation specification. Completed software changes, verification and remaining calibration boundaries are recorded in [HardwareReviewImplementationStatus.md](HardwareReviewImplementationStatus.md).
 
 Scope: repair hardware-control logic, implement observed goal-state detection and integrate it with aiming/feeding, complete pollen detection/navigation logic, and verify on the desktop. Match autonomous paths, preload/repeat/parking strategies, deployment, wiring changes and physical testing remain deferred.
@@ -11,7 +16,7 @@ Scope: repair hardware-control logic, implement observed goal-state detection an
 - Keep the Limelight mount: 335 mm lens height, 30 degrees above horizontal, and the previously confirmed rotating pivot/camera offsets.
 - Keep high-goal opening/tag-center heights of 1.50/1.25 m and opening-plane angle of 60 degrees. The opening angle is not the hood command.
 - Keep the confirmed 6 V servo injector and Control Hub I2C port 0 for Pinpoint.
-- Keep the fourth-ball sensor on stage 1. Loading uses stage 1 only; feeding opens/settles the gate and runs both stages at full power, stage 1 REVERSE and stage 2 FORWARD. Gate closure blocks passage to the flywheel. Opening alone does not release a ball.
+- Keep the fourth-ball sensor on stage 1. Loading runs stage 1 forward with stage 2 stopped; feeding opens/settles the gate and runs both stages at full power, stage 1 REVERSE and stage 2 FORWARD. Gate closure blocks passage to the flywheel. Opening alone does not release a ball.
 - Depollinator clearance is confirmed. Do not add an invented collision exclusion for it.
 
 ## 1. Repair hardware selection, diagnostics and homing
@@ -60,8 +65,8 @@ Acceptance: delayed-frame aiming does not overshoot merely because the turret mo
 Primary files: `TransferController`, `TransferSubsystem`, `FiringCoordinator`, transfer test OpModes.
 
 - Pass the authoritative power and full-confirmation duration into the controller. Telemetry and actual behavior must use the same configuration.
-- Preserve full power on both stages for every shot-feed path: manual, automatic and shot calibration. Preserve stage-1-only loading, full confirmation/reset behavior, and the gate-opening delay.
-- Add deliberate stage-2 diagnostic control independent of the shooter/flywheel, with the gate held closed and no command left running after release/STOP.
+- Preserve full power on both stages for every shot-feed path: manual, automatic and shot calibration. During loading, run stage 1 forward with stage 2 stopped; preserve full confirmation/reset behavior and the gate-opening delay.
+- Exercise stage 2 only in a deliberate timed gate-open feed test independent of the shooter/flywheel. RB requests the shared sequence for both stages, LB inhibits, and release/STOP closes the gate and stops stage 2. Stage 2 stays off during loading.
 - Add useful throttled current/output telemetry for intake/transfer diagnosis. Do not invent jam thresholds or automatic reverse/retry sequences without evidence; retain manual reverse control.
 
 Acceptance: trace tests cover INIT, loading, sensor chatter, full queue, gate opening, feeding, readiness loss, manual override, operator inhibit, STOP and exceptions. No path automatically feeds through an unsettled/closed gate, and no ball counts are inferred from the fourth-ball sensor.
@@ -106,7 +111,8 @@ Review the final diff and update documentation, controls and calibration status.
 - Turret encoder port 1 versus a hardware-counted port: document the eventual wiring/software alias change together; do not remap software ahead of wiring.
 - Absolute turret home detection and measured hood/gate position require feedback the current hardware does not provide.
 - [x] Turret physical checks, including gear/home alignment, servo directions/travel, encoder sign, mechanical limits, hood/flywheel operation and homing response: operator-confirmed complete October 24, 2026 after `Test: Turret`. See [physical sign-off](HardwareReviewImplementationStatus.md#turret-physical-checks--complete-october-24-2026).
-- Numerical turret timing calibration, other mechanisms' servo programming/loaded travel, and gate/feed/recovery delays remain open.
+- [x] All transfer and intake tests, turret rotation, shooting/angle and gate tests: operator-confirmed complete October 26, 2026. See [mechanism test sign-off](HardwareReviewImplementationStatus.md#mechanism-tests--complete-october-26-2026).
+- Numerical turret timing calibration and measured gate/feed/recovery delays remain separate from the completed mechanism tests; other mechanisms' servo programming/loaded travel remains open.
 - Limelight pipeline configuration, 3D pose quality, latency and state-classifier tolerances.
 - C270 intrinsics/distortion, HSV thresholds, intake capture location, pickup travel and usable drive powers.
 - Shot tables, moving-shot flight times and usable motion envelopes.

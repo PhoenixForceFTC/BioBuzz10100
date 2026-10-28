@@ -5,6 +5,58 @@ import static org.junit.Assert.*;
 import static org.firstinspires.ftc.teamcode.ControllerFixtures.*;
 
 public class FiringCoordinatorTest {
+    @Test public void configuredCycleWaitsPointTwoSecondsAfterGateCommandAndExtendsBothStageFeed() {
+        FiringCoordinator f = ShootingConfiguration.firing();
+        TransferController transfer = new TransferController();
+        transfer.update(0, false, false, false);
+        assertEquals(1, transfer.stage1(), 0);
+        assertEquals(0, transfer.stage2(), 0);
+
+        update(f, 1, true, true, true);
+        double opened = 1 + f.stableSeconds + .01;
+        update(f, opened, true, true, true);
+        assertTrue(f.gateOpen());
+        // Both stages wait until 0.20 seconds after the open command.
+        update(f, opened + .199, true, true, true);
+        transfer.update(opened + .199, false, f.feeding(), true);
+        assertTrue(f.gateOpen());
+        assertFalse(f.feeding());
+        assertEquals(0, transfer.stage1(), 0);
+        assertEquals(0, transfer.stage2(), 0);
+
+        double feeding = opened + .201;
+        update(f, feeding, true, true, true);
+        transfer.update(feeding, true, f.feeding(), true);
+        assertTrue(f.feeding());
+        assertEquals(1, transfer.stage1(), 0);
+        assertEquals(1, transfer.stage2(), 0);
+        // Past the old 0.18-second pulse, the gate and both stages stay active.
+        update(f, feeding + .30, true, true, true);
+        transfer.update(feeding + .30, true, f.feeding(), true);
+        assertTrue(f.gateOpen());
+        assertTrue(f.feeding());
+        assertEquals(1, transfer.stage1(), 0);
+        assertEquals(1, transfer.stage2(), 0);
+        update(f, feeding + f.feedWindowSeconds - .01, true, true, true);
+        assertTrue(f.feeding());
+
+        double recovery = feeding + f.feedWindowSeconds + .01;
+        update(f, recovery, true, true, true);
+        transfer.update(recovery, false, f.feeding(), true);
+        assertEquals(FiringCoordinator.State.RECOVERY, f.state());
+        assertFalse(f.gateOpen());
+        assertEquals(0, transfer.stage1(), 0);
+        assertEquals(0, transfer.stage2(), 0);
+        update(f, recovery + f.recoverySeconds - .01, true, true, true);
+        assertEquals(FiringCoordinator.State.RECOVERY, f.state());
+
+        // Releasing the shot request restores stage 1 loading, with stage 2 off.
+        f.update(recovery + f.recoverySeconds, false, false, false, false, true, true, true, "");
+        transfer.update(recovery + f.recoverySeconds, false, f.feeding(), false);
+        assertEquals(1, transfer.stage1(), 0);
+        assertEquals(0, transfer.stage2(), 0);
+    }
+
     private FiringCoordinator f() { return new FiringCoordinator(.2,.1,.15,.3,.1); }
     private void update(FiringCoordinator f,double now,boolean valid,boolean tight,boolean loose) {
         f.update(now,true,false,false,false,valid,tight,loose,"Invalid synthetic solution");
@@ -12,9 +64,7 @@ public class FiringCoordinatorTest {
     @Test public void stableReadinessGateTravelFeedingAndRpmRecovery() {
         FiringCoordinator f=f(); update(f,0,true,true,true); assertFalse(f.gateOpen());
         update(f,.11,true,true,true); assertTrue(f.gateOpen()); assertFalse(f.feeding());
-        assertEquals(.2,f.releaseDelay(.21),1e-8);
         update(f,.32,true,true,true); assertTrue(f.feeding()); assertEquals(1,f.feedAttempts());
-        assertEquals(.06,f.releaseDelay(.36),1e-8);
         update(f,.36,true,false,false); assertFalse(f.feeding()); assertFalse(f.gateOpen());
         assertEquals(FiringCoordinator.State.RECOVERY,f.state()); assertTrue(f.ballMayBeCommitted());
         update(f,.7,true,true,true); update(f,.71,true,true,true); update(f,.82,true,true,true);
@@ -35,22 +85,25 @@ public class FiringCoordinatorTest {
         f=f(); update(f,0,true,true,true); update(f,.11,true,true,true); update(f,.15,true,false,true);
         assertTrue(f.gateOpen()); // Entry tolerance differs from retention tolerance.
     }
-    @Test public void movingSolutionFeedsWithLeadAndStopsOnTargetLoss() {
+    @Test public void currentPoseSolutionMayFeedDuringMotionAndStopsOnInvalidTarget() {
         FiringCoordinator f=f(); boolean sawFeed=false;
         for(int i=0;i<100;i++) {
             double now=1+i*.01;
-            ShotPlanner.Solution s=planner(mount()).solve(now,pose(now,0,0,0,0,.4,0),goal(2,0),profile(),-.1,0,f.releaseDelay(now));
-            assertTrue(s.reason,s.valid); assertTrue(s.lead<0);
-            update(f,now,i<60,true,true); sawFeed|=f.feeding();
+            ShotPlanner.Solution s=planner(mount()).solve(now,pose(now,0,0,0,0,.4,0),goal(2,0),profile());
+            assertTrue(s.reason,s.valid); assertEquals(0,s.yaw,0);
+            boolean angleReady = ShotReadiness.angleReady(2.9);
+            update(f,now,i<60 && s.valid,angleReady,angleReady); sawFeed|=f.feeding();
             if(i>=60) assertFalse(f.feeding());
         }
         assertTrue(sawFeed); assertTrue(f.feedAttempts()>0);
     }
     @Test public void manualFeedStaysContinuousAndAutoMustRequalifyAfterOverride() {
-        FiringCoordinator f=f(); f.update(0,true,true,false,false,true,true,true,"");
-        f.update(.21,true,true,false,false,true,true,true,""); assertTrue(f.feeding());
+        FiringCoordinator f=ShootingConfiguration.firing(); f.update(0,true,true,false,false,true,true,true,"");
+        assertTrue(f.gateOpen());
+        f.update(.199,true,true,false,false,true,true,true,""); assertFalse(f.feeding());
+        f.update(.20,true,true,false,false,true,true,true,""); assertTrue(f.feeding());
         f.update(1,true,true,false,false,true,true,true,""); assertTrue(f.feeding());
         f.update(1.01,true,false,false,false,true,true,true,""); assertFalse(f.feeding()); assertFalse(f.gateOpen());
-        f.update(1.12,true,false,false,false,true,true,true,""); assertTrue(f.gateOpen());
+        f.update(1.01+f.stableSeconds+.01,true,false,false,false,true,true,true,""); assertTrue(f.gateOpen());
     }
 }

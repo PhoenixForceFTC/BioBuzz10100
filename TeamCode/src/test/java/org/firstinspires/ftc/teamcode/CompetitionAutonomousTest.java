@@ -14,7 +14,7 @@ public class CompetitionAutonomousTest {
             CompetitionAutonomousController c=controller(true,1);
             EnumSet<CompetitionAutonomousController.State> seen=EnumSet.noneOf(CompetitionAutonomousController.State.class);
             double x=0,y=0,h=0; int attempts=0;
-            FiringCoordinator firing=new FiringCoordinator(.2,.1,.15,.3,.1);
+            FiringCoordinator firing=ShootingConfiguration.firing();
             for(int i=0;i<2900 && !c.finished();i++) {
                 double now=1+i*.01; seen.add(c.state());
                 MotionSample pose=pose(now,x,y,h,0,0,0);
@@ -72,7 +72,7 @@ public class CompetitionAutonomousTest {
         assertEquals(CompetitionAutonomousController.State.FAULT,c.state());
         AutonomousStrategy s=strategy(false,0); assertFalse(s.segmentClear(0,0,2,0));
         assertThrows(IllegalArgumentException.class,()->new AutonomousStrategy("bad",true,TurretSubsystem.Alliance.RED,s.start,s.target,
-                new AutonomousStrategy.Waypoint[]{new AutonomousStrategy.Waypoint(2,0,0,false)},s.scoring(),s.parking(),
+                new AutonomousStrategy.Waypoint[]{new AutonomousStrategy.Waypoint(2,0,0)},s.scoring(),s.parking(),
                 new AutonomousStrategy.Obstacle[0],.2,29,4,5,2,1,false,0));
         assertThrows(IllegalArgumentException.class,()->new AutonomousStrategy("blocked",true,TurretSubsystem.Alliance.RED,s.start,s.target,
                 s.collection(),s.scoring(),s.parking(),new AutonomousStrategy.Obstacle[]{new AutonomousStrategy.Obstacle(.1,-.1,.2,.1)},
@@ -80,16 +80,16 @@ public class CompetitionAutonomousTest {
     }
     @Test public void waypointHeadingWrapAndClockwiseDriveConvention() {
         AutonomousStrategy s=strategy(false,0); WaypointFollower f=new WaypointFollower();
-        f.start(1,s,new AutonomousStrategy.Waypoint[]{new AutonomousStrategy.Waypoint(0,.3,Math.toRadians(-179),false)});
+        f.start(1,s,new AutonomousStrategy.Waypoint[]{new AutonomousStrategy.Waypoint(0,.3,Math.toRadians(-179))});
         f.update(1.1,pose(1.1,0,0,Math.toRadians(179),0,0,0));
         assertTrue(f.yaw()<0); assertTrue(Math.abs(f.yaw())<.1); assertTrue(f.lateral()>0);
     }
-    @Test public void movingShotsOnlyOnDesignatedSegmentsAndStationaryScoringWaitsForStop() {
+    @Test public void travelNeverRequestsFeedAndScoringHasNoMotionGate() {
         CompetitionAutonomousController c=controller(false,0);
         c.update(1.1,pose(1.1,.3,0,0,0,0,0),null,true,false,false);
         assertFalse(c.fireRequested()); c.update(1.2,pose(1.2,.3,0,0,0,0,0),null,true,true,false);
-        c.update(1.3,pose(1.3,.3,0,0,0,0,0),null,true,true,false); assertTrue(c.fireRequested());
+        c.update(1.3,pose(1.3,.3,0,0,0,0,0),null,true,true,false); assertFalse(c.fireRequested());
         c.update(1.4,pose(1.4,.5,0,0,0,0,0),null,true,true,false);
-        c.update(1.5,pose(1.5,.5,0,0,.2,0,0),null,true,true,false); assertFalse(c.fireRequested());
+        c.update(1.5,pose(1.5,.5,0,0,.2,0,0),null,true,true,false); assertTrue(c.fireRequested());
     }
 }

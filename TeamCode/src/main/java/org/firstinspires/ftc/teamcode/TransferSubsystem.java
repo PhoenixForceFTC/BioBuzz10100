@@ -55,8 +55,9 @@ public class TransferSubsystem {
     }
 
     /**
-     * Feed runs both stages regardless of the full sensor; caller must first open and settle the gate.
-     * Otherwise stage 2 stays stopped, and stage 1 loads unless full or paused for aiming/gate travel.
+     * Feed runs both stages regardless of the full sensor; caller must open the gate and wait its feed delay.
+     * Otherwise stage 1 loads unless full or paused for aiming/gate delay; stage 2 stays stopped.
+     * A confirmed full queue remains held until feeding begins, even if the sensor clears.
      */
     public void update(boolean feedBalls, boolean pauseLoading) {
         sensorState = fullSensor.getState();
@@ -75,13 +76,6 @@ public class TransferSubsystem {
         }
     }
 
-    /** Deliberate hold-to-run diagnostic, caller must hold the physical gate closed. */
-    public void diagnosticStage2(boolean held) {
-        update(false, true);
-        stage2Power = held ? TRANSFER_POWER : 0;
-        stage2Motor.setPower(stage2Power);
-    }
-
     public boolean isFull() {
         return controller.full();
     }
@@ -98,6 +92,7 @@ public class TransferSubsystem {
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Transfer current (A, 5 Hz)", "stage 1 %.2f | stage 2 %.2f",current1,current2);
         telemetry.addData("Transfer Mode", feeding ? "FEEDING SHOT"
+                : isFull() ? "FULL: HOLDING UNTIL FEED"
                 : loadingPaused ? "WAITING FOR SHOT / GATE" : "AUTOMATIC LOADING");
         telemetry.addData("Transfer Full Sensor", "%s | digital %s",
                 isFull() ? "FULL" : sensorState == FULL_SENSOR_ACTIVE_STATE ? "CONFIRMING FULL" : "SPACE AVAILABLE",
@@ -105,6 +100,6 @@ public class TransferSubsystem {
         telemetry.addData("Transfer Full Confirmation (s)", "%.2f / %.2f",
                 controller.confirmingSeconds(System.nanoTime() * 1e-9), FULL_CONFIRM_TIME_SECONDS);
         telemetry.addData("Transfer Stage 1 Power", "%.2f (REVERSE / CW, open loop)", commandedPower);
-        telemetry.addData("Transfer Stage 2 Power", "%.2f (FORWARD / CCW, open loop)", stage2Power);
+        telemetry.addData("Transfer Stage 2 Power", "%.2f (forward shot feed only; off while loading)", stage2Power);
     }
 }

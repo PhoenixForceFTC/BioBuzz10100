@@ -57,8 +57,8 @@ public final class PoseHistory {
     public MotionSample current(double now) {
         if (history.isEmpty()) return null;
         MotionSample p = history.getLast().pose;
-        double age = Double.isFinite(lastObservation) ? Math.max(0, now - lastObservation) : HISTORY_SECONDS;
-        double uncertainty = Double.isFinite(acceptedUncertainty) ? acceptedUncertainty + age * .015 : p.uncertainty + age * .05;
+        // No assumed drift or missing-camera penalty. Observation age still controls frame use.
+        double uncertainty = Double.isFinite(acceptedUncertainty) ? acceptedUncertainty : p.uncertainty;
         return p.shifted(correctionX, correctionY, uncertainty);
     }
     /** Known tag positions are state-specific. Never consume botpose as though it were camera pose. */

@@ -17,8 +17,8 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 public class MecanumDrivetrain {
 
     // goBILDA 5202/5203 Series Bare Motor Specifications (1:1 Ratio, no gearbox)
-    public static final double BARE_MOTOR_TICKS_PER_REV = 28.0;
-    public static final double BARE_MOTOR_MAX_RPM = 6000.0;
+    public static final double BARE_MOTOR_TICKS_PER_REV = BareMotorSpecifications.ENCODER_TICKS_PER_REV;
+    public static final double BARE_MOTOR_MAX_RPM = BareMotorSpecifications.CONFIGURED_FREE_SPEED_RPM;
     public static final double LATERAL_STRAFE_MULTIPLIER = 1.1;
 
     private final DcMotorEx frontLeft;
@@ -113,11 +113,12 @@ public class MecanumDrivetrain {
         motor.setPower(0);
         motor.setDirection(direction);
 
-        // Clone the SDK motor configuration so we set 28 ticks/rev and 6000 RPM
+        // Clone the SDK motor configuration so we set 28 ticks/rev and the shared 5550 RPM baseline
         // without mutating the shared motor type singleton.
         MotorConfigurationType motorType = motor.getMotorType().clone();
         motorType.setTicksPerRev(BARE_MOTOR_TICKS_PER_REV);
         motorType.setMaxRPM(BARE_MOTOR_MAX_RPM);
+        motorType.setAchieveableMaxRPMFraction(1.0);
         motorType.setGearing(1.0);
         motor.setMotorType(motorType);
 

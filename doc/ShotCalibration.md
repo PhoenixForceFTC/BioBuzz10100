@@ -14,8 +14,8 @@ PLACE screen after START using Dpad left/right in 1-inch steps, then A to confir
 From TUNE, B returns to PLACE to edit the distance; there is no typed numeric field.
 Hood degrees mean 0–30 degrees of downward travel from home. Home is +15 degrees
 above horizontal; 15 degrees of travel is horizontal; 30 degrees is -15 degrees.
-Launch elevation = 15 - hood travel. Dpad Up raises elevation and Down lowers it;
-telemetry displays both values. RPM is motor encoder RPM, not an independently measured
+Launch elevation = 15 - hood travel. Dpad Up lowers elevation and Down raises it;
+telemetry displays both values. RPM is flywheel output RPM inferred from the motor encoder and the 2:3 speed ratio, not an independently measured
 flywheel shaft speed. A changed drive ratio requires recalibration.
 
 1. During INIT, allow turret homing to finish. After START, position the robot at
@@ -27,7 +27,9 @@ flywheel shaft speed. A changed drive ratio requires recalibration.
    command by 0.5 degrees. Hold RB to spin; X requests one timed feed attempt.
 3. Keep RB held through the attempt. Feeding waits for stable RPM, hood settling
    and yaw tracking, then opens the gate before running the transfer stages.
-   Timing uses the existing `ShootingConfiguration.firing()` estimates. Verify
+   Both stages start 0.20 seconds after the gate-open command and feed forward for 0.50 seconds;
+   it remains open throughout that feed. Stage 2 stays off outside feeding.
+   Timing uses the shared `ShootingConfiguration.firing()` estimates. Verify
    those timings on the actual robot; a timed attempt cannot guarantee one ball.
 4. After the attempt, flywheel and transfer stop and the gate closes. Observe the
    result, then press A for HIT or B for MISS. X discards an uncertain/no-ball trial.
@@ -55,7 +57,7 @@ exit. LS click in PLACE/TUNE rehomes. Hardware outputs stop in `finally` on exit
 
 The TeleOp uses memory and Driver Hub telemetry only. It does not read or write
 calibration files, maintain trial logs, or export data. The live table displays
-distance in inches, average target motor RPM, average launch elevation above
+distance in inches, average target flywheel RPM, average launch elevation above
 horizontal, and average downward hood travel from home. Values refresh every loop.
 A new run starts empty. Keep the OpMode running in REVIEW while recording the
 rows or taking a screenshot of the Driver Hub, then share those rows to enter
@@ -66,11 +68,11 @@ them into the source-code lookup table.
 After collecting the displayed averages, enter them as ordered rows in
 `ShootingConfiguration.PROFILE` in place of `ShotProfile.example()`. Use a geometry
 ID matching the measured target setup. Each row uses distance in meters, downward
-hood travel in degrees, average target RPM, and unknown flight time:
+hood travel in degrees and average flywheel target RPM:
 
 ```java
 new ShotProfile.Row(distanceInches * .0254,
-        15 - averageLaunchElevationDeg, averageRpm, Double.NaN)
+        15 - averageLaunchElevationDeg, averageRpm)
 ```
 
 If using the displayed hood travel directly, use it as the second argument instead
@@ -88,7 +90,4 @@ where errors appear. Averaging successful but very different angle/RPM pairs can
 produce an unsuccessful intermediate pair; keep one consistent shot trajectory
 and validate the averages themselves.
 
-Use `Double.NaN` for flight time because this procedure does not measure it.
-The existing planner supports stationary shots with this profile, but moving shots
-still require measured flight times. Mount geometry, goal survey and timing
-validation in `ShootingConfiguration` remain separately required for auto-aim.
+Flight-time data and projectile lead prediction have been removed. Current pose determines the range, yaw, hood and RPM each loop; automatic feeding has no chassis/turret speed gate. Mount geometry, the approved opening geometry and release timing still require configuration. Drivers decide whether to fire while moving.

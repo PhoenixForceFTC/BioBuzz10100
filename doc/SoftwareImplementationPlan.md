@@ -1,5 +1,8 @@
 # Robot software completion and shooting while moving
 
+> Historical review/plan: October 26 decisions supersede the moving-shot solver, flight-time data, motion-based firing gates, hive-state gating in competition TeleOp and calibration-file saving described below. These features have been removed from the competition workflow. See [current competition behavior](CompetitionTeleOp.md), [configuration](SoftwareConfiguration.md) and [tag map](FieldReference.md) for the implemented behavior.
+
+
 Scope: address the six review findings and add motion-compensated shooting. This is an implementation plan, not a claim that the robot is calibrated or competition-ready. Physical checks and measurements are listed separately at the end. Existing local changes are the baseline and must be preserved.
 
 Scope clarification, October 22, 2026: the team requests pollen detection and navigation only for autonomous work. Match paths, preload/repeat/scoring/parking strategies and their route data are deferred. Their appearance below records earlier planning, not a current requirement.

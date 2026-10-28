@@ -16,9 +16,7 @@ public final class RobotMath {
         public Vec(double x, double y) { this.x = x; this.y = y; }
         public Vec plus(Vec b) { return new Vec(x + b.x, y + b.y); }
         public Vec minus(Vec b) { return new Vec(x - b.x, y - b.y); }
-        public Vec times(double k) { return new Vec(x * k, y * k); }
         public Vec rotate(double a) { return new Vec(x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)); }
-        public Vec cross(double omega) { return new Vec(-omega * y, omega * x); }
         public double norm() { return Math.hypot(x, y); }
         public double angle() { return Math.atan2(y, x); }
     }

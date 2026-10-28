@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 import com.qualcomm.robotcore.util.Range;
 
@@ -30,8 +31,8 @@ import java.util.List;
  *         Config name: {@code "turret_encoder"}.</li>
  *     <li><b>Turret Pitch / Hood Servo (1x Axon MAX+, Servo Mode, 2:1 linkage with hood angle)</b>:
  *         Expansion Hub Servo Port 0 (powered via goBILDA 6V Servo Power Injector 3125-0001-0001).
- *         Home is {@code 0.5}, the highest launch angle (+15 deg above horizontal).
- *         Counter-clockwise servo travel lowers launch angle to -15 deg (30 deg hood travel).
+ *         Home is {@code PITCH_HOME_SERVO_POS}, the team's +15 deg launch reference.
+ *         Increasing PWM lowers launch angle to -15 deg (30 deg hood travel), away from the upper stop.
  *         Config name: {@code "turret_pitch"}.</li>
  *     <li><b>Turret Shooter / Flywheel Motor (goBILDA 5202/5203 6000 RPM Bare YellowJacket)</b>:
  *         Expansion Hub Motor Port 0 & Quadrature Port 0 (28 ticks/rev, 6000 RPM, FLOAT).
@@ -80,7 +81,7 @@ public class TurretSubsystem {
     public static final double ROTATION_MAX_ANGLE_DEG =  180.0 - ROTATION_DEADZONE_HALF_DEG; // +175.0 deg
 
     // Set to -1.0 if positive angle commands move the turret in the opposite direction of encoder ticks
-    public static final double ROTATION_SERVO_DIRECTION_SIGN = 1.0;
+    public static final double ROTATION_SERVO_DIRECTION_SIGN = -1.0;
 
     // Both rotation servos mesh with the turret ring in the same orientation by default;
     // flip ROTATION_SERVO_2_DIRECTION if they are mounted inverted relative to each other.
@@ -98,41 +99,45 @@ public class TurretSubsystem {
     public static final double TURRET_TICKS_PER_DEGREE = TURRET_TICKS_PER_REV / 360.0; // 61.44 ticks/deg
     public static final double ENCODER_DIRECTION_SIGN = 1.0; // Flip to -1.0 if encoder counts decrease on +angle
 
-    // Closed-loop encoder trim & servo cutout/slip correction constants
-    public static final double MAX_ENCODER_TRIM_DEG = 25.0;         // Max servo command correction (deg)
-    public static final double ENCODER_TRIM_DEADBAND_DEG = 0.35;    // Ignore tiny sub-degree encoder noise
-    public static final double SERVO_CUTOUT_ERROR_THRESHOLD_DEG = 4.0; // Flag warning if |target - enc| > 4 deg
+    // Internal servo feedback handles normal positioning; external correction starts above the margin.
+    public static final double SERVO_CUTOUT_ERROR_THRESHOLD_DEG = TurretControl.ENCODER_CORRECTION_MARGIN_DEG;
 
     // =========================================================================
     // HOOD TRAVEL FROM HOME (PORT 0, 2:1 LINKAGE): 0..30 DEG => LAUNCH +15..-15 DEG
     // =========================================================================
-    // Home position 0.5 = zero hood travel = +15 deg launch angle above horizontal.
+    // Home includes a 2-degree downward offset from the original 0.5 mechanical reference.
     // Linked 2:1 with turret angle: 1 deg of turret pitch requires 2 deg of Axon MAX+ servo rotation
     // (or set PITCH_SERVO_TO_TURRET_RATIO = 1.0 if measuring servo shaft degrees directly).
-    // Looking at the front gear face of the Axon MAX+ servo, decreasing PWM from 0.5 (1500 us -> 500 us)
-    // rotates the servo horn counter-clockwise (CCW). Flip PITCH_SERVO_DIRECTION_SIGN to +1.0 if your
-    // Axon programmer has direction inversion enabled.
+    // Increasing PWM moves down. Never command above the new home toward the upper stop.
     public static final double PITCH_MIN_DEG = 0.0;
     public static final double PITCH_MAX_DEG = 30.0;
     public static final double LAUNCH_HOME_ANGLE_DEG = 15.0;
     public static final double PITCH_HOME_DEG = 0.0;
-    public static final double PITCH_SERVO_TO_TURRET_RATIO = 2.0; // 60 deg servo CCW = 30 deg hood travel
-    public static final double PITCH_HOME_SERVO_POS = 0.5;        // Highest launch angle
+    public static final double PITCH_SERVO_TO_TURRET_RATIO = 2.0; // 60 deg servo travel = 30 deg hood travel
+    // Old 13-degree command (2 degrees down from old home) is the new +15 reference.
+    public static final double PITCH_HOME_OFFSET_DEG = 2.0;
+    public static final double PITCH_HOME_SERVO_POS = 0.5
+            + PITCH_HOME_OFFSET_DEG * PITCH_SERVO_TO_TURRET_RATIO / AXON_MAX_TRAVEL_DEG;
     public static final double PITCH_SERVO_POS_AT_0_DEG = PITCH_HOME_SERVO_POS;
     public static final double PITCH_SERVO_DEG_PER_UNIT = AXON_MAX_TRAVEL_DEG; // 355.0 deg across 0.0..1.0
-    public static final double PITCH_SERVO_DIRECTION_SIGN = -1.0; // -1.0 rotates CCW from 0.5 when looking at front gear face
+    public static final double PITCH_SERVO_DIRECTION_SIGN = 1.0;
     public static final Servo.Direction PITCH_SERVO_DIRECTION = Servo.Direction.FORWARD;
 
     // =========================================================================
     // TURRET SHOOTER / FLYWHEEL MOTOR CONSTANTS (PORT 0, 6000 RPM BARE MOTOR)
     // =========================================================================
-    public static final double SHOOTER_MOTOR_TICKS_PER_REV = 28.0;
-    public static final double SHOOTER_MOTOR_MAX_RPM = 6000.0;
-    public static final double SHOOTER_DEFAULT_TARGET_RPM = 4200.0;
-    public static final double SHOOTER_MIN_AUTO_RPM = 3200.0;
-    public static final double SHOOTER_MAX_AUTO_RPM = 5600.0;
-    public static final double SHOOTER_READY_TOLERANCE_RPM = 150.0;
-    public static final double SHOT_READY_YAW_TOLERANCE_DEG = 1.0;
+    public static final double SHOOTER_MOTOR_TICKS_PER_REV = ShooterSpeed.MOTOR_TICKS_PER_REV;
+    public static final double SHOOTER_MOTOR_MAX_RPM = ShooterSpeed.MOTOR_MAX_RPM;
+    public static final double SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV = ShooterSpeed.FLYWHEEL_REVS_PER_MOTOR_REV;
+    public static final double SHOOTER_MAX_RPM = ShooterSpeed.FLYWHEEL_MAX_TARGET_RPM;
+    // Public shooter RPM values refer to the flywheel output shaft, not the motor.
+    public static final double SHOOTER_DEFAULT_TARGET_RPM = 4200.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
+    public static final double SHOOTER_MIN_AUTO_RPM = 3200.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
+    public static final double SHOOTER_MAX_AUTO_RPM = SHOOTER_MAX_RPM;
+    public static final double SHOOTER_READY_TOLERANCE_RPM = 150.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
+    public static final double SHOOTER_LOOSE_READY_TOLERANCE_RPM = 200.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
+    public static final double SHOT_READY_YAW_TOLERANCE_DEG = ShotReadiness.YAW_TOLERANCE_DEG;
+    public static final double YAW_VERIFY_MAX_VELOCITY_DEG_PER_SECOND = 3.0;
     public static final double SHOT_READY_PITCH_TOLERANCE_DEG = 0.25;
     public static final double HOOD_SETTLE_TIME_SECONDS = 0.3;
 
@@ -151,27 +156,26 @@ public class TurretSubsystem {
     // Math uses CCW radians: right-facing home is -90 deg (clockwise robot heading 90 deg).
     public static final double TURRET_ZERO_ROBOT_HEADING_OFFSET_DEG = -90.0;
 
-    // Legacy example geometry. Must be independently checked before calibration approval.
+    // TU06 drawing dimensions share one source; derived field positions remain nominal.
     // Team planning field frame (must match route and tag survey): (0, 0) at field center,
     // +X toward Blue alliance (right), -X toward Red alliance (left),
     // +Y toward Far / Scoring Table side, -Y toward Audience side.
-    public static final double FIELD_SIZE_INCHES = 144.0;
-    public static final double HIVE_CENTER_TO_CENTER_INCHES = 25.5;
+    public static final double FIELD_SIZE_INCHES = FieldGeometry.FIELD_SIZE_INCHES;
+    public static final double HIVE_CENTER_TO_CENTER_INCHES = FieldGeometry.HIVE_CENTER_SPACING_INCHES;
     public static final double RED_HIVE_PIVOT_X_IN = -HIVE_CENTER_TO_CENTER_INCHES / 2.0;  // -12.75 in
     public static final double BLUE_HIVE_PIVOT_X_IN = +HIVE_CENTER_TO_CENTER_INCHES / 2.0; // +12.75 in
     public static final double HIVE_PIVOT_Y_IN = 0.0;
-    public static final double HIVE_PIVOT_Z_IN = 43.95;
-    public static final double HIVE_TILT_DEG = 30.0;
-    public static final double HIVE_CELL_GAP_IN = 18.84;
-    public static final double HIVE_CELL_DEPTH_IN = 12.04;
-    public static final double HIVE_OPENING_WIDTH_IN = 20.0;
-    public static final double HIVE_OPENING_SHOULDER_HEIGHT_IN = 7.61;
-    public static final double HIVE_OPENING_PEAK_HEIGHT_IN = 14.0;
-    public static final double HIVE_MOUTH_BOTTOM_Z_IN = 53.5;
+    public static final double HIVE_PIVOT_Z_IN = FieldGeometry.HIVE_PIVOT_HEIGHT_INCHES;
+    public static final double HIVE_TILT_DEG = FieldGeometry.HIVE_TILT_DEG;
+    public static final double HIVE_CELL_GAP_IN = FieldGeometry.HIVE_CELL_GAP_INCHES;
+    public static final double HIVE_CELL_DEPTH_IN = FieldGeometry.HIVE_CELL_DEPTH_INCHES;
+    public static final double HIVE_OPENING_WIDTH_IN = FieldGeometry.OPENING_WIDTH_INCHES;
+    public static final double HIVE_OPENING_SHOULDER_HEIGHT_IN = FieldGeometry.OPENING_SHOULDER_HEIGHT_INCHES;
+    public static final double HIVE_OPENING_PEAK_HEIGHT_IN = FieldGeometry.OPENING_PEAK_HEIGHT_INCHES;
+    public static final double HIVE_MOUTH_BOTTOM_Z_IN = FieldGeometry.RAISED_OPENING_BOTTOM_HEIGHT_INCHES;
 
-    // Legacy raised opening Y offset still needs confirmation; do not infer tag positions from it.
-    // Height now uses the team's confirmed opening-center height, independently of legacy tilt math.
-    public static final double HIVE_RAISED_MOUTH_CENTER_Y_OFFSET_IN = 17.73;
+    // Team-approved drawing estimate; do not infer localization tag coordinates from it.
+    public static final double HIVE_RAISED_MOUTH_CENTER_Y_OFFSET_IN = TeleOpFieldReference.OPENING_Y_OFFSET_METERS / .0254;
     public static final double HIVE_RAISED_MOUTH_CENTER_Z_IN = ShootingConfiguration.HIGH_GOAL_CENTER_HEIGHT_METERS / .0254;
     public static final double GOAL_TARGET_HEIGHT_INCHES = HIVE_RAISED_MOUTH_CENTER_Z_IN;
 
@@ -211,13 +215,21 @@ public class TurretSubsystem {
     private final DcMotorEx throughBoreEncoderPort;
     private final Limelight3A limelight;
     private final boolean visionEnabled;
+    private final java.util.List<VoltageSensor> voltageSensors = new java.util.ArrayList<>();
+    private double batteryVolts = Double.NaN, shooterCurrentAmps = Double.NaN;
+    public enum ShooterController { PIDF, BANG_BANG }
+    private ShooterController shooterController = ShooterController.PIDF;
+    private double bangBangPower;
+    private double shooterP = ShooterVelocityTuning.INITIAL_P, shooterFScale = 1.0;
+    private double shooterI = ShooterVelocityTuning.INITIAL_I;
+    private double appliedShooterP = Double.NaN, appliedShooterI = Double.NaN;
+    private double appliedShooterF, lastShooterSample = Double.NEGATIVE_INFINITY;
 
     private final TurretHomingController homing = new TurretHomingController(HOME_TRAVEL_SECONDS, HOME_STABLE_SECONDS, HOME_TIMEOUT_SECONDS, HOME_STABLE_WINDOW_DEG);
     private final TurretControl control = new TurretControl();
     private int rawTicks, encoderZeroOffsetTicks;
     private double encoderVelocity, currentRpm, targetYawDeg, targetPitchDeg, targetShooterRpm;
-    private double encoderTrimDeg, lastCommandedRotationServoPos = .5, lastCommandedPitchServoPos = .5;
-    private boolean encoderCorrectionEnabled = true;
+    private double lastCommandedRotationServoPos = .5, lastCommandedPitchServoPos = .5;
     private Alliance activeAlliance = Alliance.RED;
     private HiveSide activeHiveSide = HiveSide.FAR;
     private LLResult cachedResult;
@@ -231,6 +243,7 @@ public class TurretSubsystem {
     /** Manual mechanism diagnostics can omit the camera entirely. */
     public TurretSubsystem(HardwareMap hardwareMap, boolean enableVision) {
         visionEnabled = enableVision;
+        for (VoltageSensor sensor : hardwareMap.voltageSensor) voltageSensors.add(sensor);
         rotationServo1 = getTurretServo(hardwareMap, ROTATION_SERVO_1_PORT,
                 HW_ROTATION_SERVO_1, "turretServo1", "turret_left", "turret1");
         rotationServo2 = getTurretServo(hardwareMap, ROTATION_SERVO_2_PORT,
@@ -285,6 +298,7 @@ public class TurretSubsystem {
         MotorConfigurationType motorType = shooterMotor.getMotorType().clone();
         motorType.setTicksPerRev(SHOOTER_MOTOR_TICKS_PER_REV);
         motorType.setMaxRPM(SHOOTER_MOTOR_MAX_RPM);
+        motorType.setAchieveableMaxRPMFraction(1.0);
         motorType.setGearing(1.0);
         shooterMotor.setMotorType(motorType);
 
@@ -292,6 +306,41 @@ public class TurretSubsystem {
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         // Flywheels should coast (FLOAT) rather than brake abruptly
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        updateShooterPidf(System.nanoTime() * 1e-9, true);
+    }
+
+    private void updateShooterPidf(double now, boolean force) {
+        if (!force && now - lastShooterSample < ShooterVelocityTuning.SAMPLE_INTERVAL_SECONDS) return;
+        lastShooterSample = now;
+        batteryVolts = Double.NaN;
+        for (VoltageSensor sensor : voltageSensors) {
+            double volts = sensor.getVoltage();
+            if (Double.isFinite(volts) && volts >= 9 && volts <= 16
+                    && (!Double.isFinite(batteryVolts) || volts < batteryVolts)) batteryVolts = volts;
+        }
+        shooterCurrentAmps = shooterMotor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
+        double nextF = ShooterVelocityTuning.feedforward(batteryVolts, shooterFScale);
+        // The hub runs feedback continuously. Avoid rewriting unchanged gains for every sensor sample.
+        if (shooterController == ShooterController.PIDF && (force || shooterP != appliedShooterP || shooterI != appliedShooterI
+                || Math.abs(nextF - appliedShooterF) >= ShooterVelocityTuning.MIN_F_CHANGE)) {
+            shooterMotor.setVelocityPIDFCoefficients(shooterP, shooterI, ShooterVelocityTuning.INITIAL_D, nextF);
+            appliedShooterP = shooterP; appliedShooterI = shooterI; appliedShooterF = nextF;
+        }
+    }
+    public void adjustShooterVelocityTuning(double deltaP, double deltaFScale) {
+        adjustShooterVelocityTuning(deltaP, 0, deltaFScale);
+    }
+    public void adjustShooterVelocityTuning(double deltaP, double deltaI, double deltaFScale) {
+        if (!RobotMath.finite(deltaP, deltaI, deltaFScale)) return;
+        shooterP = Math.max(0, Math.min(100, shooterP + deltaP));
+        shooterI = Math.max(0, Math.min(ShooterVelocityTuning.MAX_I, shooterI + deltaI));
+        shooterFScale = Math.max(.5, Math.min(1.5, shooterFScale + deltaFScale));
+        updateShooterPidf(System.nanoTime() * 1e-9, true);
+    }
+    public void resetShooterVelocityTuning() {
+        shooterP = ShooterVelocityTuning.INITIAL_P; shooterFScale = 1;
+        shooterI = ShooterVelocityTuning.INITIAL_I;
+        updateShooterPidf(System.nanoTime() * 1e-9, true);
     }
 
     private void configureLimelight() {
@@ -314,15 +363,15 @@ public class TurretSubsystem {
     }
     public void update() {
         double now = System.nanoTime() * 1e-9;
+        updateShooterPidf(now, false);
         rawTicks = throughBoreEncoderPort.getCurrentPosition();
         encoderVelocity = throughBoreEncoderPort.getVelocity() / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN;
-        currentRpm = shooterMotor.getVelocity() * 60 / SHOOTER_MOTOR_TICKS_PER_REV;
+        currentRpm = ShooterSpeed.flywheelRpm(shooterMotor.getVelocity());
         boolean wasReady = homing.ready();
         homing.update(now, rawTicks, rawTicks / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN);
         if (!wasReady && homing.ready()) encoderZeroOffsetTicks = homing.zeroTicks();
-        double commandedYawDeg = control.updateYawCommand(now, targetYawDeg, getEncoderAngleDegrees(), encoderVelocity,
-                homing.ready() && encoderCorrectionEnabled, targetPitchDeg);
-        encoderTrimDeg = control.getYawTrimDegrees();
+        double commandedYawDeg = control.updateYawCommand(now, targetYawDeg, getEncoderAngleDegrees(),
+                encoderVelocity, homing.ready(), targetPitchDeg);
         if (homing.ready()) {
             setRawRotationServoPosition(angleDegreesToRotationServoPos(commandedYawDeg));
         } else if (homing.commandsHome()) {
@@ -340,17 +389,25 @@ public class TurretSubsystem {
         }
     }
     public boolean isHomed() { return homing.ready(); }
+    /** Enable only after checking encoder sign and physical angle against telemetry. */
+    public void setEncoderCorrectionEnabled(boolean enabled) { control.setEncoderCorrectionEnabled(enabled); }
+    public boolean isEncoderCorrectionEnabled() { return control.isEncoderCorrectionEnabled(); }
     public String getHomingStatus() { return homing.state() + ": " + homing.reason(); }
     public LLResult getVisionResult() { return cachedResult; }
     public LLResultTypes.FiducialResult getVisionTag() { return cachedTag; }
     public void setTrackingStatus(String status) { trackingStatus = status; }
-    public void resetTrackingTrim() { control.reset(); }
+    public void resetTrackingTrim() { /* Corrections reset on target changes, never on button release. */ }
     public void setTargetYawDegrees(double deg) { if (Double.isFinite(deg)) targetYawDeg = clampYawAngle(deg); }
     public void adjustTargetYawDegrees(double delta) { setTargetYawDegrees(targetYawDeg + delta); }
-    /** GP1 auto-aim owns yaw while held; releasing manual/automatic control captures actual position. */
+    /** GP1 auto-aim owns yaw while held; release holds the last commanded target. */
     public void updateManualYaw(double stickX, double dt, boolean automatic) {
         if (!isHomed()) return;
-        setTargetYawDegrees(control.manualYawTarget(getEncoderAngleDegrees(), targetYawDeg, stickX, dt, automatic));
+        setTargetYawDegrees(control.manualYawTarget(targetYawDeg, stickX, dt, automatic));
+    }
+    /** Competition release captures measured yaw once; diagnostic test controls remain independent. */
+    public void updateCompetitionManualYaw(double stickX, double dt, boolean automatic) {
+        if (!isHomed()) return;
+        setTargetYawDegrees(control.competitionManualYawTarget(targetYawDeg, getEncoderAngleDegrees(), stickX, dt, automatic));
     }
     public double getRobotHeadingDegrees() { return TurretControl.yawToRobotHeadingDegrees(getEncoderAngleDegrees()); }
     public double getTargetRobotHeadingDegrees() { return TurretControl.yawToRobotHeadingDegrees(targetYawDeg); }
@@ -358,19 +415,22 @@ public class TurretSubsystem {
     public int getEncoderTicks() { return rawTicks - encoderZeroOffsetTicks; }
     public double getEncoderAngleDegrees() { return getEncoderTicks() / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN; }
     public double getEncoderVelocityDegPerSec() { return encoderVelocity; }
-    public boolean isRotationErrorHigh() { return Math.abs(targetYawDeg - getEncoderAngleDegrees()) > 4; }
-    public void setEncoderCorrectionEnabled(boolean enabled) {
-        if (encoderCorrectionEnabled != enabled) control.reset();
-        encoderCorrectionEnabled = enabled;
+    public boolean isRotationErrorHigh() { return Math.abs(targetYawDeg - getEncoderAngleDegrees()) > SERVO_CUTOUT_ERROR_THRESHOLD_DEG; }
+    public boolean isYawPositionVerified() {
+        return isHomed() && Math.abs(targetYawDeg - getEncoderAngleDegrees()) <= SHOT_READY_YAW_TOLERANCE_DEG
+                && Math.abs(encoderVelocity) <= YAW_VERIFY_MAX_VELOCITY_DEG_PER_SECOND;
     }
-    public boolean isEncoderCorrectionEnabled() { return encoderCorrectionEnabled; }
     public void setRawRotationServoPosition(double pos) {
         if (!Double.isFinite(pos)) return;
-        lastCommandedRotationServoPos = Range.clip(pos, angleDegreesToRotationServoPos(ROTATION_MIN_ANGLE_DEG),
-                angleDegreesToRotationServoPos(ROTATION_MAX_ANGLE_DEG));
+        lastCommandedRotationServoPos = clampRotationServoPosition(pos);
         rotationServo1.setPosition(lastCommandedRotationServoPos); rotationServo2.setPosition(lastCommandedRotationServoPos);
     }
     public double getLastCommandedRotationServoPos() { return lastCommandedRotationServoPos; }
+    public static double clampRotationServoPosition(double pos) {
+        double a = angleDegreesToRotationServoPos(ROTATION_MIN_ANGLE_DEG);
+        double b = angleDegreesToRotationServoPos(ROTATION_MAX_ANGLE_DEG);
+        return Range.clip(pos, Math.min(a, b), Math.max(a, b));
+    }
     public static double clampYawAngle(double deg) { return Range.clip(deg, ROTATION_MIN_ANGLE_DEG, ROTATION_MAX_ANGLE_DEG); }
     public static double angleDegreesToRotationServoPos(double deg) {
         return Range.clip(.5 + deg * ROTATION_GEAR_RATIO * ROTATION_SERVO_DIRECTION_SIGN / AXON_MAX_TRAVEL_DEG, 0, 1);
@@ -389,24 +449,45 @@ public class TurretSubsystem {
     }
     public void setRawPitchServoPosition(double pos) {
         if (!Double.isFinite(pos)) return;
-        lastCommandedPitchServoPos = Range.clip(pos, pitchDegreesToServoPos(PITCH_MAX_DEG), PITCH_HOME_SERVO_POS);
+        lastCommandedPitchServoPos = clampPitchServoPosition(pos);
         pitchServo.setPosition(lastCommandedPitchServoPos);
     }
     public double getLastCommandedPitchServoPos() { return lastCommandedPitchServoPos; }
+    public static double clampPitchServoPosition(double pos) {
+        double end = pitchDegreesToServoPos(PITCH_MAX_DEG);
+        return Range.clip(pos, Math.min(PITCH_HOME_SERVO_POS, end), Math.max(PITCH_HOME_SERVO_POS, end));
+    }
     public static double pitchDegreesToServoPos(double deg) {
         return Range.clip(PITCH_HOME_SERVO_POS + PITCH_SERVO_DIRECTION_SIGN * Range.clip(deg, PITCH_MIN_DEG, PITCH_MAX_DEG)
                 * PITCH_SERVO_TO_TURRET_RATIO / PITCH_SERVO_DEG_PER_UNIT, 0, 1);
     }
     public boolean isHoodTracking() { return control.hoodError(targetPitchDeg) <= SHOT_READY_PITCH_TOLERANCE_DEG; }
+    /** Switching stops the command; the caller must explicitly request spin again. */
+    public void setShooterController(ShooterController controller) {
+        if (controller == null || controller == shooterController) return;
+        stopShooter();
+        shooterController = controller;
+        shooterMotor.setMode(controller == ShooterController.PIDF
+                ? DcMotor.RunMode.RUN_USING_ENCODER : DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        if (controller == ShooterController.PIDF) updateShooterPidf(System.nanoTime() * 1e-9, true);
+    }
+    public ShooterController getShooterController() { return shooterController; }
+
+    /** Call once per loop after update(); bang-bang uses that loop's cached encoder sample. */
     public void setShooterRpm(double rpm) {
         if (!Double.isFinite(rpm)) { stopShooter(); return; }
-        targetShooterRpm = Range.clip(rpm, -SHOOTER_MOTOR_MAX_RPM, SHOOTER_MOTOR_MAX_RPM);
-        shooterMotor.setVelocity(targetShooterRpm / 60 * SHOOTER_MOTOR_TICKS_PER_REV);
+        targetShooterRpm = ShooterSpeed.clampFlywheelRpm(rpm);
+        if (targetShooterRpm == 0) { stopShooter(); return; }
+        if (shooterController == ShooterController.BANG_BANG) {
+            bangBangPower = ShooterVelocityTuning.bangBangPower(targetShooterRpm, currentRpm);
+            shooterMotor.setPower(bangBangPower);
+        } else shooterMotor.setVelocity(ShooterSpeed.motorTicksPerSecond(targetShooterRpm));
     }
     public void setShooterPower(double power) {
-        targetShooterRpm = Range.clip(power, -1, 1) * SHOOTER_MOTOR_MAX_RPM; shooterMotor.setPower(Range.clip(power, -1, 1));
+        targetShooterRpm = Range.clip(power, -1, 1) * SHOOTER_MAX_RPM; shooterMotor.setPower(Range.clip(power, -1, 1));
     }
-    public void stopShooter() { targetShooterRpm = 0; shooterMotor.setPower(0); }
+    public void stopShooter() { targetShooterRpm = 0; bangBangPower = 0; shooterMotor.setPower(0); }
     public double getShooterCurrentRpm() { return currentRpm; }
     public double getTargetShooterRpm() { return targetShooterRpm; }
     public boolean isShooterAtSpeed() { return targetShooterRpm > 0 && Math.abs(currentRpm - targetShooterRpm) <= SHOOTER_READY_TOLERANCE_RPM; }
@@ -433,7 +514,9 @@ public class TurretSubsystem {
         return null;
     }
     public static double getHiveOpeningCenterXInches(Alliance alliance) { return alliance == Alliance.BLUE ? BLUE_HIVE_PIVOT_X_IN : RED_HIVE_PIVOT_X_IN; }
-    public static double getHiveOpeningCenterYInches(HiveSide side) { return side == HiveSide.AUDIENCE ? -17.73 : 17.73; }
+    public static double getHiveOpeningCenterYInches(HiveSide side) {
+        return (side == HiveSide.AUDIENCE ? -1 : 1) * HIVE_RAISED_MOUTH_CENTER_Y_OFFSET_IN;
+    }
     public static double normalizeAngleDegrees(double deg) { return Math.toDegrees(RobotMath.wrap(Math.toRadians(deg))); }
     public void setLimelightPipeline(int pipeline) { if (limelight != null) limelight.pipelineSwitch(pipeline); }
     public void setAllServosToZeroPosition() {
@@ -447,12 +530,27 @@ public class TurretSubsystem {
             telemetry.addData("Selected goal", "%s / %s | tag %d", activeAlliance, activeHiveSide, cachedTag == null ? -1 : cachedTag.getFiducialId());
         }
         telemetry.addData("Turret robot heading (deg CW)", "%.2f / %.2f | rate %.1f deg/s", getRobotHeadingDegrees(), getTargetRobotHeadingDegrees(), -encoderVelocity);
-        telemetry.addData("Turret encoder backup", !encoderCorrectionEnabled ? "DISABLED"
-                : !isHomed() ? "WAITING FOR HOME" : control.isBackupCorrectionActive() ? "RECOVERING" : "MONITORING");
-        telemetry.addData("Turret encoder backup correction (deg CCW)", encoderTrimDeg);
+        telemetry.addData("Turret encoder verification", !isHomed() ? "WAITING FOR HOME"
+                : isYawPositionVerified() ? "AT TARGET" : isRotationErrorHigh() ? "OUTSIDE ERROR MARGIN" : "WITHIN ERROR MARGIN");
+        telemetry.addData("Turret position error (deg)", targetYawDeg - getEncoderAngleDegrees());
+        telemetry.addData("Turret encoder correction", "%s | %.2f deg | correcting %s",
+                control.isEncoderCorrectionEnabled() ? "ENABLED" : "DISABLED (servo position hold)",
+                control.getEncoderCorrectionDegrees(), control.isEncoderCorrectionActive());
         telemetry.addData("Hood command (deg)", "%.2f | estimated tracking %s (no feedback)", targetPitchDeg, isHoodTracking());
         telemetry.addData("Launch elevation command (deg above horizontal)", hoodTravelToLaunchAngleDegrees(targetPitchDeg));
         telemetry.addData("Flywheel (RPM)", "%.0f / %.0f", currentRpm, targetShooterRpm);
+        telemetry.addData("Flywheel controller", shooterController);
+        if (shooterController == ShooterController.BANG_BANG)
+            telemetry.addData("Bang-bang commanded power", "%.0f%% (full recovery / coast)", 100 * bangBangPower);
+        telemetry.addData("Shooter motor (RPM, encoder)", "%.0f | flywheel/motor ratio %.3f",
+                currentRpm / SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV, SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV);
+        telemetry.addData("Flywheel PIDF (initial gains; tune loaded)", "P %.1f | I %.2f | D %.1f | F %.3f | F scale %.2f",
+                shooterP, shooterI, ShooterVelocityTuning.INITIAL_D, appliedShooterF, shooterFScale);
+        telemetry.addData("Shooter battery (V) / current (A)", "%.2f / %.2f (5 Hz)", batteryVolts, shooterCurrentAmps);
+        telemetry.addData("Shooter limit (output RPM)", "%.0f target cap | %.0f free-speed estimate",
+                SHOOTER_MAX_RPM, ShooterSpeed.FLYWHEEL_MAX_RPM);
+        telemetry.addData("Shooter speed headroom estimate", "%.0f%% of voltage-adjusted free speed (not measured PWM)",
+                100 * ShooterVelocityTuning.estimatedFreeSpeedUsage(targetShooterRpm, batteryVolts));
         if (visionEnabled) telemetry.addData("Shot tracking", trackingStatus);
     }
 
