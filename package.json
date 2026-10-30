@@ -1,0 +1,17 @@
+{
+  "name": "biobuzz-10100-autonomous",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "zenith:validate": "node scripts/validate-autos.cjs",
+    "zenith:deploy": "zenith deploy"
+  },
+  "devDependencies": {
+    "@horizon36596/zenith-cli": "0.1.2"
+  },
+  "overrides": {
+    "zod": "4.6.6"
+  }
+}

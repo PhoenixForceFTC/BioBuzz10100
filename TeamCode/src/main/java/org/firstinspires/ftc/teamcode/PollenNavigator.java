@@ -1,33 +1,30 @@
 package org.firstinspires.ftc.teamcode;
 
-/** Non-blocking autonomous coordinator. Owns no hardware; outputs robot-centric commands. */
+/** Test-only collection decisions. Pedro follows the requested pose; this class never computes motor powers. */
 public class PollenNavigator {
     public static final double AUTO_TIME_LIMIT_SECONDS = 28.0;
     public static final double HARDWARE_WAIT_SECONDS = 4.0;
     public static final double SEARCH_TIME_LIMIT_SECONDS = 4.0;
     public static final double SEARCH_TURN_LIMIT_DEG = 90.0;
-    public static final double SEARCH_YAW_POWER = 0.12;
     public static final double APPROACH_TIME_LIMIT_SECONDS = 7.0;
     public static final double TARGET_LOST_GRACE_SECONDS = 0.35;
     public static final double MAX_TARGET_AGE_SECONDS = 0.2;
     public static final double MAX_TOTAL_TRAVEL_MM = 2400.0;
-    public static final double YAW_KP_PER_DEG = 0.018;
-    public static final double MAX_YAW_POWER = 0.22;
-    public static final double DRIVE_KP_PER_MM = 0.0007;
-    public static final double MAX_DRIVE_POWER = 0.28;
-    public static final double MIN_DRIVE_POWER = 0.10;
     public static final double DRIVE_ALIGNMENT_DEG = 12.0;
     public static final double PICKUP_ALIGNMENT_DEG = 4.0;
     // Tune from the robot center to the floor contact just before pollen leaves camera view.
     public static final double PICKUP_START_FORWARD_MM = PollenConfiguration.diagnostic().pickupStartMm;
     public static final double PICKUP_CONFIRM_SECONDS = 0.12;
     public static final int PICKUP_CONFIRM_FRAMES = 3;
-    public static final double PICKUP_POWER = 0.16;
     public static final double PICKUP_TRAVEL_MM = PollenConfiguration.diagnostic().pickupTravelMm;
     public static final double PICKUP_TIME_LIMIT_SECONDS = 0.9;
     public static final double INTAKE_SETTLE_SECONDS = 0.4;
 
     public enum State { WAITING_FOR_HARDWARE, SEARCHING, APPROACHING, COLLECTING, SETTLING, COMPLETE, TIMED_OUT, FAULT }
+    public enum Motion { STOP, HOLD, FOLLOW }
+    private Motion motion = Motion.STOP;
+    private double goalXMm, goalYMm, goalHeadingDeg;
+    private double searchXMm, searchYMm, pickupXMm, pickupYMm;
 
     private final double pickupStartMm, pickupTravelMm;
     public PollenNavigator() { this(PollenConfiguration.diagnostic()); }
@@ -47,8 +44,6 @@ public class PollenNavigator {
     private double totalTravelMm;
     private double pickupStartTravelMm;
     private double referenceHeadingDeg;
-    private double axial;
-    private double yaw;
     private double intakePower;
     private int pickupAttempts;
 
@@ -92,7 +87,7 @@ public class PollenNavigator {
             // Calibration may have returned NaNs at START; anchor travel only after READY.
             lastXMm = xMm;
             lastYMm = yMm;
-            beginSearch(nowNanos, headingDeg);
+            beginSearch(nowNanos, xMm, yMm, headingDeg);
         }
         totalTravelMm += Math.hypot(xMm - lastXMm, yMm - lastYMm);
         lastXMm = xMm;
@@ -115,7 +110,7 @@ public class PollenNavigator {
                         || Math.abs(normalizeDegrees(headingDeg - referenceHeadingDeg)) >= SEARCH_TURN_LIMIT_DEG) {
                     enter(State.TIMED_OUT, nowNanos, "No pollen in bounded search");
                 } else {
-                    yaw = SEARCH_YAW_POWER;
+                    request(Motion.HOLD, searchXMm, searchYMm, referenceHeadingDeg - SEARCH_TURN_LIMIT_DEG);
                 }
                 return;
             }
@@ -133,20 +128,21 @@ public class PollenNavigator {
                 }
                 status = "Target lost: stopped";
                 if (secondsSince(nowNanos, lostSinceNanos) >= TARGET_LOST_GRACE_SECONDS) {
-                    beginSearch(nowNanos, headingDeg);
+                    beginSearch(nowNanos, xMm, yMm, headingDeg);
                 }
                 return;
             }
             lostSinceNanos = 0;
             status = "Tracking pollen";
             intakePower = 1.0;
-            yaw = clip(target.bearingDeg * YAW_KP_PER_DEG, MAX_YAW_POWER);
+            double targetHeadingDeg = headingDeg - target.bearingDeg;
             double distanceErrorMm = target.forwardMm - pickupStartMm;
-            if (Math.abs(target.bearingDeg) <= DRIVE_ALIGNMENT_DEG && distanceErrorMm > 0.0) {
-                axial = Math.min(MAX_DRIVE_POWER, Math.max(MIN_DRIVE_POWER, distanceErrorMm * DRIVE_KP_PER_MM));
-            }
+            // Align in place before requesting a straight approach in the observed direction.
+            double travelMm = Math.abs(target.bearingDeg) <= DRIVE_ALIGNMENT_DEG ? Math.max(0, distanceErrorMm) : 0;
+            double headingRad = Math.toRadians(targetHeadingDeg);
+            request(travelMm > 0 ? Motion.FOLLOW : Motion.HOLD,
+                    xMm + travelMm * Math.cos(headingRad), yMm + travelMm * Math.sin(headingRad), targetHeadingDeg);
             if (distanceErrorMm <= 0.0 && Math.abs(target.bearingDeg) <= PICKUP_ALIGNMENT_DEG) {
-                axial = 0.0;
                 if (closeSinceNanos == 0) {
                     closeSinceNanos = target.captureTimeNanos;
                 }
@@ -159,6 +155,9 @@ public class PollenNavigator {
                     enter(State.COLLECTING, nowNanos, "Bounded pickup through camera blind spot");
                     pickupStartTravelMm = totalTravelMm;
                     referenceHeadingDeg = headingDeg;
+                    pickupXMm = xMm + pickupTravelMm * Math.cos(Math.toRadians(headingDeg));
+                    pickupYMm = yMm + pickupTravelMm * Math.sin(Math.toRadians(headingDeg));
+                    request(Motion.FOLLOW, pickupXMm, pickupYMm, referenceHeadingDeg);
                 }
             } else {
                 resetCloseConfirmation();
@@ -172,24 +171,23 @@ public class PollenNavigator {
                 pickupAttempts++;
                 enter(State.SETTLING, nowNanos, "Finishing intake; pickup is not sensor-confirmed");
             } else {
-                axial = PICKUP_POWER;
-                // Pinpoint heading is CCW positive; drivetrain yaw is CW positive.
-                yaw = clip(normalizeDegrees(headingDeg - referenceHeadingDeg) * YAW_KP_PER_DEG, MAX_YAW_POWER);
+                request(Motion.FOLLOW, pickupXMm, pickupYMm, referenceHeadingDeg);
             }
             return;
         }
         if (state == State.SETTLING) {
             intakePower = 1.0;
             if (secondsSince(nowNanos, stateStartNanos) >= INTAKE_SETTLE_SECONDS) {
-                beginSearch(nowNanos, headingDeg);
+                beginSearch(nowNanos, xMm, yMm, headingDeg);
                 intakePower = 0.0;
             }
         }
     }
 
-    private void beginSearch(long nowNanos, double headingDeg) {
+    private void beginSearch(long nowNanos, double xMm, double yMm, double headingDeg) {
         enter(State.SEARCHING, nowNanos, "Searching for pollen");
         referenceHeadingDeg = headingDeg;
+        searchXMm = xMm; searchYMm = yMm;
     }
 
     private void enter(State next, long nowNanos, String message) {
@@ -206,14 +204,18 @@ public class PollenNavigator {
         closeFrameCount = 0;
     }
 
-    private void stopCommands() { axial = 0.0; yaw = 0.0; intakePower = 0.0; }
+    private void stopCommands() { motion = Motion.STOP; intakePower = 0.0; }
+    private void request(Motion motion, double xMm, double yMm, double headingDeg) {
+        this.motion = motion; goalXMm = xMm; goalYMm = yMm; goalHeadingDeg = headingDeg;
+    }
     private static double secondsSince(long nowNanos, long thenNanos) { return (nowNanos - thenNanos) * 1e-9; }
-    private static double clip(double value, double max) { return Math.max(-max, Math.min(max, value)); }
     private static double normalizeDegrees(double angleDeg) { return ((angleDeg + 180.0) % 360.0 + 360.0) % 360.0 - 180.0; }
     public State getState() { return state; }
     public String getStatus() { return status; }
-    public double getAxialPower() { return axial; }
-    public double getYawPower() { return yaw; }
+    public Motion getMotion() { return motion; }
+    public double getGoalXMm() { return goalXMm; }
+    public double getGoalYMm() { return goalYMm; }
+    public double getGoalHeadingDeg() { return goalHeadingDeg; }
     public double getIntakePower() { return intakePower; }
     public double getTotalTravelMm() { return totalTravelMm; }
     public int getPickupAttempts() { return pickupAttempts; }

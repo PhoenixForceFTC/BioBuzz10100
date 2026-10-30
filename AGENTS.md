@@ -131,3 +131,20 @@ Before committing or deploying code to the Control Hub, verify that `TeamCode` c
 ```bash
 ./gradlew.bat :TeamCode:assembleDebug
 ```
+
+### Optional TeleOp simulation
+
+SimLoop is optional and intended for major feature additions or changes. Minor edits and routine tuning
+do not require it; use proportionate existing tests and physical measurements. For a major change,
+consider an observable scenario against the affected real OpModes and both competition TeleOps when
+shared behavior is involved. If simulation is used, identify the baseline, reproduce the issue where
+applicable, assert the intended behavior, and report results and model limits. Never relax assertions,
+substitute perfect feedback, or change calibration flags to hide a failure. Do not claim unsupported or
+unrun behavior was verified. Preserve existing build requirements and working robot behavior.
+
+Run `.\tools\verify-teleop.ps1` for ordinary unit tests, debug packaging and lint. Add `-Sim -Scenario Gate`
+or `-Sim -Scenario Drivetrain` for selected simulations; `-FullSim` runs all currently available simulations.
+The opt-in Gradle task is `:TeamCode:simTeleOpTest`. The current milestone covers actual drivetrain/gate
+test OpModes, not full red/blue competition simulation. See the
+[implementation plan](doc/SimLoopTeleOpImplementationPlan.md),
+[verification matrix](doc/TeleOpVerificationMatrix.md) and [local usage](simloop/README.md).

@@ -6,7 +6,7 @@ Turret rotation, hood, and depollinator servos are **Axon MAX+**; the gate is a 
 
 Welcome! This module (`TeamCode`) holds our team's robot code built on **FTC Robot Controller SDK v12.0**.
 
-**Pollen autonomous:** [PollenAuto.java](PollenAuto.java) adds `Auto: Pollen Collection`, using [PollenVision.java](PollenVision.java) for the Logitech C270 (confirmed lens mount: 195 mm high, 248 mm forward, 0 mm sideways, aimed 10 degrees below horizontal) and [PollenNavigator.java](PollenNavigator.java) for non-blocking search, alignment, approach, and bounded intake pickups. Pickup/color calibration and suitable intrinsics remain required. [PollenVisionTestOpMode.java](PollenVisionTestOpMode.java) tests only the camera. The turret's Limelight remains separate. Current scope is pollen detection and navigation; match paths are deferred. Read [camera setup, calibration, and pickup tuning](../../../../../../../../doc/PollenAuto.md) before driving.
+**Autonomous:** All autonomous entry points use Pedro Pathing v3 and Ivy through Zenith. [BioBuzzRobot.java](BioBuzzRobot.java) registers existing mechanisms as named commands. [PollenAuto.java](PollenAuto.java) is **Test: Pollen Navigation (Pedro + Ivy)**, a separate Test-group experiment using the C270 and Pedro paths/holds. [PollenVisionTestOpMode.java](PollenVisionTestOpMode.java) tests only the camera; [PedroDriveTestOpMode.java](PedroDriveTestOpMode.java) tests only the drive/Pinpoint subsystem. Physical tuning/calibration remains required. Read [autonomous setup](../../../../../../../../doc/Autonomous.md) and [pollen calibration](../../../../../../../../doc/PollenAuto.md).
 
 - **Architecture & Best Practices**: Read [AGENTS.md](../../../../../../../../AGENTS.md) for FTC software best practices, including how to organize code into **Subsystem classes**, individual **Test OpModes**, and **Combined Competition OpModes**.
 
@@ -201,4 +201,4 @@ Note: Some names start with "Team" and others start with "team".  This is intent
     
 6)  Open up Android Studios and clean out any old files by using the menu to "Build/Clean Project""
 
-Competition autonomous adds **Auto: Red Match (Route Required)** and **Auto: Blue Match (Route Required)**. Supply approved `AutonomousStrategy` routes before use; collection remains available separately in `PollenAuto`.
+Competition entry points **Auto: Red Match (Route Required)** and **Auto: Blue Match (Route Required)** load `red-match.auto.json` and `blue-match.auto.json` through Zenith's Ivy runtime. Author routes in Zenith and deploy them into APK assets. Missing files fail during INIT. `PollenAuto` remains a separate diagnostic; see `doc/Autonomous.md` at the repository root.

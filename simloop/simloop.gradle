@@ -1,0 +1,48 @@
+// Adapted from Horizon (FTC 36596)'s v0.2.0-alpha.2 starter (BSD-3-Clause).
+// See LICENSE and README.md in this directory. No example robot sources are included.
+ext.simloopVersion = 'v0.2.0-alpha.2'
+
+repositories {
+    maven { url = 'https://jitpack.io' }
+    maven { url = 'https://repo.dairy.foundation/releases' }
+}
+
+dependencies {
+    testImplementation "com.github.Horizon-36596:simloop:${simloopVersion}"
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
+    // Keep existing JUnit 4 tests discoverable on the Platform; Gradle 9 needs the launcher.
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.11.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
+    testRuntimeOnly 'org.json:json:20250517'
+}
+
+android.testOptions.unitTests {
+    // Required by SDK Android matrix construction. Defaults do not validate Android behavior.
+    returnDefaultValues = true
+    all {
+        useJUnitPlatform()
+        exclude '**/teamcode/sim/**'
+    }
+}
+
+// A separate debug JVM invocation: never attached to check, build, or ordinary unit tests.
+// Both ordinary variants can still execute their controller tests, without competing for sim logs.
+afterEvaluate {
+    def debugTests = tasks.named('testDebugUnitTest').get()
+    tasks.register('simTeleOpTest', Test) {
+        group = 'verification'
+        description = 'Opt-in simulations of actual TeleOp test OpModes (use --tests to select).'
+        dependsOn debugTests.taskDependencies.getDependencies(debugTests)
+        testClassesDirs = debugTests.testClassesDirs
+        classpath = debugTests.classpath
+        useJUnitPlatform()
+        include '**/teamcode/sim/**'
+        maxParallelForks = 1
+        systemProperty 'junit.jupiter.execution.parallel.enabled', 'false'
+        systemProperty 'biobuzz.sim.outputDir', layout.buildDirectory.dir('sim/teleop').get().asFile.absolutePath
+        // Each request produces fresh traces; this task remains explicitly opt-in.
+        outputs.upToDateWhen { false }
+        testLogging { events 'failed', 'skipped'; exceptionFormat = 'full' }
+    }
+}

@@ -1,0 +1,132 @@
+{
+  "formatVersion": 4,
+  "name": "curves-and-actions",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0
+    }
+  },
+  "steps": [
+    {
+      "id": "curve",
+      "kind": "path",
+      "speedFraction": 0.25,
+      "segments": [
+        {
+          "kind": "bezier",
+          "from": {
+            "xIn": 0,
+            "yIn": 0
+          },
+          "control": [
+            {
+              "xIn": 12,
+              "yIn": 12
+            }
+          ],
+          "to": {
+            "xIn": 24,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0
+      },
+      "markers": [
+        {
+          "at": {
+            "t": 0.5
+          },
+          "command": {
+            "name": "record",
+            "args": {
+              "tag": "halfway"
+            }
+          }
+        },
+        {
+          "at": {
+            "t": 1
+          },
+          "command": {
+            "name": "record",
+            "args": {
+              "tag": "endpoint"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parallel",
+      "kind": "parallel",
+      "mode": "all",
+      "steps": [
+        {
+          "id": "boundedAction",
+          "kind": "command",
+          "name": "never",
+          "timeoutS": 0.06
+        },
+        {
+          "id": "wait",
+          "kind": "wait",
+          "seconds": 0.1
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "kind": "branch",
+      "condition": "selected",
+      "then": [
+        {
+          "kind": "command",
+          "name": "record",
+          "args": {
+            "tag": "yes"
+          }
+        }
+      ],
+      "else": [
+        {
+          "kind": "command",
+          "name": "record",
+          "args": {
+            "tag": "no"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deferred",
+      "kind": "path",
+      "speedFraction": 0.2,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 36,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0
+      }
+    },
+    {
+      "kind": "command",
+      "name": "record",
+      "args": {
+        "tag": "done"
+      }
+    }
+  ]
+}

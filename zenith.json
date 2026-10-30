@@ -1,0 +1,19 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/link.json",
+  "formatVersion": 1,
+  "autosDir": "autos",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "waypoints": "autos/waypoints.json",
+  "javaDir": "TeamCode/src/main/java",
+  "deploy": {
+    "kind": "androidAssets",
+    "dir": "TeamCode/src/main/assets/autos",
+    "commandLibrary": "ivy",
+    "robotClass": "org.firstinspires.ftc.teamcode.BioBuzzRobot"
+  },
+  "codegen": {
+    "package": "org.firstinspires.ftc.teamcode.zenith",
+    "dir": "TeamCode/src/main/java"
+  }
+}

@@ -1,8 +1,8 @@
 # Pollen tracking and autonomous collection
 
-Select **Auto: Pollen Collection** in the Driver Station's Competition group. The robot searches for pollen with the Logitech C270, aligns the chassis with a tracked blob, approaches, and runs the intake through a short final pickup. It then searches for more pollen until the existing transfer sensor confirms a full queue or a navigation limit is reached.
+Select **Test: Pollen Navigation (Pedro + Ivy)** in the Driver Station's Test group. This is an experiment, separate from the match autonomous. It searches for pollen with the Logitech C270, aligns with a tracked blob, approaches, and runs the intake through a short final pickup. Pedro Pathing v3 controls all movement; Ivy schedules the collection command through Zenith's runtime. It then searches again until the transfer sensor confirms full or a navigation limit is reached. See [autonomous setup](Autonomous.md) for installed versions, tuning, and match routines.
 
-The current configuration is **diagnostic only**. The C270 mount is confirmed; autonomous still requires pickup and color calibration plus calibrated intrinsics, or explicit approximate-intrinsics eligibility. Enter these in `PollenVision.CONFIG` / `PollenConfiguration`; see [SoftwareConfiguration.md](SoftwareConfiguration.md). Zero offsets may be measured values; measured status is independent of the numbers.
+The current configuration is **diagnostic only**. Pedro dynamics must be measured and `PedroConfiguration.TUNING_VERIFIED` set after verification. The C270 mount is confirmed; collection also requires pickup and color calibration plus calibrated intrinsics, or explicit approximate-intrinsics eligibility. Enter camera values in `PollenVision.CONFIG` / `PollenConfiguration`; see [SoftwareConfiguration.md](SoftwareConfiguration.md). Zero offsets may be measured values; measured status is independent of the numbers.
 
 Current scope is pollen detection and navigation. Match paths and scoring/parking routes are deferred and are not required to configure this routine. Physical checks described below are for later; none were performed during the source review.
 
@@ -29,20 +29,20 @@ The camera runs at 320 x 240 with MJPEG. Image processing runs on the camera thr
 3. Confirm that a target on the robot's right has a positive bearing, a left target has a negative bearing, and a lower floor contact point produces a shorter distance estimate. Keep the camera upright and facing forward.
 4. The confirmed mount is already set to **195 mm high, 10 degrees below horizontal, 248 mm forward and 0 mm right**, with mount status measured. Update it only if the installed mount changes; the earlier 180-mm/zero-forward example is superseded.
 5. Check **Pollen Intrinsics** telemetry. The code uses valid SDK camera calibration when available. Otherwise it uses an explicitly approximate 60-degree horizontal field of view with square pixels. Calibrate the C270 at the selected resolution and provide its calibration through the SDK, or tune the fallback FOV against measured floor distances. The fallback is not a measured C270 specification.
-6. Tune the navigation powers and final pickup distances at low speed in a cleared collection area before running a full routine.
+6. Run **Test: Pedro Drive** to verify axes, paths and holds, measure Pedro tuning, and verify final pickup distances at low speed in a cleared area. Java's initial dynamics and the editor's robot dimensions are unmeasured examples.
 
 Distance is estimated by intersecting a ray through the blob's lowest contour point with the floor, using lens intrinsics and the confirmed 195-mm height / 10-degree downward pitch, then adding the 248-mm lens offset to report distance from robot center. This assumes flat ground and estimates floor contact rather than the pollen center. Clipped blobs and rays at/above the horizon are rejected. Range accuracy depends on calibration, lens distortion, shadows, and the visible contour.
 
 ## Autonomous behavior and tuning
 
-`PollenNavigator` owns the non-blocking state machine and outputs forward, clockwise-turn, and intake commands. `PollenAuto` applies those commands using the existing subsystems and reads Pinpoint once at the beginning of every loop.
+`PollenNavigator` owns the non-blocking state machine and requests STOP, HOLD, or FOLLOW with an absolute pose target. It computes no motor powers. `PollenPathFollower` turns those targets into Pedro holds and straight paths, limits replanning, and immediately stops on target loss. `PollenAuto` loads the test JSON through Zenith; `BioBuzzRobot` schedules collection on Ivy and reads Pinpoint once per loop.
 
 | State | Behavior / default limit |
 | --- | --- |
 | Waiting for hardware | Motors remain stopped until fresh camera frames and READY Pinpoint data are available. Fault after 4 seconds. |
-| Searching | Rotate clockwise at 0.12 power, up to 90 degrees or 4 seconds. Select the largest valid blob initially. Subsequent frames prefer the blob closest to its previous image position, within a 65 px gate; the lock expires after 0.4 seconds without a match. |
-| Approaching | Turn toward the target at up to 0.22 power. Drive forward only within 12 degrees of alignment, up to 0.28 power, slowing toward the pickup point. Stop on missing detections; wait 0.35 seconds before searching again. Approach timeout is 7 seconds. |
-| Collecting | Enter after at least 3 distinct close, aligned frames spanning 0.12 seconds. The uncalibrated example entry is within 650 mm forward of robot center and 4 degrees bearing error. Drive at 0.16 power with odometry heading hold for up to 450 mm or 0.9 seconds, allowing the pollen to leave camera view. |
+| Searching | Pedro holds the search position with a heading target 90 degrees clockwise from entry. Stop after 90 degrees or 4 seconds. Select the largest valid blob initially. Subsequent frames prefer the blob closest to its previous image position, within a 65 px gate; the lock expires after 0.4 seconds without a match. |
+| Approaching | Pedro turns in place until within 12 degrees of alignment, then follows a line toward the pickup stand-off point. Path velocity fraction and wheel power are initially capped at 0.35. Stop on missing detections; wait 0.35 seconds before searching again. Approach timeout is 7 seconds. |
+| Collecting | Enter after at least 3 distinct close, aligned frames spanning 0.12 seconds. The uncalibrated example entry is within 650 mm forward of robot center and 4 degrees bearing error. Pedro follows one fixed forward pickup path for up to 450 mm or 0.9 seconds, allowing pollen to leave camera view. |
 | Settling | Stop driving and keep intaking for 0.4 seconds, then search again. Telemetry counts **pickup attempts**, since no individual pickup sensor is present. |
 | Finished / fault | Stop drivetrain, intake, and both transfer motors; keep the gate closed. |
 
@@ -58,9 +58,11 @@ Motor shutdown runs before camera shutdown, including on Driver Station STOP or 
 
 - `PollenVision.java`: camera hardware, SDK color processing, target continuity, fresh-frame checks, telemetry, and camera shutdown.
 - `PollenTarget.java` / `PollenCameraModel.java`: immutable geometry, active intrinsics, distortion removal and floor visibility.
-- `PollenNavigator.java`: hardware-independent navigation state machine.
+- `PollenNavigator.java`: hardware-independent state machine and pose targets.
+- `PollenPathFollower.java`: pose targets to Pedro paths/holds, with bounded replanning.
+- `PedroDrive.java` / `BioBuzzRobot.java`: drivetrain/localization adapters and shared Ivy/Zenith runtime.
 - `PollenVisionTestOpMode.java`: standalone camera test.
-- `PollenAuto.java`: combined autonomous collection OpMode.
+- `PollenAuto.java`: Test-group entry point for the packaged pollen test JSON.
 
 From the repository root:
 

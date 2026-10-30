@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -31,14 +30,17 @@ public class GateSubsystem {
     // This is the operator-requested feed delay, not an additional servo settling allowance.
     public static final double FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS = 0.20;
 
-    private final ServoImplEx servo;
+    private final Servo servo;
     private boolean open = false;
     private final ElapsedTime openTimer = new ElapsedTime();
 
     public GateSubsystem(HardwareMap hardwareMap) {
-        servo = hardwareMap.get(ServoImplEx.class, HW_GATE_SERVO);
+        servo = hardwareMap.get(Servo.class, HW_GATE_SERVO);
+        if (!(servo instanceof PwmControl)) {
+            throw new IllegalArgumentException(HW_GATE_SERVO + " must support PwmControl to configure 500-2500 us PWM");
+        }
         servo.setDirection(SERVO_DIRECTION);
-        servo.setPwmRange(new PwmControl.PwmRange(MIN_PULSE_US, MAX_PULSE_US));
+        ((PwmControl) servo).setPwmRange(new PwmControl.PwmRange(MIN_PULSE_US, MAX_PULSE_US));
         close();
     }
 
@@ -65,6 +67,7 @@ public class GateSubsystem {
                 MIN_PULSE_US, MAX_PULSE_US, SERVO_DIRECTION);
         telemetry.addData("Gate Open Travel (deg)", GATE_OPEN_TRAVEL_DEG);
         telemetry.addData("Gate Command-to-Feed Delay (s)", FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS);
+        telemetry.addData("Gate Feed Allowed", isOpenForFeeding());
         telemetry.addData("Gate Target (deg)", "%.0f (%s)",
                 open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG, open ? "OPEN" : "CLOSED");
     }

@@ -83,7 +83,6 @@ public abstract class MecanumTeleOp extends LinearOpMode {
             loop.addTelemetry(telemetry); telemetry.update();
 
             // Homing continues through INIT and an early START without blocking the drivetrain.
-            boolean startingPoseApplied = false;
             boolean previousHome = false;
             while (opModeInInit()) {
                 loop.begin();
@@ -92,14 +91,16 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                     if (gamepad2.x && !previousHome) turret.homeTurretAndZeroEncoder();
                 }
                 previousHome = gamepad2.x;
-                if (!startingPoseApplied
-                        && odometry.getDeviceStatus() == com.qualcomm.hardware.gobilda.GoBildaPinpointDriver.DeviceStatus.READY) {
-                    applyStartingPose(odometry);
-                    startingPoseApplied = true;
+                if (turret != null) {
+                    turret.update();
+                    double now = System.nanoTime() * 1e-9;
+                    shots.updatePose(now,odometry.getSample());
+                    shots.addTelemetry(telemetry,now);
+                    turret.addTelemetry(telemetry);
                 }
-                if (turret != null) { turret.update(); turret.addTelemetry(telemetry); }
                 telemetry.addLine("GP2 X = Rehome | Nearest alliance cell selected from odometry");
-                telemetry.addLine("START: rear against blue wall, side against audience wall, face red side");
+                telemetry.addLine("Start anywhere: point Limelight at a raised hive tag to acquire field pose");
+                telemetry.addLine("Keep robot stationary during Pinpoint INIT calibration; manual drive works before localization");
                 odometry.addTelemetry(telemetry); loop.addTelemetry(telemetry); telemetry.update(); idle();
             }
             waitForStart();
@@ -122,12 +123,6 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 double dt = Math.max(0, Math.min(.1, now - previousLoopTime)); previousLoopTime = now;
                 // 1. Update Pinpoint Odometry Computer
                 odometry.update();
-                // Also handle START pressed before the Pinpoint finishes its INIT calibration.
-                if (!startingPoseApplied && odometry.getDeviceStatus()
-                        == com.qualcomm.hardware.gobilda.GoBildaPinpointDriver.DeviceStatus.READY) {
-                    applyStartingPose(odometry);
-                    startingPoseApplied = true;
-                }
 
                 // 2. Robot-centric Mecanum Drive on Controller 1
                 double axial = -gamepad1.left_stick_y;
@@ -229,8 +224,4 @@ public abstract class MecanumTeleOp extends LinearOpMode {
         }
     }
 
-    private void applyStartingPose(PinpointOdometry odometry) {
-        odometry.setPoseInches(TeleOpFieldReference.START_X_METERS / .0254,
-                TeleOpFieldReference.START_Y_METERS / .0254, TeleOpFieldReference.START_HEADING_DEG);
-    }
 }

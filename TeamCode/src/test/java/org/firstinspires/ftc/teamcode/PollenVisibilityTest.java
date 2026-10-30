@@ -56,12 +56,12 @@ public class PollenVisibilityTest {
         n.update(start+70_000_000L,target(start+70_000_000L,640),0,0,0,true,false);
         n.update(start+150_000_000L,target(start+150_000_000L,640),0,0,0,true,false);
         assertEquals(PollenNavigator.State.COLLECTING,n.getState());
-        n.update(start+200_000_000L,null,50,0,2,true,false); assertTrue(n.getAxialPower()>0);
-        n.update(start+400_000_000L,null,config.pickupTravelMm+1,0,0,true,false); assertEquals(0,n.getAxialPower(),0);
+        n.update(start+200_000_000L,null,50,0,2,true,false); assertEquals(PollenNavigator.Motion.FOLLOW,n.getMotion());
+        n.update(start+400_000_000L,null,config.pickupTravelMm+1,0,0,true,false); assertEquals(PollenNavigator.Motion.STOP,n.getMotion());
         assertEquals(PollenNavigator.State.SETTLING,n.getState());
         n.start(start,0,0); n.update(start,target(start,800),0,0,0,true,false);
         n.update(start+50_000_000L,null,10,0,0,true,false);
-        assertEquals(PollenNavigator.State.APPROACHING,n.getState()); assertEquals(0,n.getAxialPower(),0);
+        assertEquals(PollenNavigator.State.APPROACHING,n.getState()); assertEquals(PollenNavigator.Motion.STOP,n.getMotion());
     }
     @Test public void committedPickupStillStopsForStaleCameraInvalidOdomFullAndStop() {
         for(int mode=0;mode<4;mode++) {
@@ -69,7 +69,7 @@ public class PollenVisibilityTest {
             for(long dt:new long[]{0,70_000_000L,150_000_000L}) n.update(start+dt,target(start+dt,640),0,0,0,true,false);
             if(mode==3) n.stop(start+200_000_000L);
             else n.update(start+200_000_000L,null,mode==1?Double.NaN:50,0,0,mode!=0,mode==2);
-            assertEquals(0,n.getAxialPower(),0); assertEquals(0,n.getYawPower(),0); assertEquals(0,n.getIntakePower(),0);
+            assertEquals(PollenNavigator.Motion.STOP,n.getMotion()); assertEquals(0,n.getIntakePower(),0);
         }
     }
 }

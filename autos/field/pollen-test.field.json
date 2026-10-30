@@ -1,0 +1,28 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/field.json",
+  "formatVersion": 3,
+  "season": "biobuzz-test",
+  "name": "Cleared pollen test area; not the competition field",
+  "frame": {
+    "origin": "centre",
+    "xAxis": "audienceRight",
+    "yAxis": "awayFromAudience",
+    "headingZero": "+x",
+    "headingPositive": "ccw",
+    "units": "in",
+    "canonicalAlliance": "RED",
+    "mirror": "pointSymmetry"
+  },
+  "sizeIn": {
+    "xIn": 144,
+    "yIn": 144
+  },
+  "periods": {
+    "autoS": 30,
+    "teleopS": 120
+  },
+  "obstacles": [],
+  "zones": [],
+  "elements": [],
+  "targets": []
+}

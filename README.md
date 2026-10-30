@@ -1,10 +1,15 @@
 # BioBuzz 10100 — V1 Codebase Overview
 
+Optional laptop TeleOp simulation is available through `.\tools\verify-teleop.ps1 -Sim`;
+the default `.\tools\verify-teleop.ps1` runs ordinary tests, APK packaging and lint only.
+The first milestone covers the actual drivetrain and gate test OpModes. See
+[local simulation usage](simloop/README.md) and the [coverage/evidence matrix](doc/TeleOpVerificationMatrix.md).
+
 Current shooter gearing uses a 2:3 flywheel/motor speed ratio: configured motor free speed 5550 RPM, flywheel free-speed estimate 3700 RPM, target cap 3700 RPM. Shooter controls and profiles use flywheel output RPM: competition starts at 3500 RPM; the combined bench test retains 2800 RPM. Turret PWM direction follows the reported mounting. Competition enables bounded encoder corrections above 3 degrees and stops adjusting below 1.5 degrees; diagnostic defaults remain OFF. See [current competition decisions](doc/CompetitionTeleOp.md). See [bench controls and verification](doc/IntakeShooterTest.md).
 
 The October 23 hardware-review implementation and calibration boundaries are recorded in [HardwareReviewImplementationStatus.md](doc/HardwareReviewImplementationStatus.md). New diagnostics include `Test: Limelight Goal State 3D`; shot calibration displays session averages on the Driver Station without saving files. Automatic firing and pollen autonomous remain inhibited by the documented unvalidated calibration defaults.
 
-Robot controls, measured configuration dependencies, motion compensation and pollen navigation are documented in [SoftwareConfiguration.md](doc/SoftwareConfiguration.md). Current autonomous scope is pollen detection and navigation; match paths are deferred. Automatic shooting remains inhibited until calibration is supplied. Build and test with `.\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug`.
+Robot controls and calibration dependencies are documented in [SoftwareConfiguration.md](doc/SoftwareConfiguration.md). All autonomous programs use **Pedro Pathing v3 + Ivy through Zenith**; see [autonomous setup and named commands](doc/Autonomous.md). The pollen navigator is a Test-group experiment. Match routes still need to be authored, and physical Pedro/shooting/camera calibration remains required. Build and test with `.\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug`.
 
 
 This branch (`V1`) is a clean fork of the official **FTC Robot Controller SDK v12.0** (`20260907-090034`) with our team's drivetrain and odometry code in `TeamCode`.
@@ -49,7 +54,7 @@ The codebase follows the 3-layer modular architecture described in [AGENTS.md](A
 3. **Layer 3 — Combined TeleOp (`@TeleOp(group = "Competition")`)**:
    - **[MecanumTeleOp.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/MecanumTeleOp.java)** (shared base for `Mecanum TeleOp - Red` and `Mecanum TeleOp - Blue`): Combines `MecanumDrivetrain`, `PinpointOdometry`, and `TurretSubsystem` on **Controller 1 (`gamepad1`)** and **Controller 2 (`gamepad2`)**.
 4. **Autonomous pollen collection**:
-   - **[PollenAuto.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PollenAuto.java)** (`Auto: Pollen Collection`): Tracks pollen with the Logitech C270 (lens 195 mm high, 248 mm forward, on centerline, aimed 10 degrees below horizontal), aligns and approaches with the mecanum drivetrain, and performs bounded intake pickups using Pinpoint heading/travel feedback. Mount is confirmed; pickup/color calibration and suitable intrinsics remain required. Includes `Test: Pollen Camera Calibration`, full-queue stopping, stale-frame checks, and time/travel limits. See [camera setup and tuning](doc/PollenAuto.md).
+   - **[PollenAuto.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PollenAuto.java)** (`Test: Pollen Navigation (Pedro + Ivy)`, group `Test`): Diagnostic C270 collection using Pedro paths/holds scheduled by Ivy through Zenith. Retains close-frame confirmation, bounded blind pickup, target-loss stopping and time/travel/full-queue limits. Requires Pedro and camera calibration. This is separate from the real match routines. See [camera setup and tuning](doc/PollenAuto.md).
 
 ---
 

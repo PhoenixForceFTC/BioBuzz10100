@@ -1,0 +1,509 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/field.json",
+  "formatVersion": 3,
+  "season": "biobuzz",
+  "name": "BIOBUZZ presented by RTX (FTC 2026-27)",
+  "frame": {
+    "origin": "centre",
+    "xAxis": "audienceRight",
+    "yAxis": "awayFromAudience",
+    "headingZero": "+x",
+    "headingPositive": "ccw",
+    "units": "in",
+    "canonicalAlliance": "RED",
+    "mirror": "pointSymmetry",
+    "view": {
+      "audienceAt": "bottom"
+    }
+  },
+  "sizeIn": {
+    "xIn": 144,
+    "yIn": 144
+  },
+  "periods": {
+    "autoS": 30,
+    "teleopS": 120
+  },
+  "obstacles": [
+    {
+      "id": "hiveRedPivotBar",
+      "kind": "box",
+      "minXIn": -22.75,
+      "maxXIn": -2.75,
+      "minYIn": -18.58,
+      "maxYIn": 18.58,
+      "minZIn": 25.5,
+      "maxZIn": 65.6,
+      "solidToRobot": true,
+      "provenance": "SPEC plus APPROX (BIOBUZZ Competition Manual V1 §9.6, Figs 9-9 to 9-11). Pivot at x = -12.75: the two hives are 25.5 in centre to centre (Fig 9-10) and the pair is centred on the field (Fig 9-2; FIRST's BIOBUZZ field CAD (STEP v26-27.2) agrees). Cell outer face 18.58 in from the pivot in plan: the cells' inner faces are 18.84 in apart and each cell is 12.04 in deep (Fig 9-9), so the outer face is 21.46 in along the bar, times cos 30 degrees for the 30 degree tilt (Fig 9-10). Opening 20 in wide (§9.6.2, Fig 9-11). z from 25.5 in, the bottom of the down hive, to 65.6 in, the top of the up-cell opening (Fig 9-10). The box is an envelope over both cells' full swing footprint, because either cell may be up. APPROX on the 25.5 in floor: FIRST's BIOBUZZ field CAD (STEP v26-27.2) puts the down-cell floor at 31.981 in and the lowest hive structure at rest at 30.652 in, see TRANSCRIPTION.md."
+    },
+    {
+      "id": "hiveBluePivotBar",
+      "kind": "box",
+      "minXIn": 2.75,
+      "maxXIn": 22.75,
+      "minYIn": -18.58,
+      "maxYIn": 18.58,
+      "minZIn": 25.5,
+      "maxZIn": 65.6,
+      "solidToRobot": true,
+      "provenance": "SPEC plus APPROX, inherited from hiveRedPivotBar: its point mirror, with the BLUE pivot at (+12.75, 0) (Fig 9-10). The z range carries the same APPROX 25.5 in floor."
+    },
+    {
+      "id": "frameBarEast",
+      "kind": "box",
+      "minXIn": 22.54,
+      "maxXIn": 24.76,
+      "minYIn": -19.48,
+      "maxYIn": 19.48,
+      "minZIn": 0,
+      "maxZIn": 2.15,
+      "solidToRobot": true,
+      "provenance": "SPEC (FIRST's BIOBUZZ field CAD, STEP v26-27.2, sha256 5e768b73…fe00: the east foot bar, part am-5878 Sheet Metal Foot Bar, spans x 22.750 to 24.735, |y| up to 19.472 and z 0 to 2.148; this box widens it to hold the two feet on it, parts am-5879-A and am-5879-B, which reach |y| 19.477, and their fasteners, whose screw heads reach x 22.548 and 24.754, rounded outward to 0.01 in). Agrees with BIOBUZZ Competition Manual V1 §9.6.1: the frame is 49.46 in wide and 38.95 in deep at its base, so the bar's outer face is 24.73 in from the centre and its ends 19.475 in. See TRANSCRIPTION.md, Hive frame."
+    },
+    {
+      "id": "frameBarWest",
+      "kind": "box",
+      "minXIn": -24.76,
+      "maxXIn": -22.54,
+      "minYIn": -19.48,
+      "maxYIn": 19.48,
+      "minZIn": 0,
+      "maxZIn": 2.15,
+      "solidToRobot": true,
+      "provenance": "SPEC (FIRST's BIOBUZZ field CAD, STEP v26-27.2, sha256 5e768b73…fe00: part am-5878 Sheet Metal Foot Bar, the west one, with its feet and fasteners. It is frameBarEast's point mirror, which the CAD's west bar matches to within 0.015 in). See TRANSCRIPTION.md, Hive frame."
+    },
+    {
+      "id": "frameLegNorthEast",
+      "kind": "strut",
+      "fromIn": {
+        "xIn": 23.8,
+        "yIn": 18.56,
+        "zIn": 0.53
+      },
+      "toIn": {
+        "xIn": 12.74,
+        "yIn": 0.51,
+        "zIn": 41.08
+      },
+      "radiusIn": 0.73,
+      "solidToRobot": true,
+      "provenance": "SPEC (FIRST's BIOBUZZ field CAD, STEP v26-27.2, sha256 5e768b73…fe00: part am-5876 A-Frame Leg, a 1 in square tube 45.75 in long, cut square at both ends. fromIn and toIn are the centres of its two end faces; the CAD's east and west legs differ by 0.015 in in x, so each value is the mean of the four legs over the field's point mirror, rounded to 0.01 in. radiusIn is the round envelope, rounded up to 0.01 in, that holds every point of the tube after that rounding: 0.707 in to its corners plus 0.014 in). Agrees with BIOBUZZ Competition Manual V1 §9.6.1, two triangular frames 49.46 by 38.95 in at the base, and Fig 9-10, the frames' tops under the pivots at x = ±12.75. See TRANSCRIPTION.md, Hive frame."
+    },
+    {
+      "id": "frameLegSouthEast",
+      "kind": "strut",
+      "fromIn": {
+        "xIn": 23.8,
+        "yIn": -18.56,
+        "zIn": 0.53
+      },
+      "toIn": {
+        "xIn": 12.74,
+        "yIn": -0.51,
+        "zIn": 41.08
+      },
+      "radiusIn": 0.73,
+      "solidToRobot": true,
+      "provenance": "SPEC (FIRST's BIOBUZZ field CAD, STEP v26-27.2, sha256 5e768b73…fe00: part am-5876 A-Frame Leg, the same part and extraction as frameLegNorthEast. The CAD's frame is symmetric about y = 0 to within 0.001 in, so this leg is frameLegNorthEast reflected in y = 0). See TRANSCRIPTION.md, Hive frame."
+    },
+    {
+      "id": "frameLegNorthWest",
+      "kind": "strut",
+      "fromIn": {
+        "xIn": -23.8,
+        "yIn": 18.56,
+        "zIn": 0.53
+      },
+      "toIn": {
+        "xIn": -12.74,
+        "yIn": 0.51,
+        "zIn": 41.08
+      },
+      "radiusIn": 0.73,
+      "solidToRobot": true,
+      "provenance": "SPEC (FIRST's BIOBUZZ field CAD, STEP v26-27.2, sha256 5e768b73…fe00: part am-5876 A-Frame Leg, inherited from frameLegSouthEast as its point mirror, the field being point-symmetric, BIOBUZZ Competition Manual V1 Fig 9-2). See TRANSCRIPTION.md, Hive frame."
+    },
+    {
+      "id": "frameLegSouthWest",
+      "kind": "strut",
+      "fromIn": {
+        "xIn": -23.8,
+        "yIn": -18.56,
+        "zIn": 0.53
+      },
+      "toIn": {
+        "xIn": -12.74,
+        "yIn": -0.51,
+        "zIn": 41.08
+      },
+      "radiusIn": 0.73,
+      "solidToRobot": true,
+      "provenance": "SPEC (FIRST's BIOBUZZ field CAD, STEP v26-27.2, sha256 5e768b73…fe00: part am-5876 A-Frame Leg, inherited from frameLegNorthEast as its point mirror, the field being point-symmetric, BIOBUZZ Competition Manual V1 Fig 9-2). See TRANSCRIPTION.md, Hive frame."
+    },
+    {
+      "id": "flower0Foot",
+      "kind": "box",
+      "minXIn": -72,
+      "maxXIn": -67.1,
+      "minYIn": -27,
+      "maxYIn": -21,
+      "minZIn": 0,
+      "maxZIn": 21.5,
+      "solidToRobot": true,
+      "provenance": "APPROX: a 6 in (along the wall) by 4.9 in box flush with the x = -72 wall, centred on the flower's station at y = -24 (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2 and 9-4), up to the top ring at 21.5 in (Fig 9-12). FIRST's BIOBUZZ field CAD (STEP v26-27.2) measures the ring plates' footprint at 5.951 by 5.013 in, within 0.11 in of this box."
+    },
+    {
+      "id": "flower1Foot",
+      "kind": "box",
+      "minXIn": -27,
+      "maxXIn": -21,
+      "minYIn": 67.1,
+      "maxYIn": 72,
+      "minZIn": 0,
+      "maxZIn": 21.5,
+      "solidToRobot": true,
+      "provenance": "APPROX: a 6 in (along the wall) by 4.9 in box flush with the y = +72 wall, centred on the flower's station at x = -24 (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2 and 9-4), up to the top ring at 21.5 in (Fig 9-12). FIRST's BIOBUZZ field CAD (STEP v26-27.2) measures the ring plates' footprint at 5.951 by 5.013 in, within 0.11 in of this box."
+    },
+    {
+      "id": "flower2Foot",
+      "kind": "box",
+      "minXIn": 67.1,
+      "maxXIn": 72,
+      "minYIn": 21,
+      "maxYIn": 27,
+      "minZIn": 0,
+      "maxZIn": 21.5,
+      "solidToRobot": true,
+      "provenance": "APPROX: a 6 in (along the wall) by 4.9 in box flush with the x = +72 wall, centred on the flower's station at y = +24 (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2 and 9-4), up to the top ring at 21.5 in (Fig 9-12). FIRST's BIOBUZZ field CAD (STEP v26-27.2) measures the ring plates' footprint at 5.951 by 5.013 in, within 0.11 in of this box."
+    },
+    {
+      "id": "flower3Foot",
+      "kind": "box",
+      "minXIn": 21,
+      "maxXIn": 27,
+      "minYIn": -72,
+      "maxYIn": -67.1,
+      "minZIn": 0,
+      "maxZIn": 21.5,
+      "solidToRobot": true,
+      "provenance": "APPROX: a 6 in (along the wall) by 4.9 in box flush with the y = -72 wall, centred on the flower's station at x = +24 (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2 and 9-4), up to the top ring at 21.5 in (Fig 9-12). FIRST's BIOBUZZ field CAD (STEP v26-27.2) measures the ring plates' footprint at 5.951 by 5.013 in, within 0.11 in of this box."
+    }
+  ],
+  "zones": [
+    {
+      "id": "loadingZoneRed",
+      "kind": "rect",
+      "minXIn": -72,
+      "maxXIn": -61,
+      "minYIn": 24,
+      "maxYIn": 48,
+      "rule": "G304: no start here",
+      "ledger": "loadingZone",
+      "provenance": "APPROX (BIOBUZZ Competition Manual V1 §9.3, Figs 9-2 and 9-3; FIRST's Event Field Setup Guide §8.3): 11 in deep off the x = -72 wall, between the y = +24 and y = +48 tile seams, tape included. FIRST's BIOBUZZ field CAD (STEP v26-27.2), on its 23.528 in tile pitch, puts it at x in [-70.674, -59.101], y in [23.907, 46.599], see TRANSCRIPTION.md. The ledger counts it as this alliance's LOADING ZONE (ledger: loadingZone): SPEC, Competition Manual TU01 §9.3 and G427, humans enter NECTAR only through the LOADING ZONE."
+    },
+    {
+      "id": "loadingZoneBlue",
+      "kind": "rect",
+      "minXIn": 61,
+      "maxXIn": 72,
+      "minYIn": -48,
+      "maxYIn": -24,
+      "rule": "G304: no start here",
+      "ledger": "loadingZone",
+      "provenance": "APPROX, inherited from loadingZoneRed: its point mirror, x in [+61, +72], y in [-48, -24] (Fig 9-2). The ledger counts it as this alliance's LOADING ZONE (ledger: loadingZone): SPEC, Competition Manual TU01 §9.3 and G427, humans enter NECTAR only through the LOADING ZONE."
+    }
+  ],
+  "elements": [
+    {
+      "id": "gardenRed0",
+      "kind": "pollen",
+      "container": null,
+      "xIn": -70.6,
+      "yIn": -70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (BIOBUZZ Competition Manual V1 §10.3.1, Fig 10-2): the red garden's four pollen lie in a line along the audience wall starting in the red corner, each touching the next. Pollen are 2.8 in across (§9.8), so ball i sits at x = -(72 - 1.4 - 2.8 i), y = -(72 - 1.4)."
+    },
+    {
+      "id": "gardenRed1",
+      "kind": "pollen",
+      "container": null,
+      "xIn": -67.8,
+      "yIn": -70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (same source and construction as gardenRed0, i = 1)."
+    },
+    {
+      "id": "gardenRed2",
+      "kind": "pollen",
+      "container": null,
+      "xIn": -65,
+      "yIn": -70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (same source and construction as gardenRed0, i = 2)."
+    },
+    {
+      "id": "gardenRed3",
+      "kind": "pollen",
+      "container": null,
+      "xIn": -62.2,
+      "yIn": -70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (same source and construction as gardenRed0, i = 3)."
+    },
+    {
+      "id": "gardenBlue0",
+      "kind": "pollen",
+      "container": null,
+      "xIn": 70.6,
+      "yIn": 70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (point mirror of gardenRed0: the blue garden runs along the rear wall from the blue corner, Fig 10-2)."
+    },
+    {
+      "id": "gardenBlue1",
+      "kind": "pollen",
+      "container": null,
+      "xIn": 67.8,
+      "yIn": 70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (point mirror of gardenRed1)."
+    },
+    {
+      "id": "gardenBlue2",
+      "kind": "pollen",
+      "container": null,
+      "xIn": 65,
+      "yIn": 70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (point mirror of gardenRed2)."
+    },
+    {
+      "id": "gardenBlue3",
+      "kind": "pollen",
+      "container": null,
+      "xIn": 62.2,
+      "yIn": 70.6,
+      "radiusIn": 1.4,
+      "provenance": "APPROX (point mirror of gardenRed3)."
+    },
+    {
+      "id": "flower0",
+      "kind": "container",
+      "container": "flower",
+      "xIn": -69.46,
+      "yIn": -24,
+      "holds": [
+        "pollen",
+        "pollen",
+        "pollen",
+        "pollen"
+      ],
+      "provenance": "SPEC plus APPROX (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2, 9-4 and 9-12). On the x = -72 wall at the y = -24 tile seam, one tile off centre. The ring centre 2.54 in off the wall face (x = -69.46) is APPROX, derived from the public field drawings: FIRST's BIOBUZZ field CAD (STEP v26-27.2) puts it 2.629 in off the wall. Retrieval opening 3.55 in tall by 3.57 in deep at the bottom (Fig 9-12), taken as 6 in wide, the width of the foot. Holds 4 pollen at the start of the match (§10.3.1, Fig 10-2).",
+      "retrieval": {
+        "side": "field",
+        "openingIn": {
+          "widthIn": 6,
+          "heightIn": 3.55,
+          "depthIn": 3.57
+        },
+        "takes": [
+          "pollen"
+        ]
+      }
+    },
+    {
+      "id": "flower1",
+      "kind": "container",
+      "container": "flower",
+      "xIn": -24,
+      "yIn": 69.46,
+      "holds": [
+        "pollen",
+        "pollen",
+        "pollen",
+        "pollen"
+      ],
+      "provenance": "SPEC plus APPROX (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2, 9-4 and 9-12). On the y = +72 wall at the x = -24 tile seam, one tile off centre. The ring centre 2.54 in off the wall face (y = +69.46) is APPROX, derived from the public field drawings: FIRST's BIOBUZZ field CAD (STEP v26-27.2) puts it 2.629 in off the wall. Retrieval opening and staging as flower0.",
+      "retrieval": {
+        "side": "field",
+        "openingIn": {
+          "widthIn": 6,
+          "heightIn": 3.55,
+          "depthIn": 3.57
+        },
+        "takes": [
+          "pollen"
+        ]
+      }
+    },
+    {
+      "id": "flower2",
+      "kind": "container",
+      "container": "flower",
+      "xIn": 69.46,
+      "yIn": 24,
+      "holds": [
+        "pollen",
+        "pollen",
+        "pollen",
+        "pollen"
+      ],
+      "provenance": "SPEC plus APPROX (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2, 9-4 and 9-12). On the x = +72 wall at the y = +24 tile seam, one tile off centre. The ring centre 2.54 in off the wall face (x = +69.46) is APPROX, derived from the public field drawings: FIRST's BIOBUZZ field CAD (STEP v26-27.2) puts it 2.629 in off the wall. Retrieval opening and staging as flower0.",
+      "retrieval": {
+        "side": "field",
+        "openingIn": {
+          "widthIn": 6,
+          "heightIn": 3.55,
+          "depthIn": 3.57
+        },
+        "takes": [
+          "pollen"
+        ]
+      }
+    },
+    {
+      "id": "flower3",
+      "kind": "container",
+      "container": "flower",
+      "xIn": 24,
+      "yIn": -69.46,
+      "holds": [
+        "pollen",
+        "pollen",
+        "pollen",
+        "pollen"
+      ],
+      "provenance": "SPEC plus APPROX (BIOBUZZ Competition Manual V1 §9.7, Figs 9-2, 9-4 and 9-12). On the y = -72 wall at the x = +24 tile seam, one tile off centre. The ring centre 2.54 in off the wall face (y = -69.46) is APPROX, derived from the public field drawings: FIRST's BIOBUZZ field CAD (STEP v26-27.2) puts it 2.629 in off the wall. Retrieval opening and staging as flower0.",
+      "retrieval": {
+        "side": "field",
+        "openingIn": {
+          "widthIn": 6,
+          "heightIn": 3.55,
+          "depthIn": 3.57
+        },
+        "takes": [
+          "pollen"
+        ]
+      }
+    },
+    {
+      "id": "hiveRed",
+      "kind": "container",
+      "container": "hive",
+      "holds": [
+        "nectarRed",
+        "nectarRed",
+        "nectarRed"
+      ],
+      "provenance": "SPEC (BIOBUZZ Competition Manual V1 §9.6 and §10.3.1, Figs 9-10 and 10-2): pivot at (-12.75, 0), as hiveRedPivotBar. At the start the red hive's up cell is the SOUTH one, and it holds 3 red nectar.",
+      "pivotIn": {
+        "xIn": -12.75,
+        "yIn": 0
+      },
+      "upSide": "SOUTH"
+    },
+    {
+      "id": "hiveBlue",
+      "kind": "container",
+      "container": "hive",
+      "holds": [
+        "nectarBlue",
+        "nectarBlue",
+        "nectarBlue"
+      ],
+      "provenance": "SPEC (same source as hiveRed): pivot at (+12.75, 0); the blue hive's up cell is the NORTH one at the start, and it holds 3 blue nectar.",
+      "pivotIn": {
+        "xIn": 12.75,
+        "yIn": 0
+      },
+      "upSide": "NORTH"
+    }
+  ],
+  "targets": [
+    {
+      "id": "hiveRedUpCell",
+      "kind": "cell",
+      "provenance": "SPEC plus SET BY HAND. Aim at 59.5 in, the middle of the up-cell opening at 53.5 to 65.6 in (BIOBUZZ Competition Manual V1 Fig 9-10). A launch enters the cell's open outer end (§9.6.2, Fig 9-11), so it approaches along y from outboard of the outer face. The 6 in margin outboard of that face is SET BY HAND: a planning choice, not a game figure.",
+      "hive": "hiveRed",
+      "aimZIn": 59.5,
+      "legalApproach": {
+        "outboardOfOuterFaceByIn": 6,
+        "alongAxis": "y"
+      }
+    },
+    {
+      "id": "hiveBlueUpCell",
+      "kind": "cell",
+      "provenance": "SPEC plus SET BY HAND (same source as hiveRedUpCell; the approach rule is the same for both hives).",
+      "hive": "hiveBlue",
+      "aimZIn": 59.5,
+      "legalApproach": {
+        "outboardOfOuterFaceByIn": 6,
+        "alongAxis": "y"
+      }
+    },
+    {
+      "id": "flower0Top",
+      "kind": "hole",
+      "provenance": "SPEC (BIOBUZZ Competition Manual V1 §9.7, Fig 9-12): the top ring is 21.5 in above the tiles with a 4.0 in hole, so a 2 in radius. FIRST's BIOBUZZ field CAD (STEP v26-27.2) measures the bore at 4.171 in across (radius 2.086), a 0.086 in disagreement, see TRANSCRIPTION.md.",
+      "element": "flower0",
+      "zIn": 21.5,
+      "radiusIn": 2
+    },
+    {
+      "id": "flower1Top",
+      "kind": "hole",
+      "provenance": "SPEC (same source as flower0Top, including the 0.086 in CAD disagreement recorded there).",
+      "element": "flower1",
+      "zIn": 21.5,
+      "radiusIn": 2
+    },
+    {
+      "id": "flower2Top",
+      "kind": "hole",
+      "provenance": "SPEC (same source as flower0Top, including the 0.086 in CAD disagreement recorded there).",
+      "element": "flower2",
+      "zIn": 21.5,
+      "radiusIn": 2
+    },
+    {
+      "id": "flower3Top",
+      "kind": "hole",
+      "provenance": "SPEC (same source as flower0Top, including the 0.086 in CAD disagreement recorded there).",
+      "element": "flower3",
+      "zIn": 21.5,
+      "radiusIn": 2
+    }
+  ],
+  "startRules": {
+    "touchingWall": true,
+    "ownHalf": true,
+    "notInZones": [
+      "loadingZoneRed"
+    ],
+    "notTouchingContainers": [
+      "flower"
+    ],
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "rules": {
+    "plugin": "season-biobuzz",
+    "tipTable": [
+      8,
+      7,
+      6,
+      3,
+      1,
+      0
+    ],
+    "capacity": 4,
+    "humanPlayer": {
+      "nectar": 5,
+      "perTip": 1,
+      "provenance": "SPEC (BIOBUZZ Competition Manual V1 §10.3.1 B.ii, §10.1 and G426.A): each alliance's human player starts with 5 nectar in its ALLIANCE AREA, and may enter one of them each time that alliance's hive is TIPPED. G427.C puts an entered nectar on the tiles of the alliance's own LOADING ZONE. G426.B (all remaining nectar with 60 s or less left) is TELEOP only, so it never applies to an auto. DSim agrees: BB_NECTAR_COUNT 8 is 3 staged in the cell and 5 in stock, and bbHumanPlayerTick enters one per tip into the loading zone."
+    }
+  }
+}

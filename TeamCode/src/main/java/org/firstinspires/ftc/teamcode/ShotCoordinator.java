@@ -57,7 +57,8 @@ public final class ShotCoordinator {
     }
     public void select(GoalTarget next) {
         target = next; history.invalidateObservation(false); lastFrame = Double.NEGATIVE_INFINITY; solution = ShotPlanner.Solution.invalid("Target changed");
-        relativeTarget = null; lastPoseSample = null; lastFieldCorrection = Double.NEGATIVE_INFINITY;
+        relativeTarget = null; lastPoseSample = null;
+        if (mode != AimMode.TELEOP_ODOMETRY) lastFieldCorrection = Double.NEGATIVE_INFINITY;
         goalState.select(next.alliance,next.side);
         turret.setTargetHiveCell(next.alliance, next.side); turret.resetTrackingTrim();
     }
@@ -156,6 +157,11 @@ public final class ShotCoordinator {
         }
         LLResult result = turret.getVisionResult();
         LimelightObservation observation = new LimelightObservation(now,System.currentTimeMillis(),result);
+        if (mode == AimMode.TELEOP_ODOMETRY) {
+            updateFieldLocalization(now,observation);
+            pose = history.current(now);
+            return;
+        }
         trackingCapture = observation.captureTime; trackingTag = null;
         for (TagObservation tag : observation.tags) {
             if (TurretSubsystem.getHiveSideForTag(target.alliance,tag.id) == target.side && tag.usable()
@@ -184,6 +190,27 @@ public final class ShotCoordinator {
             }
         }
         pose = history.current(now);
+    }
+    private void updateFieldLocalization(double now, LimelightObservation observation) {
+        MotionSample current = history.current(now);
+        if (!ShootingConfiguration.FIELD_RELOCALIZATION_ENABLED || !ShootingConfiguration.LEVEL_CHASSIS_ASSUMED
+                || !turret.isHomed() || current == null || !current.fresh(now,ShotPlanner.MAX_SAMPLE_AGE_SECONDS)
+                || !Double.isFinite(observation.frame) || observation.frame <= lastFrame) return;
+        lastFrame = observation.frame;
+        if (current.fieldReferenced && now-lastFieldCorrection < FIELD_RELOCALIZATION_INTERVAL_SECONDS) return;
+        TagObservation best = null;
+        for (TagObservation tag : observation.tags) {
+            if (tag.usable() && tag.id >= 30 && tag.id <= 45
+                    && Math.abs(tag.planeDegrees(mount)-ShootingConfiguration.HIGH_GOAL_OPENING_PLANE_DEG) <= PoseHistory.TAG_PLANE_TOLERANCE_DEG
+                    && Math.abs(mount.cameraHeight+tag.levelPosition(mount)[2]-ShootingConfiguration.HIGH_GOAL_TAG_CENTER_HEIGHT_METERS) <= .1
+                    && (best == null || tag.uncertaintyMeters() < best.uncertaintyMeters())) best = tag;
+        }
+        if (best == null) return;
+        GoalTarget landmark = TeleOpFieldReference.targetForTag(best.id);
+        boolean accepted = current.fieldReferenced
+                ? history.observe3d(now,observation.frame,observation.captureTime,best,landmark,mount)
+                : history.acquireFieldReference3d(now,observation.frame,observation.captureTime,best,landmark,mount);
+        if (accepted) lastFieldCorrection = now;
     }
     private void observeOpening(LimelightObservation observation) {
         PoseHistory.Entry capture = history.at(observation.captureTime);
@@ -228,7 +255,10 @@ public final class ShotCoordinator {
             telemetry.addData("Vision relocalization", mode == AimMode.AUTONOMOUS_ODOMETRY ? "Disabled during autonomous route" : target.tags.isEmpty()
                     ? "No tag field map" : ShootingConfiguration.FIELD_RELOCALIZATION_ENABLED
                     ? "Enabled | nominal TU06 map | " + history.reason() : "Disabled by configuration");
-            if (pose != null) {
+            telemetry.addData("Field localization", pose != null && pose.fieldReferenced
+                    ? "LOCALIZED" : "WAITING FOR MAPPED RAISED TAG + HOMED TURRET; automatic aim unavailable");
+            if (pose != null && pose.fieldReferenced) {
+                telemetry.addData("Aiming field pose (m, deg)", "%.3f, %.3f | %.1f", pose.x, pose.y, Math.toDegrees(pose.heading));
                 org.firstinspires.ftc.teamcode.RobotMath.Vec pivot = new org.firstinspires.ftc.teamcode.RobotMath.Vec(pose.x, pose.y).plus(mount.pivot.rotate(pose.heading));
                 telemetry.addData("Odometry target range / yaw (m, deg)", "%.3f | %.1f",
                         Math.hypot(target.x - pivot.x, target.y - pivot.y),

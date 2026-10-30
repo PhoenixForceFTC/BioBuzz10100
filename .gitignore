@@ -55,6 +55,9 @@ captures/
 .externalNativeBuild
 .cxx/
 
+# Local Zenith CLI dependencies
+node_modules/
+
 # Google Services (e.g. APIs or Firebase)
 # google-services.json
 

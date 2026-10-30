@@ -1,0 +1,33 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "pollen-navigation-test",
+  "title": "Test: Pollen Navigation (Pedro + Ivy)",
+  "description": "Diagnostic only. Local (0,0,0) placement in a cleared area. Not a match route.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0,
+      "headingRad": 0
+    }
+  },
+  "steps": [
+    {
+      "id": "navigateToPollen",
+      "kind": "command",
+      "name": "collectPollen",
+      "args": {
+        "seconds": 28
+      },
+      "timeoutS": 28
+    },
+    {
+      "id": "stop",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

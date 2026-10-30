@@ -1,0 +1,237 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/robot.json",
+  "formatVersion": 1,
+  "name": "BioBuzz 10100 (tuning required)",
+  "frame": {
+    "forward": "+x",
+    "left": "+y",
+    "headingZero": "+x",
+    "headingPositive": "ccw"
+  },
+  "footprint": {
+    "startIn": {
+      "lengthIn": 18,
+      "widthIn": 18,
+      "provenance": "UNMEASURED EXAMPLE: measure chassis"
+    },
+    "expandedIn": {
+      "lengthIn": 18,
+      "widthIn": 18,
+      "provenance": "UNMEASURED EXAMPLE: measure deployed mechanisms"
+    },
+    "centreOfRotationIn": {
+      "xIn": 0,
+      "yIn": 0,
+      "provenance": "Existing Pinpoint robot-center frame; verify footprint alignment"
+    }
+  },
+  "heightIn": {
+    "value": 18,
+    "provenance": "UNMEASURED EXAMPLE: measure robot height"
+  },
+  "kinematics": {
+    "maxForwardVelInPerS": {
+      "value": 40,
+      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+    },
+    "maxStrafeVelInPerS": {
+      "value": 35,
+      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+    },
+    "forwardDecelInPerS2": {
+      "value": 40,
+      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+    },
+    "strafeDecelInPerS2": {
+      "value": 35,
+      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+    },
+    "accelInPerS2": {
+      "value": 40,
+      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+    },
+    "maxAngularVelRadPerS": {
+      "value": 3,
+      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+    },
+    "defaultPathSpeedFraction": {
+      "value": 0.35,
+      "provenance": "SET BY HAND: conservative initial path velocity fraction; additional 0.35 wheel-power cap"
+    },
+    "follower": {
+      "library": "pedro",
+      "version": "3.0.0-20260828.185437-17",
+      "holdEnd": true,
+      "brakeLinearForwardS": {
+        "value": 0.01,
+        "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      },
+      "brakeLinearStrafeS": {
+        "value": 0.01,
+        "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      },
+      "brakeQuadraticForwardS2PerIn": {
+        "value": 0.0125,
+        "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      },
+      "brakeQuadraticStrafeS2PerIn": {
+        "value": 0.014285714285714285,
+        "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      },
+      "headingBrakeLinearS": {
+        "value": 0,
+        "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      },
+      "headingBrakeQuadraticS2PerRad": {
+        "value": 0,
+        "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      },
+      "endHeadingToleranceRad": {
+        "value": 0.05235987755982988,
+        "provenance": "SET BY HAND: 3 degree end heading tolerance"
+      },
+      "endTranslationalToleranceIn": {
+        "value": 0.5,
+        "provenance": "SET BY HAND: end translation tolerance"
+      },
+      "endVelocityToleranceInPerS": {
+        "value": 1,
+        "provenance": "SET BY HAND: end velocity tolerance"
+      }
+    }
+  },
+  "shooter": {
+    "kind": "turret",
+    "settleS": {
+      "value": 0.35,
+      "provenance": "SET BY HAND: FiringCoordinator recovery, not a calibrated piece count"
+    }
+  },
+  "commands": [
+    {
+      "name": "intakeOn",
+      "summary": "Enable intake; stop on confirmed full queue.",
+      "estimateS": "0",
+      "requires": [
+        "intake"
+      ],
+      "stationary": false
+    },
+    {
+      "name": "intakeOff",
+      "summary": "Stop intake.",
+      "estimateS": "0",
+      "requires": [
+        "intake"
+      ],
+      "stationary": false
+    },
+    {
+      "name": "loadOn",
+      "summary": "Enable stage 1 automatic loading; stage 2 remains off.",
+      "estimateS": "0",
+      "requires": [
+        "transfer"
+      ],
+      "stationary": false
+    },
+    {
+      "name": "loadOff",
+      "summary": "Pause stage 1 loading.",
+      "estimateS": "0",
+      "requires": [
+        "transfer"
+      ],
+      "stationary": false
+    },
+    {
+      "name": "aim",
+      "summary": "Select alliance hive side and track using autonomous field odometry.",
+      "params": {
+        "side": {
+          "type": "enum",
+          "values": [
+            "AUDIENCE",
+            "FAR"
+          ],
+          "default": "AUDIENCE"
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "shooting"
+      ],
+      "stationary": false
+    },
+    {
+      "name": "shoot",
+      "summary": "Request calibrated, readiness-gated shooting for a duration; no ball count is claimed.",
+      "params": {
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "shooting",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false
+    },
+    {
+      "name": "collectPollen",
+      "summary": "Bounded vision collection experiment using Pedro paths and holds; requires calibrated camera.",
+      "params": {
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 28
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "drive",
+        "intake",
+        "transfer",
+        "gate"
+      ],
+      "stationary": false,
+      "movesRobot": true
+    },
+    {
+      "name": "stopAll",
+      "summary": "Stop drive and mechanisms and close gate.",
+      "estimateS": "0",
+      "requires": [
+        "drive",
+        "intake",
+        "transfer",
+        "gate",
+        "shooting"
+      ],
+      "stationary": false
+    }
+  ],
+  "conditions": [
+    {
+      "name": "queueFull",
+      "summary": "Transfer's confirmed full latch."
+    },
+    {
+      "name": "pollenVisible",
+      "summary": "Fresh, autonomous-eligible pollen target."
+    },
+    {
+      "name": "localizationReady",
+      "summary": "Fresh, field-referenced READY Pinpoint sample."
+    },
+    {
+      "name": "turretHomed",
+      "summary": "Turret homing is complete."
+    }
+  ]
+}

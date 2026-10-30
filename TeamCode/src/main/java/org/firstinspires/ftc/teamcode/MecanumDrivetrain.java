@@ -94,6 +94,14 @@ public class MecanumDrivetrain {
         setWheelPowers(0.0, 0.0, 0.0, 0.0);
     }
 
+    /** Pedro's tuned power model owns velocity control; select once during autonomous INIT. */
+    public void useOpenLoopPower() {
+        frontLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        frontRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+    }
+
     /**
      * Adds drivetrain power, encoder position, and velocity data to telemetry.
      * Does not call telemetry.update() so the caller OpMode can flush telemetry once per loop.

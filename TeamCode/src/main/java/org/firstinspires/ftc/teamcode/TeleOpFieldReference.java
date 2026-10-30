@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
-/** Team-approved nominal field targets and the shared blue-loading-corner TeleOp start. */
+/** Team-approved nominal field targets; corner constants are retained as a bench reference only. */
 public final class TeleOpFieldReference {
     private TeleOpFieldReference() { }
     public static final double FIELD_HALF_WIDTH_METERS = FieldGeometry.FIELD_HALF_WIDTH_METERS;
@@ -23,6 +23,14 @@ public final class TeleOpFieldReference {
                 (side == TurretSubsystem.HiveSide.AUDIENCE ? -1 : 1) * OPENING_Y_OFFSET_METERS,
                 ShootingConfiguration.HIGH_GOAL_CENTER_HEIGHT_METERS, true,
                 ShootingConfiguration.CALIBRATION_GEOMETRY_ID, HiveTagGeometry.nominalRaisedTags(alliance, side));
+    }
+    /** Localization may use either alliance and either cell, independently of the selected shot target. */
+    public static GoalTarget targetForTag(int id) {
+        for (TurretSubsystem.Alliance alliance : TurretSubsystem.Alliance.values()) {
+            TurretSubsystem.HiveSide side = TurretSubsystem.getHiveSideForTag(alliance,id);
+            if (side != null) return target(alliance,side);
+        }
+        return null;
     }
     /** Bearing from the turret pivot; independent of shot-profile calibration and camera visibility. */
     public static double yawRadians(MotionSample pose, GoalTarget target, ShooterMount mount) {

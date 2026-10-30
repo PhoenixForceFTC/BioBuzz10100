@@ -24,7 +24,20 @@ android {
     }
 }
 
+repositories {
+    maven { url = 'https://central.sonatype.com/repository/maven-snapshots' }
+    maven { url = 'https://jitpack.io' }
+}
+
 dependencies {
     implementation project(':FtcRobotController')
+    // Match Zenith v0.1.2's tested Pedro v3 API; keep autos/robot.json in sync.
+    implementation('com.pedropathing:core:3.0.0-20260828.185437-17') {
+        version { strictly '3.0.0-20260828.185437-17' }
+    }
+    implementation 'com.pedropathing.ivy:pedro:1.1.1'
+    implementation 'com.github.Horizon-36596:zenith:v0.1.2'
     testImplementation 'junit:junit:4.13.2'
 }
+
+apply from: "$rootDir/simloop/simloop.gradle"
