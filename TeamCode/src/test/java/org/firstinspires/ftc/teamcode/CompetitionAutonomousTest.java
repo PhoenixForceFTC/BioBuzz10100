@@ -84,6 +84,48 @@ public class CompetitionAutonomousTest {
         assertThrows(IllegalStateException.class, () -> AutoFile.parse(Json.parse("{\"formatVersion\":999}", "future"), "future", Collections.emptyMap()));
         assertTrue(world.followed.isEmpty());
     }
+    @Test public void raceAndDeadlineInterruptTheirUnfinishedMembers() {
+        for (String mode : new String[]{"race","deadline"}) {
+            String deadline=mode.equals("deadline") ? ",\"deadline\":\"timer\"" : "";
+            run(build("[{\"kind\":\"parallel\",\"mode\":\""+mode+"\""+deadline+",\"steps\":["
+                    +"{\"id\":\"timer\",\"kind\":\"wait\",\"seconds\":0.06},{\"id\":\"other\",\"kind\":\"command\",\"name\":\"never\"}]}]"));
+            assertEquals("never:INTERRUPTED",world.events.get(world.events.size()-1));
+        }
+    }
+    @Test public void distanceAndEndDistanceMarkersFireOnceAndBoundedConditionWaitContinues() {
+        NamedCommands.registerCondition("notYet",()->false);
+        run(build("[{\"kind\":\"path\",\"segments\":[{\"kind\":\"line\",\"from\":\"current\",\"to\":{\"xIn\":24,\"yIn\":0}}],"
+                +"\"heading\":{\"mode\":\"constant\",\"headingRad\":0},\"markers\":["
+                +"{\"at\":{\"distanceIn\":6},\"command\":{\"name\":\"record\",\"args\":{\"tag\":\"six\"}}},"
+                +"{\"at\":{\"distanceFromEndIn\":6},\"command\":{\"name\":\"record\",\"args\":{\"tag\":\"nearEnd\"}}}]},"
+                +"{\"kind\":\"wait\",\"until\":\"notYet\",\"timeoutS\":0.06},"
+                +"{\"kind\":\"command\",\"name\":\"record\",\"args\":{\"tag\":\"afterWait\"}}]"));
+        assertEquals(Arrays.asList("six","nearEnd","afterWait"),world.events);
+    }
+    @Test public void mirroredRoutesAndHeadingModesUseNativeConversion() {
+        for (boolean mirror : new boolean[]{false,true}) {
+            for (String heading : new String[]{
+                    "{\"mode\":\"constant\",\"headingRad\":0.2}",
+                    "{\"mode\":\"linear\",\"fromRad\":3.1,\"toRad\":-3.1}",
+                    "{\"mode\":\"tangent\"}", "{\"mode\":\"tangentReversed\"}",
+                    "{\"mode\":\"facePoint\",\"xIn\":24,\"yIn\":24}",
+                    "{\"mode\":\"piecewise\",\"ranges\":[{\"startT\":0,\"endT\":0.5,\"heading\":{\"mode\":\"constant\",\"headingRad\":0}},"
+                            +"{\"startT\":0.5,\"endT\":1,\"heading\":{\"mode\":\"linear\",\"fromRad\":0,\"toRad\":0.4}}]}"}) {
+                AutoFile file=AutoFile.parse(Json.parse("{\"formatVersion\":4,\"start\":{\"pose\":{\"xIn\":0,\"yIn\":0}},\"steps\":["
+                        +"{\"kind\":\"path\",\"segments\":[{\"kind\":\"line\",\"from\":{\"xIn\":0,\"yIn\":0},\"to\":{\"xIn\":12,\"yIn\":0}}],\"heading\":"+heading+"}]}","headings"),"headings",Collections.emptyMap());
+                AutoContext context=new AutoContext() {
+                    @Override public Follower follower() { return world.follower; }
+                    @Override public Object drive() { return world; }
+                    @Override public long nanoTime() { return world.now; }
+                    @Override public Pose alliance(Pose p) { return mirror ? new Pose(-p.x(),-p.y(),p.heading()+Math.PI) : p; }
+                };
+                run(AutoBuilder.build(file,context));
+                Path path=world.followed.get(world.followed.size()-1);
+                assertEquals(mirror ? -12 : 12,path.endPose().x(),1e-8);
+                assertTrue(Double.isFinite(path.endPose().heading()));
+            }
+        }
+    }
     static final class World implements AutoContext {
         long now; boolean following; double progress; int holds;
         Pose pose=Pose.zero(); Path path;

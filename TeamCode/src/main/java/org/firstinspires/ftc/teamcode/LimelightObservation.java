@@ -15,8 +15,8 @@ public final class LimelightObservation {
     public final List<TagObservation> tags = new ArrayList<>();
     public LimelightObservation(double now, long wallNowMs, LLResult result) {
         frame = result == null ? Double.NaN : result.getTimestamp();
-        captureTime = result == null ? Double.NaN : PoseHistory.captureTime(now, wallNowMs,
-                result.getControlHubTimeStamp(), result.getCaptureLatency(), result.getTargetingLatency(),
+        captureTime = result == null ? Double.NaN : PoseHistory.captureTimeFromAge(now, result.getStaleness(),
+                result.getCaptureLatency(), result.getTargetingLatency(),
                 ShootingConfiguration.ADDITIONAL_VISION_TRANSPORT_SECONDS);
         if (result == null || !result.isValid() || result.getStaleness() < 0
                 || result.getStaleness() > TurretSubsystem.LIMELIGHT_MAX_STALENESS_MS) return;

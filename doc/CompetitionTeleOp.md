@@ -50,3 +50,12 @@ The known competition behavior mismatches in this review are resolved, including
 - Opening/tag Y coordinates remain drawing-model approximations until the pivot-to-surface CAD transform or an installed-field reference is available. Relative tag spacing and the source drawing dimensions are already entered; no need to remeasure sixteen unrelated tags.
 
 The combined intake/shooter bench test intentionally retains 2800-RPM startup, its own RPM adjustment steps, B-to-stop, full-intake reversal and 4-degree/3-degree-per-second yaw readiness. Competition retains 3500 RPM, full-intake stop, no B stop and angle-only 3-degree feeding readiness. Turret-only diagnostics, pollen pickup tuning and match routes remain deferred as requested.
+
+## Desktop verification and human review
+
+Both actual alliance wrappers run in the optional local SimLoop suite. Use
+`.\tools\verify-teleop.ps1 -Sim -Scenario Competition,Sensors` or drive one with
+`.\tools\review-teleop.ps1 -OpMode RedMecanumTeleOp` / `BlueMecanumTeleOp`.
+See [record/replay controls](../simloop/README.md) and [the evidence matrix](TeleOpVerificationMatrix.md).
+The normalized-camera and synthetic-calibration fixtures are explicit test conditions, not authorization
+to change production calibration or evidence that the installed Limelight axes have been validated.

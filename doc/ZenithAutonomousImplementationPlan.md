@@ -1,6 +1,6 @@
 # Complete Zenith autonomous integration — implementation plan
 
-Date: 2026-10-28. Status: planned work; this document does not implement the changes below.
+Date: 2026-10-28. Implementation/audit update: 2026-10-31. Software commands, coordinator, canonical project, team deployment, examples and automated checks are implemented; see [the phase-by-phase audit](ZenithIntegrationAudit.md), [coverage/evidence](ZenithFunctionCoverage.md), [authoring](ZenithAuthoringGuide.md) and [verification](ZenithVerification.md). The final tree passes 185 ordinary tests, 12 deployment tests and all 24 current simulations, with APK/lint verification. The [core local UI round trip](ZenithUiAcceptance.md) is verified, with its remaining checks explicitly listed. Robot commissioning remains pending. This document retains the original requirements and historical baseline below; checked software/UI items do not establish hardware acceptance.
 
 ## Intended result
 
@@ -54,7 +54,7 @@ The following are proposed public contracts, not already registered commands. Pr
 | Stop chassis while another mechanism continues | `driveStop` | Immediate zero drive output and cancellation of active following/hold ownership; must remain stopped on the following update. |
 | Robot-centric power and individual-wheel testing | Existing Drivetrain/Pedro test OpModes | Keep direct wheel/power diagnostics out of ordinary path authoring; these are documented maintenance functions, with the original tests retained. |
 | Set autonomous start pose | Native routine start pose and waypoints | Apply the alliance-correct pose after Pinpoint reports READY. Distinguish an explicit field reference from the local zero used by a cleared-area test. |
-| Change pose at a known reference during a routine | `setFieldPose(xIn, yIn, headingRad)` | Requires `drive`; stop/cancel following first, invalidate aiming history/readiness and reference generation, then explicitly seed the known pose. Never silently continue a stale path. |
+| Change pose at a known reference during a routine | `setFieldPose(xIn, yIn, headingRad)` | Requires `drive`, `gate`, `transfer`; stop/cancel following and feeding first, invalidate aiming history/readiness and reference generation, then explicitly seed the known pose. Never silently continue a stale path. |
 | Local zero, IMU reset/calibration, pod/motor configuration | INIT and existing Pinpoint/drive diagnostics | IMU calibration stays stationary in INIT. Zeroing odometry must not imply acquisition of an absolute field reference. Hardware configuration is not an arbitrary mid-path UI action. |
 | Pose/velocity/status, progress and arrival | Cached conditions and telemetry | Report units and sample age, path/step ID, follower mode and reference validity. Do not re-read Pinpoint from a condition. |
 
@@ -246,15 +246,15 @@ All paths below are relative to the repository root; names for new classes are p
 
 ## Definition of done
 
-- [ ] Every current robot function has a reviewed entry in the coverage ledger, including maintenance-only functions and read-only sensor information.
+- [x] Every current robot function has a reviewed entry in the coverage ledger, including maintenance-only functions and read-only sensor information.
 - [ ] Every supported UI command has implemented behavior, validated arguments, correct resources, documented persistence/completion, and tested interruption/shutdown semantics.
 - [ ] The depollinator and independent intake/turret/hood/flywheel/gate/feed functions are usable as declared; automatic modes do not overwrite later explicit commands.
-- [ ] Pollen is visible in the canonical editor project, remains a separate test, and initializes only its declared hardware.
-- [ ] Every routine has exactly one intended Driver Station entry; add/rename/delete/redeploy are reproducible and cannot leave stale selectable routines.
-- [ ] The actual UI edit/save/reopen/deploy/build workflow has evidence, and routine authors need no Java changes for supported actions.
-- [ ] Native Zenith geometry/markers/parallel/branch/wait semantics are preserved, with clear failures for unsupported inputs.
-- [ ] Unit/runtime/deployment tests and the required TeamCode APK build pass; packaged assets match source.
-- [ ] Current software/UI evidence and unverified hardware/calibration items are reported separately.
+- [x] Pollen is visible and opens in the actual canonical editor project, remains a separate test, and initializes only its declared hardware in the profile regression.
+- [x] Every routine has exactly one intended Driver Station entry in generated/handwritten registration code; add/rename/delete/redeploy checks reject stale/duplicate outputs. Physical Driver Station selection remains part of commissioning.
+- [x] The core actual UI edit/save/reopen plus supported team deploy/build workflow has evidence, and routine authors need no Java changes for supported actions. Extra UI checks and source-maintenance boundaries are listed in ZenithUiAcceptance.md.
+- [x] Native Zenith geometry/markers/parallel/branch/wait semantics are preserved in the automated fixtures, with clear failures for unsupported inputs. Preview/outcome limits are documented in the audit.
+- [x] Unit/runtime/deployment tests and the required TeamCode APK build pass; packaged assets match source.
+- [x] Current software/UI evidence and unverified hardware/calibration items are reported separately.
 - [ ] Physical tuning/calibration and actual match-route validation are recorded before claiming competition readiness.
 
 ## Source references

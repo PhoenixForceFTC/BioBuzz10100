@@ -17,25 +17,44 @@ public final class PedroDrive {
     private final ForesightConfig config = PedroConfiguration.create();
     private final Follower follower;
     private Pose pendingStart;
+    private boolean referencePending;
+    private boolean localReference, poseInitialized;
 
     public PedroDrive(HardwareMap map) {
+        this(map, true);
+    }
+    public PedroDrive(HardwareMap map, boolean absoluteStartReference) {
+        localReference = !absoluteStartReference;
         motors = new MecanumDrivetrain(map);
         motors.useOpenLoopPower();
         drivetrain = new PedroMecanumAdapter(motors);
         odometry = new PinpointOdometry(map);
-        follower = new Follower(new PedroPinpointAdapter(odometry), drivetrain, new PedroForesight(config));
+        follower = new Follower(new PedroPinpointAdapter(odometry::getSample, p -> {
+            if (localReference) odometry.setLocalPoseInches(p.x(), p.y(), Math.toDegrees(p.heading()));
+            else odometry.setPoseInches(p.x(), p.y(), Math.toDegrees(p.heading()));
+        }), drivetrain, new PedroForesight(config));
     }
     public void setStartPose(Pose pose) { pendingStart = pose; }
+    public void setFieldPose(Pose pose) {
+        stop();
+        if (odometry.getDeviceStatus() != GoBildaPinpointDriver.DeviceStatus.READY)
+            throw new IllegalStateException("setFieldPose requires a READY Pinpoint");
+        localReference = false; poseInitialized = true;
+        follower.setPose(pose); pendingStart = null; referencePending = true;
+    }
+    public boolean idle() { return "IDLE".equals(String.valueOf(follower.mode())); }
     public void readSensors() {
         odometry.update();
+        referencePending = false;
         if (pendingStart != null && odometry.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
-            follower.setPose(pendingStart); pendingStart = null;
+            follower.setPose(pendingStart); pendingStart = null; poseInitialized = true; referencePending = true;
         }
         follower.localizer.update(); // Cached sample only, no I2C.
     }
     public boolean ready(double now) {
         MotionSample s = sample();
-        return pendingStart == null && s.ready && s.fieldReferenced && now >= s.time && now - s.time <= MAX_POSE_AGE_SECONDS
+        return pendingStart == null && !referencePending && s.ready && (localReference ? poseInitialized : s.fieldReferenced)
+                && now >= s.time && now - s.time <= MAX_POSE_AGE_SECONDS
                 && RobotMath.finite(s.x, s.y, s.heading, s.vx, s.vy, s.omega);
     }
     public void update() { follower.update(); }
@@ -47,5 +66,7 @@ public final class PedroDrive {
         telemetry.addData("Pedro v3", "%s | tuning %s", follower.mode(), PedroConfiguration.TUNING_VERIFIED ? "VERIFIED" : "REQUIRED");
         telemetry.addData("Pedro pose (in, deg)", "%.2f, %.2f | %.1f", follower.pose().x(), follower.pose().y(), Math.toDegrees(follower.pose().heading()));
         telemetry.addData("Pedro velocity (in/s, rad/s)", "%.1f, %.1f | %.2f", follower.velocity().vx, follower.velocity().vy, follower.velocity().omega);
+        telemetry.addData("Pose reference / age (s)", "%d | %s | %.3f", sample().referenceId,
+                sample().fieldReferenced, System.nanoTime() * 1e-9 - sample().time);
     }
 }

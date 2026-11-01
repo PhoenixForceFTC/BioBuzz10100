@@ -151,6 +151,7 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                 gate.setOpen(step == Step.FIRING && firing.gateOpen());
                 transfer.update(step == Step.FIRING && firing.feeding() && gate.isOpenForFeeding(), true);
 
+                transfer.addStatusTelemetry(telemetry);
                 telemetry.addData("STEP", step);
                 telemetry.addLine(message);
                 telemetry.addData("Turret axis to raised opening, horizontal (in)", "%.1f", notebook.distanceInches());

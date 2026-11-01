@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.horizon36596.simloop.opmode.OpModePhase;
 import org.horizon36596.simloop.opmode.RecordingTelemetry;
+import org.horizon36596.simloop.sim.live.GamepadState;
+import org.horizon36596.simloop.sim.live.GamepadInputTrack;
 
 /** Primitive decoded data crosses the sim class-loader boundary; retained for both pass and failure. */
 final class TeleOpTrace {
@@ -22,12 +24,17 @@ final class TeleOpTrace {
         final double[] shaftTicksPerSecond = new double[4];
         double xIn, yIn, headingRad, gatePosition, gatePhysical, gatePulseUs;
         boolean feedAllowed;
+        double intakePower, transfer1Power, transfer2Power, flywheelVelocity, yaw, yawCommand, hood, depollinator;
+        boolean distanceHigh;
 
         String decoded() {
             return phase + "\t" + tick + "\t" + seconds + "\t" + input + "\t"
                     + java.util.Arrays.toString(powers) + "\t" + java.util.Arrays.toString(shaftTicksPerSecond)
                     + "\t" + xIn + "\t" + yIn + "\t" + headingRad + "\t" + gatePosition
-                    + "\t" + gatePhysical + "\t" + gatePulseUs + "\t" + feedAllowed + "\t" + telemetry;
+                    + "\t" + gatePhysical + "\t" + gatePulseUs + "\t" + feedAllowed
+                    + "\t" + intakePower + "\t" + transfer1Power + "\t" + transfer2Power
+                    + "\t" + flywheelVelocity + "\t" + yaw + "\t" + yawCommand + "\t" + hood
+                    + "\t" + depollinator + "\t" + distanceHigh + "\t" + telemetry;
         }
     }
 
@@ -36,6 +43,7 @@ final class TeleOpTrace {
     private String input;
     private OpModePhase phase;
     private int tick;
+    private final GamepadInputTrack.Writer track;
 
     TeleOpTrace(String name, String opMode, double tickSeconds) throws IOException {
         String root = System.getProperty("biobuzz.sim.outputDir");
@@ -44,14 +52,28 @@ final class TeleOpTrace {
         directory = Files.createTempDirectory(Paths.get(root), name + "-");
         Files.write(directory.resolve("scenario.txt"), ("OpMode=" + opMode + "\ntickSeconds=" + tickSeconds
                 + "\n" + BioBuzzSimModel.PARAMETERS + "\n").getBytes(StandardCharsets.UTF_8));
+        java.util.Map<String, String> metadata = new java.util.LinkedHashMap<>();
+        metadata.put("opMode", opMode); metadata.put("tickSeconds", Double.toString(tickSeconds));
+        track = new GamepadInputTrack.Writer(directory.resolve("gamepads.track"), metadata, false);
     }
 
     void input(OpModePhase phase, int tick, Gamepad gp1, Gamepad gp2) {
         this.phase = phase;
         this.tick = tick;
-        input = "GP1=" + gp1.left_stick_y + "," + gp1.left_stick_x + "," + gp1.right_stick_x
-                + ",LT=" + gp1.left_trigger + ",RB=" + gp1.right_bumper + ",XYAB="
-                + gp1.x + "," + gp1.y + "," + gp1.a + "," + gp1.b;
+        GamepadState one = capture(gp1), two = capture(gp2);
+        input = "GP1=" + one + ";GP2=" + two;
+        if (phase == OpModePhase.ACTIVE) track.append(new GamepadInputTrack.Frame(tick, one, two));
+    }
+
+    private static GamepadState capture(Gamepad pad) {
+        java.util.Map<String, Float> axes = new java.util.LinkedHashMap<>();
+        java.util.Set<String> buttons = new java.util.LinkedHashSet<>();
+        try {
+            for (String name : GamepadState.STICK_AXES) axes.put(name, Gamepad.class.getField(name).getFloat(pad));
+            for (String name : GamepadState.TRIGGER_AXES) axes.put(name, Gamepad.class.getField(name).getFloat(pad));
+            for (String name : GamepadState.BUTTONS) if (Gamepad.class.getField(name).getBoolean(pad)) buttons.add(name);
+        } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
+        return GamepadState.of(axes, buttons);
     }
 
     void sample(BioBuzzSimHardware hardware, BioBuzzSimModel model, double tickSeconds,
@@ -70,6 +92,14 @@ final class TeleOpTrace {
             s.gatePulseUs = hardware.gate.getPulseWidth();
         }
         s.telemetry = String.join(" | ", telemetry.lastTransmission());
+        if (hardware.intake != null) s.intakePower = hardware.intake.getPower();
+        if (hardware.transfer1 != null) s.transfer1Power = hardware.transfer1.getPower();
+        if (hardware.transfer2 != null) s.transfer2Power = hardware.transfer2.getPower();
+        if (hardware.flywheel != null) s.flywheelVelocity = hardware.flywheel.getPhysicalVelocityTicksPerSecond();
+        if (hardware.yaw1 != null) { s.yawCommand = hardware.yaw1.getPosition(); s.yaw = model.yawDegrees; }
+        if (hardware.hood != null) s.hood = hardware.hood.getPosition();
+        if (hardware.depollinator != null) s.depollinator = hardware.depollinator.getPosition();
+        if (hardware.distance != null) s.distanceHigh = hardware.distance.getState();
         s.feedAllowed = telemetry.lastTransmission().contains("Gate Feed Allowed : true");
         samples.add(s);
     }
@@ -88,9 +118,11 @@ final class TeleOpTrace {
     void save(String outcome) throws IOException {
         List<String> rows = new ArrayList<>();
         rows.add("phase\ttick\tseconds\tinput\twheelPowers\tshaftTicksPerSecond\txIn\tyIn\theadingRad"
-                + "\tgateLogical\tgatePhysical\tgatePulseUs\tfeedAllowed\ttelemetry");
+                + "\tgateLogical\tgatePhysical\tgatePulseUs\tfeedAllowed\tintakePower\ttransfer1Power\ttransfer2Power"
+                + "\tflywheelTicksPerSecond\tyawDegrees\tyawServoCommand\thoodServo\tdepollinatorServo\tdistanceHigh\ttelemetry");
         rows.addAll(decoded());
         Files.write(directory.resolve("trace.tsv"), rows, StandardCharsets.UTF_8);
+        track.close();
         Files.write(directory.resolve("runner-outcome.txt"), (outcome + "\nLast requested phase=" + phase
                 + ",tick=" + tick + ",input=" + input + "\nAssertion results: see Gradle JUnit XML/HTML reports.\n")
                 .getBytes(StandardCharsets.UTF_8));

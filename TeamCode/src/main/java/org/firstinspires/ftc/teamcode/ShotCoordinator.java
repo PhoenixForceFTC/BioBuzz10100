@@ -28,6 +28,7 @@ public final class ShotCoordinator {
     private GoalTarget target;
     private ShotPlanner.Solution solution = ShotPlanner.Solution.invalid("Not requested");
     private boolean previousAutomatic, previousHomed;
+    private boolean presetValid;
     private MotionSample pose;
     private double lastFrame = Double.NEGATIVE_INFINITY;
     private double lastTrackingFrame = Double.NEGATIVE_INFINITY;
@@ -45,7 +46,8 @@ public final class ShotCoordinator {
                            FiringCoordinator firing, boolean timingMeasured) {
         this(turret, target, mount, profile, firing, timingMeasured, AimMode.DIAGNOSTIC);
     }
-    private ShotCoordinator(TurretSubsystem turret, GoalTarget target, ShooterMount mount, ShotProfile profile,
+    /** Explicit dependency configuration, including desktop-only synthetic measured profiles. */
+    public ShotCoordinator(TurretSubsystem turret, GoalTarget target, ShooterMount mount, ShotProfile profile,
                             FiringCoordinator firing, boolean timingMeasured,
                             AimMode mode) {
         this.mode = mode;
@@ -62,6 +64,12 @@ public final class ShotCoordinator {
         goalState.select(next.alliance,next.side);
         turret.setTargetHiveCell(next.alliance, next.side); turret.resetTrackingTrim();
     }
+    public void invalidateReference(double now) {
+        presetValid = false;
+        history.reset(); relativeTarget = null; lastPoseSample = null; pose = null;
+        solution = ShotPlanner.Solution.invalid("Reference changed");
+        firing.stop(now);
+    }
     /** Call after one odometry update and one turret update. No second hardware reads. */
     public void update(double now, MotionSample sample, boolean automatic, boolean manualFeed,
                        boolean inhibit, boolean flywheelStop) {
@@ -70,6 +78,13 @@ public final class ShotCoordinator {
     /** Autonomous can track throughout a route while requesting feed only in scoring states. */
     public void update(double now, MotionSample sample, boolean automatic, boolean automaticFeed,
                        boolean manualFeed, boolean inhibit, boolean flywheelStop) {
+        update(now, sample, automatic, automaticFeed, manualFeed, inhibit, flywheelStop, true, true, true);
+    }
+    /** Autonomous output arbitration; TeleOp retains the original all-channel behavior. */
+    public void update(double now, MotionSample sample, boolean automatic, boolean automaticFeed,
+                       boolean manualFeed, boolean inhibit, boolean flywheelStop,
+                       boolean controlYaw, boolean controlHood, boolean controlRpm) {
+        presetValid = false;
         if (automatic != previousAutomatic) {
             turret.resetTrackingTrim(); lastTrackingFrame = Double.NEGATIVE_INFINITY;
         }
@@ -94,16 +109,17 @@ public final class ShotCoordinator {
             if (solution.valid && !goalState.raised(now)) solution = solution.inhibit("Goal state: " + goalState.reason());
         }
         if (automatic && solution.aimable) {
-            turret.setTargetYawDegrees(Math.toDegrees(solution.yaw)); turret.setPitchAngleDegrees(solution.hoodDeg);
-            if (!flywheelStop) turret.setShooterRpm(solution.rpm);
+            if (controlYaw) turret.setTargetYawDegrees(Math.toDegrees(solution.yaw));
+            if (controlHood) turret.setPitchAngleDegrees(solution.hoodDeg);
+            if (controlRpm && !flywheelStop) turret.setShooterRpm(solution.rpm);
         } else if (fieldOdometryOnly && automatic && turret.isHomed() && pose != null
-                && pose.fieldReferenced && pose.fresh(now, ShotPlanner.MAX_SAMPLE_AGE_SECONDS)) {
+                && controlYaw && pose.fieldReferenced && pose.fresh(now, ShotPlanner.MAX_SAMPLE_AGE_SECONDS)) {
             // Keep odometry yaw tracking available while RPM/hood calibration is pending.
             double degrees = Math.toDegrees(TeleOpFieldReference.yawRadians(pose, target, mount));
             if (Math.abs(degrees) > TurretSubsystem.ROTATION_MAX_ANGLE_DEG)
                 degrees = Math.copySign(TurretSubsystem.ROTATION_MAX_ANGLE_DEG, turret.getEncoderAngleDegrees());
             turret.setTargetYawDegrees(degrees);
-        } else if (!fieldOdometryOnly && automatic && turret.isHomed() && turret.getVisionTag() != null
+        } else if (!fieldOdometryOnly && automatic && controlYaw && turret.isHomed() && turret.getVisionTag() != null
                 && turret.getVisionResult().getTimestamp() > lastTrackingFrame) {
             // Acquire the selected hive before shot calibration is available; this does not enable firing.
             // Vision selection already filters alliance, hive side, finite tx and stale frames.
@@ -128,6 +144,23 @@ public final class ShotCoordinator {
         firing.update(now, automatic && automaticFeed, manualFeed, inhibit, flywheelStop, solution.valid, tight, loose, solution.reason);
         turret.setTrackingStatus(solution.reason);
     }
+    /** Fixed presets share the same feed state machine; unmeasured presets can only prepare. */
+    public void updatePreset(double now, MotionSample sample, AutonomousShotPresets.Preset preset,
+                             boolean automaticFeed, boolean manualFeed, boolean inhibit) {
+        updatePose(now, sample);
+        boolean valid = preset.measured && timingMeasured && turret.isHomed()
+                && sample != null && sample.fieldReferenced && sample.fresh(now, ShotPlanner.MAX_SAMPLE_AGE_SECONDS);
+        presetValid = valid;
+        String reason = !preset.measured ? "Preset UNMEASURED: " + preset.name
+                : !timingMeasured ? "Release timing UNMEASURED" : !valid ? "Preset requires home and fresh field reference" : "Preset ready";
+        solution = ShotPlanner.Solution.invalid(reason);
+        boolean angle = ShotReadiness.angleReady(Math.abs(preset.yawDeg - turret.getEncoderAngleDegrees()));
+        boolean tight = angle && turret.isHoodTracking() && turret.isShooterAtSpeed();
+        boolean loose = angle && turret.isHoodTracking() && Math.abs(turret.getShooterCurrentRpm() - preset.outputRpm)
+                <= TurretSubsystem.SHOOTER_LOOSE_READY_TOLERANCE_RPM;
+        firing.update(now, automaticFeed, manualFeed, inhibit, false, valid, tight, loose, reason);
+        turret.setTrackingStatus(reason);
+    }
     static double visualTrackingYawDegrees(double measuredYawDeg, double txDeg, double cameraYawDeg) {
         // tx is right-positive; internal turret yaw and camera mounting yaw are left-positive.
         double bearing = TurretSubsystem.normalizeAngleDegrees(measuredYawDeg + cameraYawDeg - txDeg);
@@ -145,6 +178,7 @@ public final class ShotCoordinator {
         }
         if (sample == null) { pose = null; relativeTarget = null; goalState.invalidate("No odometry"); return; }
         if (sample.referenceId != previousReferenceId) {
+            firing.stop(now);
             history.reset(); relativeTarget = null; goalState.invalidate("Odometry reference changed");
             lastFieldCorrection = Double.NEGATIVE_INFINITY;
             previousReferenceId = sample.referenceId;
@@ -244,6 +278,7 @@ public final class ShotCoordinator {
         history.acceptRelative(observation.captureTime,uncertainty);
     }
     public FiringCoordinator firing() { return firing; }
+    public boolean validForFeeding() { return presetValid || solution.valid; }
     public ShotPlanner.Solution solution() { return solution; }
     public MotionSample pose() { return pose; }
     public void addTelemetry(Telemetry telemetry, double now) {

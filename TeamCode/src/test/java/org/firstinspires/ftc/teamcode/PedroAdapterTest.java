@@ -9,6 +9,24 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class PedroAdapterTest {
+    @Test public void plannerDriveNumbersAgreeWithTheInstalledRobotConfiguration() throws Exception {
+        org.json.JSONObject robot = new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(
+                new java.io.File("../autos/robot.json").toPath()), java.nio.charset.StandardCharsets.UTF_8));
+        org.json.JSONObject k = robot.getJSONObject("kinematics"), f = k.getJSONObject("follower");
+        String[] motionKeys = {"maxForwardVelInPerS","maxStrafeVelInPerS","forwardDecelInPerS2",
+                "strafeDecelInPerS2","defaultPathSpeedFraction"};
+        double[] motionValues = {PedroConfiguration.MAX_FORWARD_VELOCITY_IN_PER_SEC,
+                PedroConfiguration.MAX_STRAFE_VELOCITY_IN_PER_SEC,PedroConfiguration.FORWARD_DECELERATION_IN_PER_SEC_SQUARED,
+                PedroConfiguration.STRAFE_DECELERATION_IN_PER_SEC_SQUARED,PedroConfiguration.DEFAULT_PATH_SPEED_FRACTION};
+        String[] followerKeys = {"brakeLinearForwardS","brakeLinearStrafeS","brakeQuadraticForwardS2PerIn",
+                "brakeQuadraticStrafeS2PerIn","endHeadingToleranceRad","endTranslationalToleranceIn","endVelocityToleranceInPerS"};
+        double[] followerValues = {PedroConfiguration.FORWARD_LINEAR_BRAKE_SECONDS,PedroConfiguration.STRAFE_LINEAR_BRAKE_SECONDS,
+                PedroConfiguration.FORWARD_QUADRATIC_BRAKE_SEC_SQUARED_PER_IN,PedroConfiguration.STRAFE_QUADRATIC_BRAKE_SEC_SQUARED_PER_IN,
+                PedroConfiguration.END_HEADING_TOLERANCE_RAD,PedroConfiguration.END_TRANSLATIONAL_TOLERANCE_IN,
+                PedroConfiguration.END_VELOCITY_TOLERANCE_IN_PER_SEC};
+        for (int i=0;i<motionKeys.length;i++) assertEquals(motionKeys[i],motionValues[i],k.getJSONObject(motionKeys[i]).getDouble("value"),1e-12);
+        for (int i=0;i<followerKeys.length;i++) assertEquals(followerKeys[i],followerValues[i],f.getJSONObject(followerKeys[i]).getDouble("value"),1e-12);
+    }
     @Test public void pinpointConversionPreservesFieldAxesAndConvertsOnlyLinearUnits() {
         MotionSample sample=ControllerFixtures.pose(1,.0254,-.0508,Math.PI/2,.254,-.508,.3);
         Pose[] seeded={null};

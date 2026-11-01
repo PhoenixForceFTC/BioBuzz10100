@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
-/** Metric tag pose in optical camera axes: right, down, forward. No field map is involved. */
+/** Metric tag pose in optical camera axes: right, down, forward. No field map is involved.
+ * Existing robot convention treats tag +Z as the outward normal. Validate this with a saved
+ * physical Limelight frame before changing it; SimLoop alpha.2 uses the opposite target normal.
+ */
 public final class TagObservation {
     public static final double MIN_FORWARD_METERS = .1, MIN_RANGE_METERS = .25, MAX_RANGE_METERS = 6;
     public static final double MIN_AREA_PERCENT = .005, MIN_FACING_COSINE = .12;

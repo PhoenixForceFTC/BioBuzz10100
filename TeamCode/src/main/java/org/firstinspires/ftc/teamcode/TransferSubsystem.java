@@ -60,15 +60,18 @@ public class TransferSubsystem {
      * A confirmed full queue remains held until feeding begins, even if the sensor clears.
      */
     public void update(boolean feedBalls, boolean pauseLoading) {
+        update(System.nanoTime() * 1e-9, feedBalls, pauseLoading);
+    }
+
+    public void update(double now, boolean feedBalls, boolean pauseLoading) {
+        readSensors(now);
+        updateCached(now, feedBalls, pauseLoading);
+    }
+
+    /** Autonomous samples before evaluating commands/conditions, then applies outputs afterward. */
+    public void readSensors(double now) {
         sensorState = fullSensor.getState();
-        controller.update(System.nanoTime() * 1e-9, sensorState == FULL_SENSOR_ACTIVE_STATE, feedBalls, pauseLoading);
-        feeding = feedBalls;
-        loadingPaused = pauseLoading;
-        commandedPower = controller.stage1();
-        motor.setPower(commandedPower);
-        stage2Power = controller.stage2();
-        stage2Motor.setPower(stage2Power);
-        double now = System.nanoTime()*1e-9;
+        controller.observe(now, sensorState == FULL_SENSOR_ACTIVE_STATE);
         if (now-lastCurrentSample >= .2) {
             current1 = motor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
             current2 = stage2Motor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
@@ -76,8 +79,28 @@ public class TransferSubsystem {
         }
     }
 
+    public void updateCached(double now, boolean feedBalls, boolean pauseLoading) {
+        controller.update(now, sensorState == FULL_SENSOR_ACTIVE_STATE, feedBalls, pauseLoading);
+        feeding = feedBalls;
+        loadingPaused = pauseLoading;
+        commandedPower = controller.stage1();
+        motor.setPower(commandedPower);
+        stage2Power = controller.stage2();
+        stage2Motor.setPower(stage2Power);
+    }
+
     public boolean isFull() {
         return controller.full();
+    }
+
+    public boolean isSensorHigh() { return sensorState == FULL_SENSOR_ACTIVE_STATE; }
+    public boolean isFeeding() { return feeding; }
+    public boolean isLoading() { return !feeding && commandedPower > 0; }
+
+    public void pause() {
+        commandedPower = stage2Power = 0;
+        feeding = false; loadingPaused = true; controller.pause();
+        RobotShutdown.stopAll(() -> motor.setPower(0), () -> stage2Motor.setPower(0));
     }
 
     public void stop() {
@@ -90,6 +113,22 @@ public class TransferSubsystem {
     }
 
     public void addTelemetry(Telemetry telemetry) {
+        addTelemetry(telemetry, System.nanoTime() * 1e-9);
+    }
+
+    /** Put this summary before verbose diagnostics so a stopped transfer has a visible reason. */
+    public void addStatusTelemetry(Telemetry telemetry) {
+        telemetry.addData("TRANSFER STATUS", "S1 %.2f | S2 %.2f | %s | sensor %s",
+                commandedPower, stage2Power,
+                feeding ? "FEEDING SHOT"
+                        : isFull() ? "FULL LATCH: waiting for feed"
+                        : loadingPaused ? "LOADING PAUSED BY OPMODE" : "LOADING",
+                isSensorHigh() ? "HIGH" : "LOW");
+    }
+
+    public void addTelemetry(Telemetry telemetry, double now) {
+        telemetry.addData("Transfer Stage 1 Device", "%s | %s", HW_TRANSFER_MOTOR, motor.getConnectionInfo());
+        telemetry.addData("Transfer Stage 2 Device", "%s | %s", HW_TRANSFER_MOTOR_2, stage2Motor.getConnectionInfo());
         telemetry.addData("Transfer current (A, 5 Hz)", "stage 1 %.2f | stage 2 %.2f",current1,current2);
         telemetry.addData("Transfer Mode", feeding ? "FEEDING SHOT"
                 : isFull() ? "FULL: HOLDING UNTIL FEED"
@@ -98,7 +137,7 @@ public class TransferSubsystem {
                 isFull() ? "FULL" : sensorState == FULL_SENSOR_ACTIVE_STATE ? "CONFIRMING FULL" : "SPACE AVAILABLE",
                 sensorState ? "HIGH" : "LOW");
         telemetry.addData("Transfer Full Confirmation (s)", "%.2f / %.2f",
-                controller.confirmingSeconds(System.nanoTime() * 1e-9), FULL_CONFIRM_TIME_SECONDS);
+                controller.confirmingSeconds(now), FULL_CONFIRM_TIME_SECONDS);
         telemetry.addData("Transfer Stage 1 Power", "%.2f (REVERSE / CW, open loop)", commandedPower);
         telemetry.addData("Transfer Stage 2 Power", "%.2f (forward shot feed only; off while loading)", stage2Power);
     }

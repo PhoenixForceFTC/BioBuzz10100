@@ -34,6 +34,7 @@ public class TransferTestOpMode extends LinearOpMode {
                 gate.setOpen(firing.gateOpen());
                 transfer.update(firing.feeding() && gate.isOpenForFeeding(),
                         gamepad1.left_bumper || gamepad1.right_bumper);
+                transfer.addStatusTelemetry(telemetry);
                 telemetry.addData("Transfer feed test", "%s | %s", firing.state(), firing.reason());
                 telemetry.addData("Timed shooting (s)", "gate %.2f | feed %.2f | recovery %.2f",
                         firing.gateTravelSeconds, firing.feedWindowSeconds, firing.recoverySeconds);

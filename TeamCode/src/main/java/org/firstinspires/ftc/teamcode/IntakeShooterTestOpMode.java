@@ -159,6 +159,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                 else if (firing.state() == FiringCoordinator.State.PREPARING)
                     feedStatus = "Checks passing: qualifying stable readiness";
                 else feedStatus = firing.reason();
+                transfer.addStatusTelemetry(telemetry);
                 telemetry.addData("FEED STATUS", feedStatus);
                 telemetry.addData("GP1 triggers / LB", "RT %.2f | LT %.2f | LB %s",
                         gamepad1.right_trigger, gamepad1.left_trigger, reverse);

@@ -17,7 +17,7 @@
     "expandedIn": {
       "lengthIn": 18,
       "widthIn": 18,
-      "provenance": "UNMEASURED EXAMPLE: measure deployed mechanisms"
+      "provenance": "UNMEASURED PLACEHOLDER: 18x18 is NOT a verified deployed envelope. Measure including depollinator; no posture-based clearance assurance."
     },
     "centreOfRotationIn": {
       "xIn": 0,
@@ -110,43 +110,437 @@
   "commands": [
     {
       "name": "intakeOn",
-      "summary": "Enable intake; stop on confirmed full queue.",
+      "summary": "Latch forward intake; confirmed full blocks forward only.",
       "estimateS": "0",
       "requires": [
         "intake"
       ],
-      "stationary": false
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
       "name": "intakeOff",
-      "summary": "Stop intake.",
+      "summary": "Latch intake off.",
       "estimateS": "0",
       "requires": [
         "intake"
       ],
-      "stationary": false
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "intakeReverse",
+      "summary": "Latch reverse intake; confirmed full permits deliberate ejection.",
+      "estimateS": "0",
+      "requires": [
+        "intake"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "intakeSet",
+      "summary": "Latch motor power [-1,1]; full blocks positive loading only.",
+      "params": {
+        "power": {
+          "type": "number",
+          "min": -1,
+          "max": 1,
+          "provenance": "Unitless motor power; positive loads, negative ejects."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "intake"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "intakeRun",
+      "summary": "Timed intake/ejection; stop on completion/cancel; replacement cleanup cannot override a new owner.",
+      "params": {
+        "power": {
+          "type": "number",
+          "min": -1,
+          "max": 1,
+          "provenance": "Unitless motor power; positive loads, negative ejects."
+        },
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count."
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "intake"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
       "name": "loadOn",
-      "summary": "Enable stage 1 automatic loading; stage 2 remains off.",
+      "summary": "Latch automatic stage-1 loading; stage 2 stays off; retain full latch.",
       "estimateS": "0",
       "requires": [
         "transfer"
       ],
-      "stationary": false
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
       "name": "loadOff",
-      "summary": "Pause stage 1 loading.",
+      "summary": "Pause automatic loading without clearing confirmed full.",
       "estimateS": "0",
       "requires": [
         "transfer"
       ],
-      "stationary": false
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
-      "name": "aim",
-      "summary": "Select alliance hive side and track using autonomous field odometry.",
+      "name": "transferStop",
+      "summary": "Stop both transfer stages and feed requests; preserve queue knowledge.",
+      "estimateS": "0",
+      "requires": [
+        "transfer",
+        "gate"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "loadUntilFull",
+      "summary": "Intake and stage-1 loading until confirmed full (2 seconds HIGH) or timeout; stop afterward.",
+      "params": {
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count."
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "intake",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "feedManual",
+      "summary": "Explicit readiness BYPASS; timed two-stage feed after gate delay. Inhibit wins; close/stop on end.",
+      "params": {
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count."
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "transfer",
+        "gate"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "feedStop",
+      "summary": "Clear all feed requests, close gate, stop transfer; retain aim/pre-spin and full latch.",
+      "estimateS": "0",
+      "requires": [
+        "transfer",
+        "gate"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "gateOpen",
+      "summary": "Gate-only bounded opening; both transfer stages stopped; inhibit wins; close at end.",
+      "params": {
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count."
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "gateClose",
+      "summary": "Clear feed requests and close gate; no later automatic reopening without a new request.",
+      "estimateS": "0",
+      "requires": [
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "feedInhibit",
+      "summary": "Latch feed inhibit, clear all feeding and gate-only requests, close gate and pause transfer.",
+      "estimateS": "0",
+      "requires": [
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "feedResume",
+      "summary": "Clear feed inhibit; does not request feeding or open the gate.",
+      "estimateS": "0",
+      "requires": [
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "depollinatorDeploy",
+      "summary": "Latch 135-degree CW deployment from 30-degree home; settle is a 1-second UNMEASURED estimate. Use expanded footprint.",
+      "estimateS": "0",
+      "requires": [
+        "depollinator"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "depollinatorHome",
+      "summary": "Latch 30-degree home posture; settle is a 1-second UNMEASURED estimate, no position feedback.",
+      "estimateS": "0",
+      "requires": [
+        "depollinator"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "turretHome",
+      "summary": "Non-blocking estimated home with bounded timeout/fault; feeding cleared; interruption holds without a reference.",
+      "params": {
+        "timeoutSeconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 5,
+          "provenance": "Seconds; finite readiness wait."
+        }
+      },
+      "estimateS": "unknown",
+      "requires": [
+        "turretYaw",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "turretSetYaw",
+      "summary": "Latch internal CCW yaw degrees [-175,175]; replaces automatic yaw only.",
+      "params": {
+        "yawDeg": {
+          "type": "number",
+          "min": -175,
+          "max": 175,
+          "provenance": "Internal CCW degrees from right-facing turret home."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "turretYaw"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "turretAdjustYaw",
+      "summary": "Apply delta once at START; reject an unreachable resulting target; replace automatic yaw.",
+      "params": {
+        "deltaDeg": {
+          "type": "number",
+          "min": -350,
+          "max": 350,
+          "provenance": "Robot-local degrees; resolve once at START."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "turretYaw"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "turretHold",
+      "summary": "Capture measured yaw once; preserve valid home; cancel unfinished home.",
+      "estimateS": "0",
+      "requires": [
+        "turretYaw"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "waitTurretReady",
+      "summary": "Bounded cached homing/yaw-error wait (3 degrees); no speed cutoff.",
+      "params": {
+        "timeoutSeconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 5,
+          "provenance": "Seconds; finite readiness wait."
+        }
+      },
+      "estimateS": "unknown",
+      "requires": [
+        "turretYaw"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "hoodSet",
+      "summary": "Latch hood downward travel [0,30] degrees; replace automatic hood only.",
+      "params": {
+        "travelDeg": {
+          "type": "number",
+          "min": 0,
+          "max": 30,
+          "provenance": "Hood downward travel degrees; launch elevation = +15 minus travel."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "hood"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "hoodAdjust",
+      "summary": "Apply hood delta once at START; reject resulting travel outside [0,30].",
+      "params": {
+        "deltaDeg": {
+          "type": "number",
+          "min": -30,
+          "max": 30,
+          "provenance": "Robot-local degrees; resolve once at START."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "hood"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "hoodHome",
+      "summary": "Latch hood travel 0 degrees with existing home offset and linkage.",
+      "estimateS": "0",
+      "requires": [
+        "hood"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "waitHoodReady",
+      "summary": "Bounded estimated hood tracking wait; no servo position sensor.",
+      "params": {
+        "timeoutSeconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 5,
+          "provenance": "Seconds; finite readiness wait."
+        }
+      },
+      "estimateS": "unknown",
+      "requires": [
+        "hood"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "flywheelSetRpm",
+      "summary": "Latch output-shaft RPM [0,3700]; replace automatic RPM ownership; no feeding.",
+      "params": {
+        "rpm": {
+          "type": "number",
+          "min": 0,
+          "max": 3700,
+          "provenance": "Flywheel output-shaft RPM; 2:1 gearing, cap 3700."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "flywheel"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "flywheelSpinUp",
+      "summary": "Set output RPM and wait for cached speed; natural success retains RPM; timeout/cancel stops it. Never feeds.",
+      "params": {
+        "rpm": {
+          "type": "number",
+          "min": 1,
+          "max": 3700,
+          "provenance": "Flywheel output-shaft RPM; 2:1 gearing, cap 3700."
+        },
+        "timeoutSeconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 5,
+          "provenance": "Seconds; finite readiness wait."
+        }
+      },
+      "estimateS": "unknown",
+      "requires": [
+        "flywheel"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "flywheelStop",
+      "summary": "Stop flywheel and feeding; yaw/hood automatic tracking can continue.",
+      "estimateS": "0",
+      "requires": [
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "selectTarget",
+      "summary": "Select alliance hive side; FIELD literal or AUTHORED point-symmetry side; invalidate shot readiness.",
       "params": {
         "side": {
           "type": "enum",
@@ -154,84 +548,414 @@
             "AUDIENCE",
             "FAR"
           ],
-          "default": "AUDIENCE"
+          "default": "AUDIENCE",
+          "provenance": "Hive side; FIELD is compatible aim(side) default."
+        },
+        "frame": {
+          "type": "enum",
+          "values": [
+            "FIELD",
+            "AUTHORED"
+          ],
+          "default": "FIELD",
+          "provenance": "FIELD is literal; AUTHORED flips side under point symmetry."
         }
       },
       "estimateS": "0",
       "requires": [
-        "shooting"
-      ],
-      "stationary": false
-    },
-    {
-      "name": "shoot",
-      "summary": "Request calibrated, readiness-gated shooting for a duration; no ball count is claimed.",
-      "params": {
-        "seconds": {
-          "type": "number",
-          "min": 0.001,
-          "max": 28
-        }
-      },
-      "estimateS": "seconds",
-      "requires": [
-        "shooting",
+        "turretYaw",
+        "hood",
+        "flywheel",
         "gate",
         "transfer"
       ],
-      "stationary": false
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
-      "name": "collectPollen",
-      "summary": "Bounded vision collection experiment using Pedro paths and holds; requires calibrated camera.",
+      "name": "aim",
+      "summary": "Latch odometry yaw/hood tracking, optional automatic spin; side defaults FIELD/AUDIENCE. No visible tag prerequisite.",
+      "params": {
+        "side": {
+          "type": "enum",
+          "values": [
+            "AUDIENCE",
+            "FAR"
+          ],
+          "default": "AUDIENCE",
+          "provenance": "Hive side; FIELD is compatible aim(side) default."
+        },
+        "frame": {
+          "type": "enum",
+          "values": [
+            "FIELD",
+            "AUTHORED"
+          ],
+          "default": "FIELD",
+          "provenance": "FIELD is literal; AUTHORED flips side under point symmetry."
+        },
+        "spin": {
+          "type": "boolean",
+          "default": true,
+          "provenance": "Automatic flywheel ownership; false stops flywheel while yaw/hood track."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "aimOff",
+      "summary": "Hold measured yaw/current hood; clear feeding and stop automatic flywheel.",
+      "estimateS": "0",
+      "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "shoot",
+      "summary": "Timed readiness-gated feed; restores automatic aim/spin; retains aim after end; no piece count.",
       "params": {
         "seconds": {
           "type": "number",
           "min": 0.001,
           "max": 28,
-          "default": 28
+          "provenance": "Seconds; duration bound, never a piece count."
         }
       },
       "estimateS": "seconds",
       "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "prepareShotPreset",
+      "summary": "Latch validated robot-local preset yaw/hood/RPM; no feeding. Example is UNMEASURED.",
+      "params": {
+        "preset": {
+          "type": "string",
+          "provenance": "Configured name: diagnostic-example. UNMEASURED; preparation only, automatic feeding inhibited."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "shootPreset",
+      "summary": "Timed fixed-preset feed through shared firing coordinator; unmeasured preset/release timing cannot feed; retains preparation.",
+      "params": {
+        "preset": {
+          "type": "string",
+          "provenance": "Configured name: diagnostic-example. UNMEASURED; preparation only, automatic feeding inhibited."
+        },
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count."
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "driveHold",
+      "summary": "Pedro holds authored pose for bounded seconds; stop drive on end/cancel. Requires verified tuning.",
+      "params": {
+        "xIn": {
+          "type": "number",
+          "min": -72,
+          "max": 72,
+          "provenance": "Authored field X inches; alliance transform applied once."
+        },
+        "yIn": {
+          "type": "number",
+          "min": -72,
+          "max": 72,
+          "provenance": "Authored field Y inches; alliance transform applied once."
+        },
+        "headingRad": {
+          "type": "number",
+          "min": -6.283185307179586,
+          "max": 6.283185307179586,
+          "default": 0,
+          "provenance": "Authored CCW radians from +X."
+        },
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count."
+        }
+      },
+      "estimateS": "seconds",
+      "requires": [
+        "drive"
+      ],
+      "stationary": false,
+      "movesRobot": true,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "driveStop",
+      "summary": "Cancel following/hold and latch zero drive until a later explicit drive action.",
+      "estimateS": "0",
+      "requires": [
+        "drive"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "setFieldPose",
+      "summary": "Stop following and feeding, invalidate shot history/readiness, then seed known authored pose when READY. Owns drive/gate/transfer; cannot run alongside feed. Not an IMU recalibration.",
+      "params": {
+        "xIn": {
+          "type": "number",
+          "min": -72,
+          "max": 72,
+          "provenance": "Authored field X inches; alliance transform applied once."
+        },
+        "yIn": {
+          "type": "number",
+          "min": -72,
+          "max": 72,
+          "provenance": "Authored field Y inches; alliance transform applied once."
+        },
+        "headingRad": {
+          "type": "number",
+          "min": -6.283185307179586,
+          "max": 6.283185307179586,
+          "default": 0,
+          "provenance": "Authored CCW radians from +X."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "drive",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "movesRobot": true,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "collectPollen",
+      "summary": "Bounded camera-guided Pedro experiment; estimated duration/trajectory UNKNOWN. Requires physical camera calibration.",
+      "params": {
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "provenance": "Seconds; duration bound, never a piece count.",
+          "default": 28
+        }
+      },
+      "estimateS": "unknown",
+      "requires": [
+        "drive",
+        "intake",
+        "transfer",
+        "gate",
+        "pollenCamera"
+      ],
+      "stationary": false,
+      "movesRobot": true,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "pollenVisionEnable",
+      "summary": "Enable existing INIT camera processor; require a new frame before readiness.",
+      "estimateS": "0",
+      "requires": [
+        "pollenCamera"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "pollenVisionDisable",
+      "summary": "Disable processor and cancel/stop dependent collection; discard observations.",
+      "estimateS": "0",
+      "requires": [
+        "pollenCamera",
         "drive",
         "intake",
         "transfer",
         "gate"
       ],
       "stationary": false,
-      "movesRobot": true
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "limelightSetPipeline",
+      "summary": "Stop feeding, switch configured pipeline 0 and invalidate cached observation/history. Owns limelight/gate/transfer; cannot run alongside feed. No autonomous vision pose correction.",
+      "params": {
+        "pipeline": {
+          "type": "integer",
+          "min": 0,
+          "max": 0,
+          "default": 0,
+          "provenance": "Only configured/documented Limelight pipeline 0 is supported."
+        }
+      },
+      "estimateS": "0",
+      "requires": [
+        "limelight",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
       "name": "stopAll",
-      "summary": "Stop drive and mechanisms and close gate.",
+      "summary": "Resumable stop: zero drive/motors, close gate, hold positional posture and valid turret reference. Terminal STOP closes cameras.",
       "estimateS": "0",
       "requires": [
         "drive",
         "intake",
         "transfer",
         "gate",
-        "shooting"
+        "depollinator",
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "pollenCamera",
+        "limelight"
       ],
-      "stationary": false
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     }
   ],
   "conditions": [
     {
       "name": "queueFull",
-      "summary": "Transfer's confirmed full latch."
+      "summary": "Confirmed/held full latch; releases on feeding, not on pause."
     },
     {
-      "name": "pollenVisible",
-      "summary": "Fresh, autonomous-eligible pollen target."
+      "name": "queueSensorHigh",
+      "summary": "Cached raw digital HIGH; not confirmed full."
+    },
+    {
+      "name": "loadingActive",
+      "summary": "Cached stage-1 loading output, stage 2 off."
+    },
+    {
+      "name": "feedingActive",
+      "summary": "Both stages feeding after gate delay; no piece count."
+    },
+    {
+      "name": "gateFeedDelayElapsed",
+      "summary": "Commanded gate open for at least 0.20 seconds; estimated, no position feedback."
+    },
+    {
+      "name": "feedInhibited",
+      "summary": "Latched feed inhibit; dominates automatic/manual/gate-only operations."
     },
     {
       "name": "localizationReady",
-      "summary": "Fresh, field-referenced READY Pinpoint sample."
+      "summary": "Cached fresh READY Pinpoint with a seeded coordinate reference: absolute field for match routines, cleared-area local for POLLEN_TEST."
+    },
+    {
+      "name": "driveIdle",
+      "summary": "Pedro stopped, with no active following/hold."
     },
     {
       "name": "turretHomed",
-      "summary": "Turret homing is complete."
+      "summary": "Estimated homing complete; no absolute limit switch."
+    },
+    {
+      "name": "turretAtTarget",
+      "summary": "Homed and cached target error within 3 degrees."
+    },
+    {
+      "name": "hoodTrackingEstimated",
+      "summary": "Estimated hood tracking; no position feedback."
+    },
+    {
+      "name": "flywheelAtSpeed",
+      "summary": "Positive target RPM with cached speed within configured tolerance."
+    },
+    {
+      "name": "aimReady",
+      "summary": "Cached automatic aim solution is aimable; calibration may still block feed."
+    },
+    {
+      "name": "shotReady",
+      "summary": "Cached automatic solution valid plus yaw/hood/RPM readiness; no chassis/turret speed cutoff."
+    },
+    {
+      "name": "pollenVisible",
+      "summary": "Fresh calibrated autonomous-eligible pollen target."
+    },
+    {
+      "name": "pollenCameraReady",
+      "summary": "Streaming processor with a fresh post-enable frame."
+    },
+    {
+      "name": "limelightFresh",
+      "summary": "Cached valid Limelight frame age at most 150 ms."
+    },
+    {
+      "name": "selectedGoalTagVisible",
+      "summary": "Cached selected-alliance/hive-side tag visible."
+    },
+    {
+      "name": "depollinatorDeployedCommanded",
+      "summary": "Deployment commanded; no position feedback."
+    },
+    {
+      "name": "depollinatorHomeCommanded",
+      "summary": "Home commanded; no position feedback."
+    },
+    {
+      "name": "depollinatorSettledEstimated",
+      "summary": "At least 1 second since last command; SET BY HAND, UNMEASURED."
+    },
+    {
+      "name": "commandFailed",
+      "summary": "Last bounded action or condition wait TIMEOUT/INHIBITED/FAULT/CANCELLED; instant setters and duration waits preserve result. Not a parallel aggregate or native path outcome."
+    },
+    {
+      "name": "matchTimeLow",
+      "summary": "At most 5 seconds remain in the 29-second team autonomous deadline."
     }
   ]
 }

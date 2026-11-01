@@ -10,7 +10,8 @@
     "kind": "androidAssets",
     "dir": "TeamCode/src/main/assets/autos",
     "commandLibrary": "ivy",
-    "robotClass": "org.firstinspires.ftc.teamcode.BioBuzzRobot"
+    "robotClass": "org.firstinspires.ftc.teamcode.BioBuzzRobot",
+    "opModeBase": "org.firstinspires.ftc.teamcode.BioBuzzAutoFromFile"
   },
   "codegen": {
     "package": "org.firstinspires.ftc.teamcode.zenith",

@@ -6,7 +6,9 @@
   },
   "scripts": {
     "zenith:validate": "node scripts/validate-autos.cjs",
-    "zenith:deploy": "zenith deploy"
+    "zenith:deploy": "node scripts/deploy-autos.cjs",
+    "zenith:check": "node scripts/deploy-autos.cjs --check",
+    "zenith:test": "node --test scripts/zenith-project.test.cjs"
   },
   "devDependencies": {
     "@horizon36596/zenith-cli": "0.1.2"

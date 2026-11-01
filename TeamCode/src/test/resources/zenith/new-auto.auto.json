@@ -1,0 +1,90 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "new-auto",
+  "title": "new-auto",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -13,
+      "yIn": -63,
+      "headingRad": 1.5708,
+      "provenance": "NEEDS MEASUREMENT: a legal RED start Zenith found touching the wall at y = -72 in from the field's startRules and this robot's footprint; drag it to where the robot really sets up"
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "path1",
+      "kind": "path",
+      "timeoutS": 6,
+      "segments": [
+        {
+          "kind": "bezier",
+          "from": "current",
+          "control": [
+            {
+              "xIn": -6,
+              "yIn": -51,
+              "provenance": "SET FROM EDITOR"
+            }
+          ],
+          "to": {
+            "xIn": -12,
+            "yIn": -39,
+            "provenance": "PLACEHOLDER: 24 in straight out from the start"
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 1.5708,
+        "toRad": 1.5708
+      },
+      "speedFraction": 0.15,
+      "markers": [
+        {
+          "at": {
+            "t": 0.5
+          },
+          "command": {
+            "name": "intakeOn"
+          }
+        }
+      ],
+      "notes": "Replace this path with the real opening move."
+    },
+    {
+      "id": "intakeRun",
+      "kind": "command",
+      "name": "intakeRun",
+      "args": {
+        "power": 0.4,
+        "seconds": 0.5
+      }
+    },
+    {
+      "id": "aim",
+      "kind": "command",
+      "name": "aim",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "spin": false
+      }
+    },
+    {
+      "id": "waitUntil",
+      "kind": "wait",
+      "until": "queueFull",
+      "timeoutS": 0.4
+    },
+    {
+      "id": "stopAll",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

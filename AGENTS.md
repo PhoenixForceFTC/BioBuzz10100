@@ -142,9 +142,23 @@ applicable, assert the intended behavior, and report results and model limits. N
 substitute perfect feedback, or change calibration flags to hide a failure. Do not claim unsupported or
 unrun behavior was verified. Preserve existing build requirements and working robot behavior.
 
-Run `.\tools\verify-teleop.ps1` for ordinary unit tests, debug packaging and lint. Add `-Sim -Scenario Gate`
-or `-Sim -Scenario Drivetrain` for selected simulations; `-FullSim` runs all currently available simulations.
-The opt-in Gradle task is `:TeamCode:simTeleOpTest`. The current milestone covers actual drivetrain/gate
-test OpModes, not full red/blue competition simulation. See the
-[implementation plan](doc/SimLoopTeleOpImplementationPlan.md),
-[verification matrix](doc/TeleOpVerificationMatrix.md) and [local usage](simloop/README.md).
+For every major robot behavior change, explicitly record the simulation decision in the implementation
+and final report: relevant scenario(s) run, or why simulation was omitted/unsupported. This is a required
+reporting step, not a requirement to run simulation. Minor edits remain exempt. When adding an OpMode,
+update `simloop/opmode-coverage.json` and its evidence classification; never label a lifecycle smoke test
+as full behavior coverage. When adding a scenario, update `tools/teleop-test-baseline.json` and the matrix.
+Shared behavior changes should consider both actual competition wrappers and an affected isolated test.
+Keep independent physical feedback, deterministic input/environment events and observable assertions.
+
+Run `.\tools\verify-teleop.ps1` for ordinary unit tests, debug packaging and lint. Add `-Sim -Scenario
+Mechanisms`, `Sensors`, `Competition`, `Gate` or `Drivetrain`; `-FullSim` runs all available automated
+scenarios and checks the OpMode inventory. The opt-in Gradle task is `:TeamCode:simTeleOpTest`.
+For a human review use `.\tools\review-teleop.ps1 -OpMode RedMecanumTeleOp` (or Blue), then retain the
+whole session directory and reviewer notes. Recordings can be replayed headlessly with `-Replay`.
+Do not run another Gradle build while the live reviewer holds its jars open.
+
+Read the [integration audit](doc/SimLoopIntegrationAudit.md), [implementation plan](doc/SimLoopTeleOpImplementationPlan.md),
+[verification matrix](doc/TeleOpVerificationMatrix.md), [model provenance](doc/SimLoopRobotModel.md)
+and [local usage](simloop/README.md). In particular, raw SimLoop camera target-normal convention differs
+from the existing robot assumption. Keep the explicit raw/normalized distinction until a physical frame
+resolves it; never silently change robot calibration or tag axes to get a green simulation result.

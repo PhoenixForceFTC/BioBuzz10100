@@ -9,6 +9,7 @@ repositories {
 
 dependencies {
     testImplementation "com.github.Horizon-36596:simloop:${simloopVersion}"
+    testImplementation "com.github.Horizon-36596:simloop:${simloopVersion}:desktop"
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
     // Keep existing JUnit 4 tests discoverable on the Platform; Gradle 9 needs the launcher.
@@ -38,11 +39,28 @@ afterEvaluate {
         classpath = debugTests.classpath
         useJUnitPlatform()
         include '**/teamcode/sim/**'
+        exclude '**/HumanReviewSimTest*'
         maxParallelForks = 1
         systemProperty 'junit.jupiter.execution.parallel.enabled', 'false'
         systemProperty 'biobuzz.sim.outputDir', layout.buildDirectory.dir('sim/teleop').get().asFile.absolutePath
         // Each request produces fresh traces; this task remains explicitly opt-in.
         outputs.upToDateWhen { false }
         testLogging { events 'failed', 'skipped'; exceptionFormat = 'full' }
+    }
+    tasks.register('simTeleOpReview', Test) {
+        group = 'verification'
+        description = 'Opt-in keyboard review or deterministic replay of an actual robot OpMode.'
+        dependsOn debugTests.taskDependencies.getDependencies(debugTests)
+        testClassesDirs = debugTests.testClassesDirs
+        classpath = debugTests.classpath
+        useJUnitPlatform()
+        include '**/HumanReviewSimTest*'
+        maxParallelForks = 1
+        systemProperty 'biobuzz.sim.outputDir', layout.buildDirectory.dir('sim/teleop').get().asFile.absolutePath
+        ['opMode', 'replay', 'seconds', 'profile', 'smoke'].each { key ->
+            if (project.hasProperty("sim.${key}")) systemProperty "biobuzz.sim.${key}", project.property("sim.${key}")
+        }
+        outputs.upToDateWhen { false }
+        testLogging { events 'failed', 'skipped'; showStandardStreams = true; exceptionFormat = 'full' }
     }
 }

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "integration-example",
+  "title": "EXAMPLE: Zenith integration (tuning required)",
+  "description": "Software authoring example in a cleared area, NOT a match route or measured placement. Replace coordinates and verify clearance before robot use. Manual feeding is demonstrated under a latched inhibit.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": { "pose": { "xIn": -48, "yIn": -48, "headingRad": 0 } },
+  "steps": [
+    { "id": "safeStart", "kind": "command", "name": "stopAll" },
+    { "id": "keepFeedInhibited", "kind": "command", "name": "feedInhibit" },
+    { "id": "depollinatorHome", "kind": "command", "name": "depollinatorHome" },
+    { "id": "homeYaw", "kind": "command", "name": "turretHome", "args": { "timeoutSeconds": 3 }, "timeoutS": 3.1 },
+    {
+      "id": "curveAndSpin",
+      "kind": "parallel",
+      "mode": "all",
+      "steps": [
+        {
+          "id": "clearedAreaCurve",
+          "kind": "path",
+          "timeoutS": 4,
+          "speedFraction": 0.15,
+          "segments": [
+            { "kind": "bezier", "from": "current", "control": [ { "xIn": -42, "yIn": -44 } ], "to": { "xIn": -36, "yIn": -48 } }
+          ],
+          "heading": { "mode": "linear", "fromRad": 0, "toRad": 0.2 },
+          "markers": [
+            { "at": { "t": 0.25 }, "command": { "name": "intakeOn" } },
+            { "at": { "t": 1 }, "command": { "name": "intakeOff" } }
+          ]
+        },
+        { "id": "preSpin", "kind": "command", "name": "flywheelSpinUp", "args": { "rpm": 2500, "timeoutSeconds": 1 }, "timeoutS": 1.1 }
+      ]
+    },
+    { "id": "stopChassis", "kind": "command", "name": "driveStop" },
+    { "id": "hoodTravel", "kind": "command", "name": "hoodSet", "args": { "travelDeg": 5 } },
+    { "id": "estimatedHoodWait", "kind": "command", "name": "waitHoodReady", "args": { "timeoutSeconds": 1 }, "timeoutS": 1.1 },
+    { "id": "deploy", "kind": "command", "name": "depollinatorDeploy" },
+    { "id": "estimatedPostureWait", "kind": "wait", "until": "depollinatorSettledEstimated", "timeoutS": 1.5 },
+    { "id": "homePosture", "kind": "command", "name": "depollinatorHome" },
+    { "id": "explicitInhibitedManualFeed", "kind": "command", "name": "feedManual", "args": { "seconds": 0.1 } },
+    { "id": "feedStopped", "kind": "command", "name": "feedStop" },
+    { "id": "resumePermissionOnly", "kind": "command", "name": "feedResume" },
+    { "id": "prepareUnmeasuredExample", "kind": "command", "name": "prepareShotPreset", "args": { "preset": "diagnostic-example" } },
+    {
+      "id": "readinessBranch",
+      "kind": "branch",
+      "condition": "shotReady",
+      "then": [
+        { "id": "boundedPresetAttempt", "kind": "command", "name": "shootPreset", "args": { "preset": "diagnostic-example", "seconds": 0.25 } }
+      ],
+      "else": [
+        { "id": "preservePreparation", "kind": "command", "name": "feedStop" }
+      ]
+    },
+    { "id": "exampleStopPolicy", "kind": "command", "name": "stopAll" }
+  ]
+}

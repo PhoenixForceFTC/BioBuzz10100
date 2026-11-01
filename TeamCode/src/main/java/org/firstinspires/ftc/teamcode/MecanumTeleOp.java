@@ -33,6 +33,13 @@ public abstract class MecanumTeleOp extends LinearOpMode {
 
     protected abstract TurretSubsystem.Alliance getAlliance();
 
+    /** Default robot configuration; desktop fixtures can inject explicitly synthetic shot measurements. */
+    protected ShotCoordinator createShotCoordinator(TurretSubsystem turret) {
+        return new ShotCoordinator(turret,
+                TeleOpFieldReference.target(getAlliance(), TurretSubsystem.HiveSide.AUDIENCE),
+                ShotCoordinator.AimMode.TELEOP_ODOMETRY);
+    }
+
     private static final double PITCH_STEP_DEG = 0.5;
     private static final double SHOOTER_RPM_STEP = 50.0;
     private static final double TRIGGER_DEADBAND = 0.1;
@@ -62,8 +69,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 telemetry.addData("Turret Warning", "Turret hardware not fully plugged in (%s)", e.getMessage());
             }
 
-            ShotCoordinator shots = turret == null ? null : new ShotCoordinator(turret,
-                    TeleOpFieldReference.target(getAlliance(), TurretSubsystem.HiveSide.AUDIENCE), ShotCoordinator.AimMode.TELEOP_ODOMETRY);
+            ShotCoordinator shots = turret == null ? null : createShotCoordinator(turret);
             telemetry.addData("Status", "Initialized (Bare Motor: %.0f PPR, %.0f RPM)",
                     MecanumDrivetrain.BARE_MOTOR_TICKS_PER_REV, MecanumDrivetrain.BARE_MOTOR_MAX_RPM);
             odometry.addInitTelemetry(telemetry);
@@ -185,7 +191,6 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                     shots.update(now, odometry.getSample(), autoAimHeld, manualFeedHeld, inhibitFeedHeld, false);
                     if (autoAimHeld && !shots.solution().aimable) turret.setShooterRpm(manualShooterRpm);
                     autoShotReady = shots.firing().gateOpen();
-                    shots.addTelemetry(telemetry, now);
                     telemetry.addData("Manual Flywheel Target (RPM)", "%.0f", manualShooterRpm);
                 }
 
@@ -201,6 +206,8 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 double intakePower = intakeControl.update(transfer.isFull(),
                         gamepad1.right_bumper || gamepad2.right_bumper, gamepad1.left_bumper || gamepad2.left_bumper);
                 intake.setIntakePower(intakePower);
+                transfer.addStatusTelemetry(telemetry);
+                if (shots != null) shots.addTelemetry(telemetry, now);
                 telemetry.addData("Automatic Shot", !autoAimHeld ? "OFF"
                         : autoShotReady ? "READY" : "WAITING FOR AIM / HOOD / RPM");
                 telemetry.addData("GP2 Feed Inhibit", inhibitFeedHeld);

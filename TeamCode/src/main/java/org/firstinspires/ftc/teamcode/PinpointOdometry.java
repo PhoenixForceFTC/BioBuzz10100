@@ -129,6 +129,12 @@ public class PinpointOdometry {
         setPose(new Pose2D(DistanceUnit.INCH, xInches, yInches, AngleUnit.DEGREES, headingDegrees));
     }
 
+    /** Known cleared-area coordinates are usable for a test path, not absolute field aiming. */
+    public void setLocalPoseInches(double xInches, double yInches, double headingDegrees) {
+        setPoseInches(xInches, yInches, headingDegrees);
+        fieldReferenced = false;
+    }
+
     /**
      * Updates the robot's (X, Y) field position in inches while keeping the current Pinpoint IMU heading.
      */

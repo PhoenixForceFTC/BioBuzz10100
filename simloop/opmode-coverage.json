@@ -1,0 +1,104 @@
+[
+  {
+    "opMode": "DrivetrainTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Drivetrain",
+    "humanReview": true
+  },
+  {
+    "opMode": "GateTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Gate",
+    "humanReview": true
+  },
+  {
+    "opMode": "IntakeTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Mechanisms",
+    "humanReview": true
+  },
+  {
+    "opMode": "TransferTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Mechanisms",
+    "humanReview": true
+  },
+  {
+    "opMode": "DepollinatorTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Mechanisms",
+    "humanReview": true
+  },
+  {
+    "opMode": "TurretTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Mechanisms",
+    "humanReview": true
+  },
+  {
+    "opMode": "IntakeShooterTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Mechanisms",
+    "humanReview": true
+  },
+  {
+    "opMode": "RedMecanumTeleOp",
+    "coverage": "behavior",
+    "scenario": "Competition",
+    "humanReview": true
+  },
+  {
+    "opMode": "BlueMecanumTeleOp",
+    "coverage": "behavior",
+    "scenario": "Competition",
+    "humanReview": true
+  },
+  {
+    "opMode": "AutoAimTestOpMode",
+    "coverage": "lifecycle",
+    "scenario": "Sensors",
+    "humanReview": true
+  },
+  {
+    "opMode": "LimelightTagTestOpMode",
+    "coverage": "lifecycle",
+    "scenario": "Sensors",
+    "humanReview": true
+  },
+  {
+    "opMode": "GoalStateTestOpMode",
+    "coverage": "lifecycle",
+    "scenario": "Sensors",
+    "humanReview": true
+  },
+  {
+    "opMode": "PinpointTestOpMode",
+    "coverage": "lifecycle",
+    "scenario": "Sensors",
+    "humanReview": true
+  },
+  {
+    "opMode": "PedroDriveTestOpMode",
+    "coverage": "lifecycle",
+    "scenario": "Sensors",
+    "humanReview": true
+  },
+  {
+    "opMode": "ShotCalibrationOpMode",
+    "coverage": "lifecycle",
+    "scenario": "Sensors",
+    "humanReview": true
+  },
+  {
+    "opMode": "PollenVisionTestOpMode",
+    "coverage": "unsupported",
+    "reason": "VisionPortal/USB webcam capture not modeled; use controller tests and physical camera diagnostic.",
+    "humanReview": false
+  },
+  {
+    "opMode": "ServoZeroCalibrationOpMode",
+    "coverage": "unsupported",
+    "reason": "Upstream FakeServo refuses ServoController metadata; use physically disconnected servo procedure.",
+    "humanReview": false
+  }
+]

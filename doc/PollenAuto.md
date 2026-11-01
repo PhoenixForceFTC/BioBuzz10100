@@ -62,7 +62,8 @@ Motor shutdown runs before camera shutdown, including on Driver Station STOP or 
 - `PollenPathFollower.java`: pose targets to Pedro paths/holds, with bounded replanning.
 - `PedroDrive.java` / `BioBuzzRobot.java`: drivetrain/localization adapters and shared Ivy/Zenith runtime.
 - `PollenVisionTestOpMode.java`: standalone camera test.
-- `PollenAuto.java`: Test-group entry point for the packaged pollen test JSON.
+- `PollenAuto.java`: sole Test-group entry point; team deployment retains its isolated hardware profile.
+- `autos/pollen-navigation-test.auto.json`: canonical editor source; APK assets are managed deployment output. Use [UI edit/save → team deploy → build/install](ZenithAuthoringGuide.md).
 
 From the repository root:
 

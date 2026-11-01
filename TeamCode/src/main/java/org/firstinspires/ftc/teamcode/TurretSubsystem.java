@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.ServoImplEx;
+
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 import com.qualcomm.robotcore.util.Range;
@@ -235,6 +235,7 @@ public class TurretSubsystem {
     private LLResult cachedResult;
     private LLResultTypes.FiducialResult cachedTag;
     private String trackingStatus = "Automatic aiming requires ShotCoordinator";
+    private final java.util.function.DoubleSupplier clock;
 
     public TurretSubsystem(HardwareMap hardwareMap) {
         this(hardwareMap, true);
@@ -242,6 +243,10 @@ public class TurretSubsystem {
 
     /** Manual mechanism diagnostics can omit the camera entirely. */
     public TurretSubsystem(HardwareMap hardwareMap, boolean enableVision) {
+        this(hardwareMap, enableVision, () -> System.nanoTime() * 1e-9);
+    }
+    public TurretSubsystem(HardwareMap hardwareMap, boolean enableVision, java.util.function.DoubleSupplier clock) {
+        this.clock = clock;
         visionEnabled = enableVision;
         for (VoltageSensor sensor : hardwareMap.voltageSensor) voltageSensors.add(sensor);
         rotationServo1 = getTurretServo(hardwareMap, ROTATION_SERVO_1_PORT,
@@ -285,8 +290,8 @@ public class TurretSubsystem {
 
     private void configureAxonServo(Servo servo, Servo.Direction direction) {
         servo.setDirection(direction);
-        if (servo instanceof ServoImplEx) {
-            ((ServoImplEx) servo).setPwmRange(
+        if (servo instanceof PwmControl) {
+            ((PwmControl) servo).setPwmRange(
                     new PwmControl.PwmRange(AXON_MIN_PULSE_US, AXON_MAX_PULSE_US));
         }
     }
@@ -306,7 +311,7 @@ public class TurretSubsystem {
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         // Flywheels should coast (FLOAT) rather than brake abruptly
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        updateShooterPidf(System.nanoTime() * 1e-9, true);
+        updateShooterPidf(clock.getAsDouble(), true);
     }
 
     private void updateShooterPidf(double now, boolean force) {
@@ -335,12 +340,12 @@ public class TurretSubsystem {
         shooterP = Math.max(0, Math.min(100, shooterP + deltaP));
         shooterI = Math.max(0, Math.min(ShooterVelocityTuning.MAX_I, shooterI + deltaI));
         shooterFScale = Math.max(.5, Math.min(1.5, shooterFScale + deltaFScale));
-        updateShooterPidf(System.nanoTime() * 1e-9, true);
+        updateShooterPidf(clock.getAsDouble(), true);
     }
     public void resetShooterVelocityTuning() {
         shooterP = ShooterVelocityTuning.INITIAL_P; shooterFScale = 1;
         shooterI = ShooterVelocityTuning.INITIAL_I;
-        updateShooterPidf(System.nanoTime() * 1e-9, true);
+        updateShooterPidf(clock.getAsDouble(), true);
     }
 
     private void configureLimelight() {
@@ -352,8 +357,10 @@ public class TurretSubsystem {
 
     /** Begins non-blocking estimated homing; zero is captured only after travel and stability. */
     public void homeTurretAndZeroEncoder() {
+        homeTurretAndZeroEncoder(clock.getAsDouble());
+    }
+    public void homeTurretAndZeroEncoder(double now) {
         targetYawDeg = 0; control.reset();
-        double now = System.nanoTime() * 1e-9;
         homing.start(now);
         setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
     }
@@ -362,7 +369,9 @@ public class TurretSubsystem {
         encoderZeroOffsetTicks = rawTicks; control.reset(); homing.invalidate();
     }
     public void update() {
-        double now = System.nanoTime() * 1e-9;
+        update(clock.getAsDouble());
+    }
+    public void update(double now) {
         updateShooterPidf(now, false);
         rawTicks = throughBoreEncoderPort.getCurrentPosition();
         encoderVelocity = throughBoreEncoderPort.getVelocity() / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN;
@@ -389,6 +398,15 @@ public class TurretSubsystem {
         }
     }
     public boolean isHomed() { return homing.ready(); }
+    public boolean hasHomingFault() { return homing.state() == TurretHomingController.State.FAULT; }
+    /** Stops normal travel without losing a valid reference. Never resumes an interrupted home. */
+    public void holdYaw() {
+        if (homing.ready()) {
+            targetYawDeg = clampYawAngle(getEncoderAngleDegrees());
+            setRawRotationServoPosition(angleDegreesToRotationServoPos(targetYawDeg));
+        } else homing.invalidate(); // Retain last bounded servo command when reference is unknown.
+    }
+    public boolean hasLimelight() { return limelight != null; }
     /** Enable only after checking encoder sign and physical angle against telemetry. */
     public void setEncoderCorrectionEnabled(boolean enabled) { control.setEncoderCorrectionEnabled(enabled); }
     public boolean isEncoderCorrectionEnabled() { return control.isEncoderCorrectionEnabled(); }
@@ -470,7 +488,7 @@ public class TurretSubsystem {
         shooterMotor.setMode(controller == ShooterController.PIDF
                 ? DcMotor.RunMode.RUN_USING_ENCODER : DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        if (controller == ShooterController.PIDF) updateShooterPidf(System.nanoTime() * 1e-9, true);
+        if (controller == ShooterController.PIDF) updateShooterPidf(clock.getAsDouble(), true);
     }
     public ShooterController getShooterController() { return shooterController; }
 
@@ -492,6 +510,7 @@ public class TurretSubsystem {
     public double getTargetShooterRpm() { return targetShooterRpm; }
     public boolean isShooterAtSpeed() { return targetShooterRpm > 0 && Math.abs(currentRpm - targetShooterRpm) <= SHOOTER_READY_TOLERANCE_RPM; }
     public void setTargetHiveCell(Alliance alliance, HiveSide side) {
+        if (activeAlliance != alliance || activeHiveSide != side) cachedTag = null;
         activeAlliance = alliance == null ? Alliance.RED : alliance; activeHiveSide = side == null ? HiveSide.FAR : side;
     }
     public Alliance toggleAlliance() { setTargetHiveCell(activeAlliance == Alliance.RED ? Alliance.BLUE : Alliance.RED, activeHiveSide); return activeAlliance; }
@@ -518,7 +537,10 @@ public class TurretSubsystem {
         return (side == HiveSide.AUDIENCE ? -1 : 1) * HIVE_RAISED_MOUTH_CENTER_Y_OFFSET_IN;
     }
     public static double normalizeAngleDegrees(double deg) { return Math.toDegrees(RobotMath.wrap(Math.toRadians(deg))); }
-    public void setLimelightPipeline(int pipeline) { if (limelight != null) limelight.pipelineSwitch(pipeline); }
+    public void setLimelightPipeline(int pipeline) {
+        if (limelight != null) limelight.pipelineSwitch(pipeline);
+        cachedResult = null; cachedTag = null;
+    }
     public void setAllServosToZeroPosition() {
         homeTurretAndZeroEncoder(); setPitchAngleDegrees(PITCH_HOME_DEG);
     }

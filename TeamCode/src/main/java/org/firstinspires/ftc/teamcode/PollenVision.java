@@ -41,6 +41,8 @@ public class PollenVision implements AutoCloseable {
     private final PollenConfiguration config;
     private final FrameProcessor processor;
     private final VisionPortal portal;
+    private boolean enabled = true;
+    private long enabledAt;
 
     public PollenVision(HardwareMap hardwareMap) { this(hardwareMap, CONFIG); }
     public PollenVision(HardwareMap hardwareMap, PollenConfiguration config) {
@@ -57,8 +59,35 @@ public class PollenVision implements AutoCloseable {
     public PollenConfiguration configuration() { return config; }
     public boolean isReady() {
         long frameTimeNanos = processor.observation.captureTimeNanos;
-        return portal.getCameraState() == VisionPortal.CameraState.STREAMING
+        return enabled && frameTimeNanos > enabledAt && portal.getCameraState() == VisionPortal.CameraState.STREAMING
                 && isFresh(frameTimeNanos, System.nanoTime());
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        enabledAt = System.nanoTime();
+        portal.setProcessorEnabled(processor, enabled);
+    }
+    public boolean isEnabled() { return enabled; }
+
+    public static final class Snapshot {
+        public final boolean cameraReady, autonomousReady;
+        public final PollenTarget target;
+        private Snapshot(boolean cameraReady, boolean autonomousReady, PollenTarget target) {
+            this.cameraReady = cameraReady; this.autonomousReady = autonomousReady; this.target = target;
+        }
+    }
+    /** One immutable observation for the autonomous loop's conditions and collection action. */
+    public Snapshot snapshot(long nowNanos) {
+        FrameObservation observation = processor.observation;
+        boolean ready = enabled && observation.captureTimeNanos > enabledAt
+                && portal.getCameraState() == VisionPortal.CameraState.STREAMING
+                && isFresh(observation.captureTimeNanos, nowNanos);
+        PollenCameraModel model = processor.model;
+        boolean eligible = ready && config.autonomousEligible(processor.sdkCalibration)
+                && model != null && model.pickupVisible(config);
+        PollenTarget target = observation.target;
+        return new Snapshot(ready, eligible, ready && target != null && isFresh(target.captureTimeNanos, nowNanos) ? target : null);
     }
 
     public PollenTarget getTarget() {

@@ -1,9 +1,23 @@
-# Zenith match project
+# BioBuzz Zenith project
 
-Open the repository's zenith.json in Zenith. This directory is the source for match routines, robot command declarations and field/waypoint data.
+Open the repository folder containing `zenith.json` in Zenith. `autos/` is the authoritative source for routines, the command catalog, fields, waypoints and routine profiles. Edit these files through the editor; APK assets and generated Java are deployment outputs.
 
-There are no competition routes yet. Create red-match.auto.json and blue-match.auto.json using the team's actual start poses, paths and timing. Existing match OpModes load those names. Other names get their own Ivy OpMode from `npm run zenith:deploy`.
+- `integration-example.auto.json`: cleared-area authoring example with a curve, markers, parallel actions, waits, a branch and mechanism commands. Coordinates and dynamics are unmeasured examples.
+- `pollen-navigation-test.auto.json`: separate camera-guided collection experiment. Team deployment retains its sole **Test: Pollen Navigation (Pedro + Ivy)** entry with the isolated `POLLEN_TEST` profile.
+- New routines: full robot profile, one generated Driver Station entry in **Generated**. The legacy red/blue Route Required wrappers are disabled. No match routes or competition coordinates have been supplied.
 
-The pollen experiment lives directly in TeamCode/src/main/assets/autos/pollen-navigation-test.auto.json and runs only through the hand-written Test-group OpMode. It is not a match template.
+Use **UI edit/save → team deployment → APK build/install**:
 
-Read [autonomous setup and command contracts](../doc/Autonomous.md) before robot motion. Dynamics and dimensions in robot.json are explicitly unmeasured examples, and PedroConfiguration.TUNING_VERIFIED remains false. The BIOBUZZ field is from Zenith v0.1.2; attribution and license are in that setup document.
+```powershell
+npm ci --ignore-scripts
+npm run zenith:validate
+npm run zenith:deploy -- --dry-run
+npm run zenith:deploy
+npm run zenith:check
+.\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug
+.\scripts\check-zenith-apk.ps1
+```
+
+The native editor Deploy button does not replace team deployment, which preserves the pollen profile and removes stale managed outputs after source renames/deletions. Source names must match lowercase kebab-case filenames. Saving source alone does not update the Control Hub.
+
+Read the [coder guide](../doc/ZenithAuthoringGuide.md), [audit against the plan and official sources](../doc/ZenithIntegrationAudit.md), and [verification record](../doc/ZenithVerification.md). Pedro tuning blocks START until verified. Camera/shooting calibration and maximum deployed envelope remain unverified; editor preview does not prove those properties.

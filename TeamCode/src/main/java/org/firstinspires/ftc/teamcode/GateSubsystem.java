@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
+import java.util.function.DoubleSupplier;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
@@ -32,9 +32,15 @@ public class GateSubsystem {
 
     private final Servo servo;
     private boolean open = false;
-    private final ElapsedTime openTimer = new ElapsedTime();
+    private final DoubleSupplier clock;
+    private double openedAt;
 
     public GateSubsystem(HardwareMap hardwareMap) {
+        this(hardwareMap, () -> System.nanoTime() * 1e-9);
+    }
+
+    public GateSubsystem(HardwareMap hardwareMap, DoubleSupplier clock) {
+        this.clock = clock;
         servo = hardwareMap.get(Servo.class, HW_GATE_SERVO);
         if (!(servo instanceof PwmControl)) {
             throw new IllegalArgumentException(HW_GATE_SERVO + " must support PwmControl to configure 500-2500 us PWM");
@@ -49,7 +55,7 @@ public class GateSubsystem {
         this.open = open;
         double angleDeg = open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG;
         servo.setPosition(angleDeg / SERVO_TRAVEL_DEG);
-        if (opening) openTimer.reset();
+        if (opening) openedAt = clock.getAsDouble();
     }
 
     public void close() {
@@ -58,8 +64,10 @@ public class GateSubsystem {
 
     /** Gate is commanded open and its command-to-feed delay has elapsed; no position feedback. */
     public boolean isOpenForFeeding() {
-        return open && openTimer.seconds() >= FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS;
+        return open && clock.getAsDouble() - openedAt >= FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS;
     }
+
+    public boolean isOpenCommanded() { return open; }
 
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Gate Servo", SERVO_MODEL);

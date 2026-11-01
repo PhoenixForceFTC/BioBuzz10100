@@ -201,4 +201,11 @@ Note: Some names start with "Team" and others start with "team".  This is intent
     
 6)  Open up Android Studios and clean out any old files by using the menu to "Build/Clean Project""
 
-Competition entry points **Auto: Red Match (Route Required)** and **Auto: Blue Match (Route Required)** load `red-match.auto.json` and `blue-match.auto.json` through Zenith's Ivy runtime. Author routes in Zenith and deploy them into APK assets. Missing files fail during INIT. `PollenAuto` remains a separate diagnostic; see `doc/Autonomous.md` at the repository root.
+Autonomous uses Zenith's Ivy runtime and Pedro v3. Author routines in canonical `autos/` through Zenith, then run the team `npm run zenith:deploy` workflow. Each normal source routine generates one full-robot OpMode in **Generated**; legacy red/blue Route Required wrappers are disabled. `PollenAuto` retains the sole Test-group collection entry and isolated hardware profile. See `doc/ZenithAuthoringGuide.md`, `doc/ZenithIntegrationAudit.md`, and `doc/Autonomous.md` at the repository root for command coverage, evidence and calibration requirements.
+
+## Desktop verification
+
+Optional major-change SimLoop checks and human keyboard review run from the repository root. See
+[usage and replay](../../../../../../../../simloop/README.md) and
+[audit / model limits](../../../../../../../../doc/SimLoopIntegrationAudit.md).
+The simulations exercise actual test and competition OpModes; physical calibration remains separate.

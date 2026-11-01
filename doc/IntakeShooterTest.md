@@ -90,6 +90,40 @@ while firing. If home is required, release the motor controls, press X, and wait
 for homing to finish before trying again. During an active feed, FEED STATUS shows
 TIMED FEED during the feed window and recovery/readiness reasons between attempts.
 
+**Transfer investigation (October 31, 2026):** The reported symptoms are no stage-1
+motion with RB and no two-stage feed with RT + LT. All transfer callers were traced:
+this bench test, the shared red/blue competition loop, transfer-only test, guided
+shot calibration and autonomous output coordinator. Each applies transfer outputs
+in its active loop; no missing update call was found. The actual bench OpMode also
+loads and feeds in SimLoop with an empty sensor signal and modeled turret/flywheel
+feedback. This does not reproduce or resolve the reported physical failure.
+
+The new **TRANSFER STATUS** line shows this loop's commanded stage-1/stage-2 power,
+loading/feed/full-hold reason and digital sensor state before verbose diagnostics.
+**Transfer Stage 1 Device** and **Transfer Stage 2 Device** show the configured motor
+names and SDK connection information; compare those with Expansion Hub ports 2/3.
+With controls armed, RB alone and an unlatched empty queue should show S1 1.00,
+S2 0.00 and LOADING. During qualified feed, both should show 1.00. These are commands,
+not proof of shaft motion. A 1.00 command with no motion requires checking the active
+configuration/controller/motor path on the robot. A 0.00 command requires checking
+the displayed full latch, OpMode pause or FEED STATUS first. Correct motor cabling
+does not establish the full sensor's digital state or flywheel/yaw readiness.
+
+HIGH continuously for two seconds latches full even if the physical queue is empty;
+LOW afterward does not clear that latch until feeding. Check sensor placement,
+threshold and raw state if an empty queue reports HIGH/FULL. Polarity, full hold,
+motor directions and shooting interlocks were preserved pending physical evidence.
+Simulation was chosen to check actual bench loading/reverse/conflicting bumpers,
+full hold, gate-delayed qualified feed, release and reload, alongside both actual
+competition wrappers. It does not validate electrical delivery, sensor calibration,
+Lynx timing or loaded ball movement.
+
+Verification of this investigation: `verify-teleop.ps1 -Sim -Scenario
+Mechanisms,Sensors,Competition` passed 185 ordinary tests and 15 simulation tests,
+debug APK packaging and lint (0 errors, 14 existing warnings). The competition
+manual-feed scenario exercised GP1 LT and GP2 RT separately for both alliances.
+Log: `build/transfer-verification.log`. No robot deployment or physical fix was verified.
+
 Start empty: check directions and clearance, then spin the flywheel and exercise
 gate/feed into a clear catch area. Next hold RB to collect one ball, release RB,
 hold RT until speed is steady, and add LT to feed. Release LT after the ball exits.

@@ -2,7 +2,7 @@
 
 Every registered autonomous now extends Zenith's Ivy `AutoFromFile`. `BioBuzzRobot` connects the runtime to the existing hardware subsystems and `ShotCoordinator`. `WaypointFollower`, `CompetitionAutonomousController`, and `AutonomousStrategy` have been removed. The pollen navigator is an experiment in the **Test** group, separate from the real match routines.
 
-The remaining command coverage, UI project organization, generation policy and verification work are specified in [the complete Zenith implementation plan](ZenithAutonomousImplementationPlan.md).
+Use the [Zenith authoring guide](ZenithAuthoringGuide.md) for the complete command catalog and supported deployment workflow. The [integration audit](ZenithIntegrationAudit.md) compares the code with the plan, official resources and current robot configuration. The [coverage ledger](ZenithFunctionCoverage.md) and [verification record](ZenithVerification.md) distinguish implemented software from pending editor and robot evidence. The original [implementation plan](ZenithAutonomousImplementationPlan.md) remains the acceptance specification.
 
 ## Installed versions
 
@@ -29,31 +29,22 @@ The pinned Pedro snapshot normalizes a zero displacement inside ForesightV3's ho
 
 Open the repository's zenith.json in Zenith. It selects Ivy and `org.firstinspires.ftc.teamcode.BioBuzzRobot`. The project includes Zenith's BIOBUZZ field model, attributed below. Verify field geometry and robot dimensions against the actual setup before planning paths.
 
-No competition route has been supplied. **Auto: Red Match (Route Required)** reads `red-match.auto.json`; **Auto: Blue Match (Route Required)** reads `blue-match.auto.json`. Until those assets exist, Zenith fails during INIT with the missing filename, before initializing robot hardware. No replacement match coordinates were invented.
+No competition route has been supplied. The legacy red/blue Route Required wrappers are disabled. New authored match files each generate their own full-robot entry; the integration example is clearly labeled and supplies no competition strategy.
 
 1. Create routes in Zenith under autos/. The file's name must match its stem, such as `red-match`. Use explicit, measured start poses and waypoints in inches, field center origin, +x audience right, +y away from the audience, CCW radians.
 2. Compose paths with the named commands below. Zenith's runtime preserves supported curves, heading modes, distance markers, sequences, parallel all/race/deadline groups, branches, waits, and current-pose starts. It validates names and file versions during INIT.
 3. Install CLI dependencies once with `npm ci --ignore-scripts` (Node 22+). Run `npm run zenith:validate` and `npm run zenith:deploy -- --dry-run`, then `npm run zenith:deploy`. Deploy writes local APK assets and generated Ivy OpMode stubs; it does not install anything on the Control Hub.
-4. Run `.\\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug`. Install the resulting APK through the team's normal robot workflow.
+4. Run `.\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug` and `.\scripts\check-zenith-apk.ps1`. Install the resulting APK through the team's normal robot workflow.
 
-Existing match entry points can load updated files without Java edits. New routines get generated OpModes in the Generated group. The generated robot uses the file's alliance; the explicit red/blue entry points use their selected alliance. Opposite-alliance files mirror position and heading through field-center point symmetry.
+New routines get exactly one generated OpMode in the Generated group; authors need no Java edits. The generated robot uses the file's alliance. Team deployment retains pollen's sole hand-written Test entry. Use UI edit/save followed by `npm run zenith:deploy`, rather than treating the editor's native Deploy button as completing team deployment. `npm run zenith:check` rejects stale or duplicate outputs.
 
 Each path's speed fraction is applied through `ForesightConfig.setPathSpeed`, in addition to the independent wheel-power cap. Estimates remain provisional until Java and robot.json contain measured, matching values. Put timeouts/end conditions on path and command steps. Parking and fallback decisions belong in the authored routine; the old controller's automatic park fallback was removed with it. The runtime does not provide live obstacle avoidance. A global 29-second deadline, localization loss, routine completion, Driver Station STOP, and exceptions stop outputs and close the gate. Explicitly canceling the Ivy routine ensures running commands receive their end hooks before scheduler reset. Camera shutdown follows motor shutdown.
 
 ## Named command contract
 
-| Name | Arguments | Behavior / requirements |
-| --- | --- | --- |
-| intakeOn / intakeOff | none | Enable/stop intake; confirmed full stops intake. Requires intake. |
-| loadOn / loadOff | none | Enable/pause stage 1 loading. Requires transfer. Stage 2 stays off until gated shooting. |
-| aim | side: AUDIENCE (default) or FAR | Select alliance hive side; continuously update autonomous odometry aiming. Requires shooting. |
-| shoot | seconds: >0, <=28 | Request readiness-gated firing for the duration. Requires shooting, gate, transfer. No manual feed bypass and no exact ball count. |
-| collectPollen | seconds: >0, <=28 (default 28) | Calibrated vision experiment using Pedro paths and holds. Requires drive, intake, transfer, gate and available C270. |
-| stopAll | none | Stop drive, intake, transfer and turret/flywheel; close gate. Use at the end of a routine. Requires all outputs. |
+The [authoring guide](ZenithAuthoringGuide.md) documents all 43 supported actions and 23 cached conditions. `autos/robot.json` provides editor controls, units/defaults/bounds and resource keys. Old command names/defaults remain compatible. Independent yaw/hood/RPM modes cannot be overwritten by later background aim updates; forward intake respects the held full latch while explicit reverse is allowed. Transfer pause/end cleanup preserves queue knowledge.
 
-Conditions: `queueFull`, `pollenVisible`, `localizationReady`, `turretHomed`. Registry declarations in autos/robot.json match Java registrations, checked by Zenith's Java scanner during validation. aim/shoot fail during INIT if requested by the isolated pollen test, which does not initialize turret hardware. Gate opening stays inside the shared firing coordinator.
-
-Aim can remain active while a path runs. Only shoot requests feeding. Existing homing, mount/profile/timing calibration, pose, hood, yaw and RPM readiness still apply. Transfer loading requires loadOn; intake requires intakeOn, or the collection command. Timed attempts are not inferred piece counts.
+Automatic shooting still requires verified calibration, homing, field pose, hood/yaw/RPM readiness and release timing; no visible tag or new motion-speed cutoff is added. Explicit `feedManual` is a separately named readiness bypass with the gate delay and inhibit priority. Preset measurements remain unverified and cannot automatically feed. `stopAll` is resumable and retains home/positional posture; terminal cleanup closes cameras and invalidates terminal turret state.
 
 ## Architecture and verification
 
@@ -61,6 +52,6 @@ Aim can remain active while a path runs. Only shoot requests feeding. Existing h
 
 Tests cover unit conversion, mecanum signs and saturation, actual Pedro hold/path-speed behavior, the pollen planner and replanning, the packaged pollen asset, and Zenith curves, markers (including endpoint and interrupted markers), parallel timeouts, branches, deferred starts, cancellation, and invalid files. These are JVM checks, not evidence of physical robot tuning.
 
-The test asset is maintained directly at TeamCode/src/main/assets/autos/pollen-navigation-test.auto.json so the hand-written Test-group OpMode stays isolated; competition deploy does not generate a second pollen OpMode. Its cleared-area field model is autos/field/pollen-test.field.json, with a packaged copy beside the test asset. If that model changes, copy it into the asset directory too. Its intentional lack of a season plugin disables competition scoring/ledger checks; the CLI prints that notice. The 28-second timeout matching the bounded experiment may also produce TIMEOUT_TIGHT information.
+The canonical pollen source is `autos/pollen-navigation-test.auto.json`. Team deployment copies it and all field metadata into APK assets while preserving its isolated POLLEN_TEST profile and sole Test wrapper. Its start pose is explicitly a cleared-area local reference, not an absolute field reference. The cleared-area field intentionally has no season plugin, so scoring/ledger checks are inert and the CLI reports that notice. The camera-guided collection estimate is unknown; its 28-second bound is not a predicted trajectory.
 
 Field model provenance: autos/field/biobuzz.field.json was copied unchanged from Horizon-36596/zenith v0.1.2, commit f7c3681a158c6f504ab211464559d52da8a46955, examples/starter/autos/field/biobuzz.field.json. Its per-feature provenance distinguishes specifications from approximations. [Zenith's MIT license](ZenithFieldLicense.txt) accompanies the copy.

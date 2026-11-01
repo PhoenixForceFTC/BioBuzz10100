@@ -195,9 +195,15 @@ public final class PoseHistory {
     /** SDK 12 hub timestamp is currentTimeMillis at parsing start. Age already includes JSON parse time. */
     public static double captureTime(double monotonicNow, long wallNowMs, long hubReceiptMs,
                                      double captureLatencyMs, double pipelineLatencyMs, double transportSeconds) {
-        double age = (wallNowMs - hubReceiptMs) * .001 + (captureLatencyMs + pipelineLatencyMs) * .001 + transportSeconds;
+        return captureTimeFromAge(monotonicNow, wallNowMs - hubReceiptMs,
+                captureLatencyMs, pipelineLatencyMs, transportSeconds);
+    }
+    /** Use SDK receipt age directly; it avoids mixing device and application wall-clock epochs. */
+    public static double captureTimeFromAge(double monotonicNow, double receiptAgeMs,
+                                            double captureLatencyMs, double pipelineLatencyMs, double transportSeconds) {
+        double age = receiptAgeMs * .001 + (captureLatencyMs + pipelineLatencyMs) * .001 + transportSeconds;
         if (!RobotMath.finite(age, captureLatencyMs, pipelineLatencyMs, transportSeconds) || age < 0
-                || captureLatencyMs < 0 || pipelineLatencyMs < 0 || transportSeconds < 0) return Double.NaN;
+                || receiptAgeMs < 0 || captureLatencyMs < 0 || pipelineLatencyMs < 0 || transportSeconds < 0) return Double.NaN;
         return monotonicNow - age;
     }
 }

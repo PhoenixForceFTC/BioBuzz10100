@@ -1,10 +1,22 @@
 # SimLoop implementation plan for competition TeleOp
 
-Created October 27, 2026. Updated October 28, 2026: the first implementation milestone is installed
-(pinned dependencies, opt-in task, preserved JUnit 4 discovery, drivetrain/gate lifecycle and timing
-simulations, verification script and evidence matrix). The later full-robot phases below remain a roadmap,
-not completed coverage. See [current results and limits](TeleOpVerificationMatrix.md) and
-[commands](../simloop/README.md).
+Created October 27, 2026. Updated October 31, 2026 after the implementation audit. The dependency and
+lifecycle foundation, installed-mechanism fixtures, actual red/blue scenarios and human keyboard
+record/replay are implemented. Calibration, physical sign-off and the camera target-normal convention
+remain explicit boundaries. See [audit](SimLoopIntegrationAudit.md), [results and limits](TeleOpVerificationMatrix.md)
+and [commands](../simloop/README.md). The phases below retain the original acceptance goals; this status
+table distinguishes implemented coverage from pending work.
+
+| Phase | Status after audit |
+| --- | --- |
+| 0 Baseline | Existing named tests retained; current build/test/lint evidence recorded in audit; concurrent autonomous work preserved |
+| 1 Harness | Pinned alpha.2, separate serial test/review tasks, real JSON/Vintage, simulated team/SolversLib/Pedro clocks |
+| 2 Robot model | All competition hardware represented with explicit synthetic dynamics; independent turret encoder, Pinpoint and rotating camera; physical calibration pending |
+| 3 Isolated mechanisms | Behavioral drive/gate/intake/transfer/depollinator/turret tests; bench and remaining diagnostic lifecycle smoke; not exhaustive fault coverage |
+| 4 Competition | Actual red/blue manual/queue/inhibit/stop/endurance; conditional normalized-camera acquisition; separate inherited synthetic calibrated-shot fixture |
+| 5 Measurements | No new physical measurements, shot rows, release timing or calibration approval invented |
+| 6 Optimization | Fixed-step sequencing verified; Control Hub timing distributions and loaded behavior still need physical measurement |
+| 7 Routine use | Optional local selectors, inventory/manifest checks, AGENTS workflow, keyboard review with environmental faults and exact replay; CI deferred |
 
 ## Outcome and scope
 
@@ -165,7 +177,7 @@ Add a small `tools/verify-teleop.ps1` entry point after the harness is usable. D
 .\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug :TeamCode:lintDebug
 ```
 
-The script and first-milestone simulation task now exist. Opt-in command:
+The local verification script, automated simulation task and separate human review task now exist. Opt-in command:
 
 ```powershell
 .\gradlew.bat :TeamCode:simTeleOpTest
@@ -185,11 +197,10 @@ Track each changed function through: expected behavior/reproduction -> proportio
 
 For each change, the final report should state changed behavior, affected OpModes, test results, both-alliance coverage where relevant, remaining model limits, and the exact physical checks needed. Known successful unchanged mechanism checks do not have to be repeated. Any change to mechanics, wiring, direction, limits, timing, or tuning invalidates the corresponding prior evidence.
 
-First implementation milestone (implemented October 28): dependency setup, preserved JUnit 4 coverage,
-opt-in execution, drivetrain-only lifecycle simulation, and gate PWM compatibility/timing simulation.
-The local verification entry point and policy from Phase 7 are also available. Expand subsequent coverage
-around major changes and observed inconsistencies. Full-robot simulation is a later capability, not a
-prerequisite for continued tuning of the working robot.
+The October 28 milestone covered drivetrain/gate. The October 31 audit expands this to all installed
+competition mechanisms and actual red/blue lifecycle/coordination, with human review. It does not claim
+exhaustive coverage of every branch, raw servo controller metadata, webcam/USB capture, autonomous route
+validation or physical model calibration. Consult the coverage inventory and audit before a new feature.
 
 ## References
 

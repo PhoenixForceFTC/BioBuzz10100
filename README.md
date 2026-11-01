@@ -2,7 +2,8 @@
 
 Optional laptop TeleOp simulation is available through `.\tools\verify-teleop.ps1 -Sim`;
 the default `.\tools\verify-teleop.ps1` runs ordinary tests, APK packaging and lint only.
-The first milestone covers the actual drivetrain and gate test OpModes. See
+Coverage now includes actual mechanism tests, both competition TeleOps, and recorded keyboard review.
+See the [integration audit and physical-validation limits](doc/SimLoopIntegrationAudit.md). See
 [local simulation usage](simloop/README.md) and the [coverage/evidence matrix](doc/TeleOpVerificationMatrix.md).
 
 Current shooter gearing uses a 2:3 flywheel/motor speed ratio: configured motor free speed 5550 RPM, flywheel free-speed estimate 3700 RPM, target cap 3700 RPM. Shooter controls and profiles use flywheel output RPM: competition starts at 3500 RPM; the combined bench test retains 2800 RPM. Turret PWM direction follows the reported mounting. Competition enables bounded encoder corrections above 3 degrees and stops adjusting below 1.5 degrees; diagnostic defaults remain OFF. See [current competition decisions](doc/CompetitionTeleOp.md). See [bench controls and verification](doc/IntakeShooterTest.md).
@@ -10,6 +11,8 @@ Current shooter gearing uses a 2:3 flywheel/motor speed ratio: configured motor 
 The October 23 hardware-review implementation and calibration boundaries are recorded in [HardwareReviewImplementationStatus.md](doc/HardwareReviewImplementationStatus.md). New diagnostics include `Test: Limelight Goal State 3D`; shot calibration displays session averages on the Driver Station without saving files. Automatic firing and pollen autonomous remain inhibited by the documented unvalidated calibration defaults.
 
 Robot controls and calibration dependencies are documented in [SoftwareConfiguration.md](doc/SoftwareConfiguration.md). All autonomous programs use **Pedro Pathing v3 + Ivy through Zenith**; see [autonomous setup and named commands](doc/Autonomous.md). The pollen navigator is a Test-group experiment. Match routes still need to be authored, and physical Pedro/shooting/camera calibration remains required. Build and test with `.\gradlew.bat :TeamCode:testDebugUnitTest :TeamCode:assembleDebug`.
+
+Autonomous coders: start with the [Zenith authoring guide](doc/ZenithAuthoringGuide.md) for all **43 actions and 23 conditions**, units, ownership, examples and deployment. The [integration audit](doc/ZenithIntegrationAudit.md) compares the implementation with the plan and official runtime; the [verification record](doc/ZenithVerification.md) separates passing software checks from pending UI and physical acceptance. Edit canonical `autos/` files and run `npm run zenith:deploy` before packaging.
 
 
 This branch (`V1`) is a clean fork of the official **FTC Robot Controller SDK v12.0** (`20260907-090034`) with our team's drivetrain and odometry code in `TeamCode`.

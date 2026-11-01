@@ -156,9 +156,19 @@
     "org.firstinspires.ftc.teamcode.TurretControllerTest#smoothingIsIndependentOfLoopFrequencyAndStaysInsideTravelLimits",
     "org.firstinspires.ftc.teamcode.TurretControllerTest#unstableEncoderTimesOutAndStationaryStallIsOnlyAnEstimate",
     "org.firstinspires.ftc.teamcode.TurretControllerTest#visualHiveTrackingUsesClockwiseCameraErrorWithoutWrappingThroughLeft",
-    "org.firstinspires.ftc.teamcode.TurretControllerTest#zeroIsCapturedOnlyAfterTravelAndStableWindowEvenIfStartIsEarly"
+    "org.firstinspires.ftc.teamcode.TurretControllerTest#zeroIsCapturedOnlyAfterTravelAndStableWindowEvenIfStartIsEarly",
+    "org.firstinspires.ftc.teamcode.AutonomousIntegrationTest#poseReseedCannotRunInParallelWithFeeding",
+    "org.firstinspires.ftc.teamcode.AutonomousIntegrationTest#conditionWaitTimeoutAndSuccessSurviveFollowingInstantActions",
+    "org.firstinspires.ftc.teamcode.AutonomousIntegrationTest#terminalFailureSurvivesInterruptedCommandCleanup",
+    "org.firstinspires.ftc.teamcode.AutonomousIntegrationTest#actualZenithUiSavedRoutineRunsThroughNativeFactoriesAndStops",
+    "org.firstinspires.ftc.teamcode.PedroAdapterTest#plannerDriveNumbersAgreeWithTheInstalledRobotConfiguration"
   ],
   "simulationTests": [
+    "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#bothAlliancesManualDriveQueueFeedAndInhibit()",
+    "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#bothAlliancesThreeMinuteEnduranceAndStopBeforeStart()",
+    "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#missingRequiredTransferHardwareCleansUpInitializedOutputs()",
+    "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#syntheticMeasuredProfileFeedsThenOdometryFaultBlocksFurtherShots()",
+    "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#unknownFieldReferenceInhibitsAutoFireWithoutBlockingDrive()",
     "org.firstinspires.ftc.teamcode.sim.DrivetrainSimTest#aliasesWorkAndMissingRequiredHardwareFailsInit()",
     "org.firstinspires.ftc.teamcode.sim.DrivetrainSimTest#diagonalNormalizesAndWheelButtonsSelectOnlyTheirWheel()",
     "org.firstinspires.ftc.teamcode.sim.DrivetrainSimTest#lifecycleForwardAndNeutralAtBothTickRates()",
@@ -169,6 +179,17 @@
     "org.firstinspires.ftc.teamcode.sim.GateSimTest#physicalPwmAndStrictTriggerThreshold()",
     "org.firstinspires.ftc.teamcode.sim.GateSimTest#repeatedOpenDoesNotRestartDelayButCloseReopenDoes()",
     "org.firstinspires.ftc.teamcode.sim.GateSimTest#stopWhileOpenAndBeforeStartClosesGate()",
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#benchActualOpModeStartsAndStopsSafely()",
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#benchLoadsHoldsFullFeedsAndReloadsThroughActualMotorOutputs()",
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#depollinatorEdgesHomePriorityAndPwm()",
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#intakePrioritiesAndStop()",
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#transferFullDwellTimedFeedAndInhibit()",
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#turretIndependentEncoderHoodEdgesAndFlywheel()",
+    "org.firstinspires.ftc.teamcode.sim.SensorsSimTest#normalizedTagConventionAcquiresAndSurvivesCameraLoss()",
+    "org.firstinspires.ftc.teamcode.sim.SensorsSimTest#rawUpstreamTagConventionIsExplicitlyNotRobotValidated()",
+    "org.firstinspires.ftc.teamcode.sim.SensorsSimTest#realDiagnosticsInitializeAndKeepMotorsOffAtStop()",
     "org.firstinspires.ftc.teamcode.sim.SimRuntimeTest#limelightHasRealJsonRatherThanDefaultReturningAndroidStub()"
-  ]
+  ],
+  "simulationAuditDate": "2026-10-31",
+  "zenithAuditDate": "2026-10-31"
 }
