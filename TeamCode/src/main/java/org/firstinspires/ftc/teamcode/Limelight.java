@@ -21,22 +21,22 @@ public class Limelight {
 
     private Telemetry telemetry;
 
-    public Limelight(HardwareMap h, Telemetry t, Limelight3A l) {
+    public Limelight(HardwareMap h, Telemetry t, String limelightName) {
 
-        limelight = l;
+        //limelight = l;
 
         hardwareMap = h;
 
         telemetry = t;
 
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight = hardwareMap.get(Limelight3A.class, limelightName);
         limelight.pipelineSwitch(0);
         limelight.start();
 
         telemetry.addLine("Limelight initialized - waiting for start");
         telemetry.update();
 
-        limelight.stop();
+        //limelight.stop();
     }
 
     public ArrayList<LimelightData> scan(){
@@ -75,7 +75,7 @@ public class Limelight {
 
         } else {
             telemetry.addLine("No valid Limelight result");
-            return null;
+            return new ArrayList<>();
         }
     }
 }
