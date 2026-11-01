@@ -27,15 +27,27 @@ public class kicker {
         gamepad = g;
     }
 
+    public void forward(){
+        kickerWheel.setPower(forwardSpeed);
+    }
+
+    public void backward(){
+        kickerWheel.setPower(reverseSpeed);
+    }
+
+    public void stop(){
+        kickerWheel.setPower(zeroSpeed);
+    }
+
     public void run(){
         if(gamepad.leftBumperWasPressed()){
-            kickerWheel.setPower(forwardSpeed);
+            forward();
         }
         else if(gamepad.rightBumperWasPressed()){
-            kickerWheel.setPower(reverseSpeed);
+            backward();
         }
         else if(gamepad.leftTriggerWasPressed()){
-            kickerWheel.setPower(zeroSpeed);
+            stop();
         }
     }
 

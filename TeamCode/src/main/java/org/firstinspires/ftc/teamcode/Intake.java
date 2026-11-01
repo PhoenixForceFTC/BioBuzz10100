@@ -16,13 +16,13 @@ public class Intake {
 
     private boolean direction = true;
 
-    private double power = 1;
+    private double power = 0.6;
 
     private Telemetry telemetry;
 
     private HardwareMap hardwareMap;
 
-    private Gamepad gamepad1;
+    private Gamepad gamepad;
 
     public Intake(String intake, Telemetry t, HardwareMap h, Gamepad g){
 
@@ -30,29 +30,26 @@ public class Intake {
 
         hardwareMap = h;
 
-        gamepad1 = g;
+        gamepad = g;
 
         IntakeMotor = hardwareMap.get(DcMotor.class, intake);
 
         IntakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         IntakeMotor.setDirection(DcMotor.Direction.FORWARD);
-
-        telemetry.addData("Intake", "Ready");
-        telemetry.update();
     }
 
     public void run(){
-        if(gamepad1.left_bumper){
+        if(gamepad.left_bumper){
             direction = true;
             power = Math.abs(power);
         }
 
-        if(gamepad1.right_bumper){
+        if(gamepad.right_bumper){
             power = -Math.abs(power);
         }
 
-        if(gamepad1.yWasPressed()){
+        if(gamepad.yWasPressed()){
             on = !on;
         }
 

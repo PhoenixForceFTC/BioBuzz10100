@@ -62,7 +62,7 @@ public class Mecanum {
         double turn = Math.abs(gamepad1.right_stick_x) <= 0.05 ? 0 : gamepad1.right_stick_x;
         double total = Math.abs(drive) + Math.abs(strafe) + Math.abs(turn);
 
-        if(gamepad1.leftBumperWasPressed()){
+        if(gamepad1.aWasPressed()){
             fast = !fast;
         }
 

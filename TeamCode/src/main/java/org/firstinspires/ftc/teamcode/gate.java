@@ -34,4 +34,27 @@ public class gate {
 
         telemetryInternal.addData("closed:\t", isClosed);
     }
+
+    public void open(){
+        isClosed = false;
+        gate.setPosition(open);
+    }
+
+    public void close(){
+        isClosed = true;
+        gate.setPosition(closed);
+    }
+
+    // automatically opens/closes gate, for combined shooter
+    public void toggle() {
+        isClosed = !isClosed;
+
+        if(isClosed){
+            gate.setPosition(closed);
+        } else {
+            gate.setPosition(open);
+        }
+
+        telemetryInternal.addData("closed:\t", isClosed);
+    }
 }
