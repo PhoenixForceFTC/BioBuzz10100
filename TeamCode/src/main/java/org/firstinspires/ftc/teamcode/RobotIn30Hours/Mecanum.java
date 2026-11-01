@@ -42,7 +42,7 @@ public class Mecanum {
         rightFront.setPower(RFpower);
         rightBack.setPower(RBpower);
 
-        leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftFront.setDirection(DcMotorSimple.Direction.FORWARD); // we will have to change the set directions on the real robot. 
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
         rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
