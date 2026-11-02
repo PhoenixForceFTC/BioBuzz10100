@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.RobotIn30Hours.Mecanum;
 
-@TeleOp(name="Drivetrainless TeleOp")
+@TeleOp(name="Drivetrainwith TeleOp")
 public class BasicDrivetrainTeleOp extends LinearOpMode {
 
     CombinedShooter shooter;

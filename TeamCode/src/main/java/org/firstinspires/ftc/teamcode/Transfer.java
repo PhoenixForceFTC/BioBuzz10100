@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -36,7 +37,7 @@ public class Transfer {
 
         TransferMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        TransferMotor.setDirection(DcMotor.Direction.FORWARD);
+        TransferMotor.setDirection(DcMotor.Direction.REVERSE);
     }
 
     public void run(){
@@ -49,7 +50,7 @@ public class Transfer {
             power = -Math.abs(power);
         }
 
-        if(gamepad.yWasPressed()){
+        if(gamepad.dpadRightWasPressed()){
             on = !on;
         }
 

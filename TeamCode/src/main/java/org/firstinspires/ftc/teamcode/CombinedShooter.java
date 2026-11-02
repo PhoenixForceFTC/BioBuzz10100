@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-@TeleOp(name="combined shooter")
 public class CombinedShooter {
 
     basicTurretAim rotation;
