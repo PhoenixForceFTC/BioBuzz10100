@@ -49,10 +49,10 @@ final class BioBuzzSimHardware {
     BioBuzzSimHardware withTurret() {
         yaw1 = servo("turret_servo_1"); yaw2 = servo("turret_servo_2"); hood = servo("turret_pitch");
         flywheel = motor("turret_motor");
-        // Real through-bore quadrature is plugged into the intake motor's encoder port.
+        // Real through-bore quadrature is plugged into transfer motor 1's encoder port.
         // Register only the installed name, exercising the production fallback lookup.
-        if (intake == null) withIntake();
-        encoder = intake;
+        if (transfer1 == null) transfer1 = motor("transfer_motor_1");
+        encoder = transfer1;
         map.register("Control Hub", new FakeVoltageSensor(12.0));
         return this;
     }

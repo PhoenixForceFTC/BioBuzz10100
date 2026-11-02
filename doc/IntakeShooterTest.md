@@ -12,6 +12,40 @@ highest launch elevation (+15 degrees). Clear its travel before INIT. After STAR
 release B, both bumpers and both triggers once to enable motor controls. The
 flywheel and transfer do not start automatically.
 
+**Bench intake jam recovery (November 2, 2026):** Connect the intake motor's own
+encoder to the encoder input for `intake_motor` (Expansion Hub port 1). The operator
+confirmed that the turret encoder now uses transfer motor 1's encoder input (Expansion
+Hub port 2), read through `transfer_motor_1`. The turret reads that port without
+resetting it or changing transfer power, direction or mode; it removes the SDK's
+motor-direction sign so the REVERSE transfer motor does not flip yaw calibration.
+Standalone configurations can still use a `turret_encoder` alias for port 2.
+Only this combined bench TeleOp monitors
+intake speed. If a nonzero intake command stays below 20 ticks/s in magnitude for
+0.20 seconds, it alternates opposite/requested direction every 0.125 seconds for
+0.50 seconds total, then resumes the requested direction. This also handles a stalled
+manual reverse or full-queue reverse. A persistent jam retries after another 0.20-second
+stall window. A moving encoder resets the stall timer. Releasing the control, both
+bumpers, feeding or B cancels recovery immediately; changing requested direction
+starts a fresh detection window. Transfer, gate and shooter keep updating throughout.
+Telemetry shows intake velocity in ticks/s and the recovery state. Thresholds are
+bench-controller constants and require physical verification with the new wiring.
+
+Simulation decision: after the confirmed wiring change, update the fixture to drive
+transfer motor 1's encoder from physical turret yaw, leaving the intake encoder coupled
+to its own modeled shaft. Run the existing actual bench, mechanism, sensor and both
+competition-wrapper scenarios to check the shared encoder routing. No ball-contact
+jam model is claimed. Deterministic controller tests cover continuous stall detection,
+both velocity signs, the 0.50-second sequence, persistent-jam retries, cancellation and
+direction/full-queue changes. They do not prove that the mechanism will clear a physical jam.
+The five jam-recovery tests and three encoder-routing tests also cover initialization
+order, unchanged transfer commands and independent intake feedback. No physical
+jam-clearing or robot deployment was verified.
+Verification after the wiring update: `tools/verify-teleop.ps1 -Sim -Scenario
+Mechanisms,Sensors,Competition` passed 195 ordinary tests and 15 simulations with
+zero failures, errors or skips, plus debug APK packaging and lint. These existing
+scenarios include the actual bench TeleOp, turret diagnostic and both competition
+wrappers; modeled shaft motion does not establish loaded jam-clearing behavior.
+
 | Control | Action |
 | --- | --- |
 | Hold RB | Intake inward, stage 1 loading with stage 2 off; full confirmation reverses intake and stops both transfers until feeding |

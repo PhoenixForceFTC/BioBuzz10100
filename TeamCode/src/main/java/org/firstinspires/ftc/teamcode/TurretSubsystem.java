@@ -26,9 +26,9 @@ import java.util.List;
  *         Expansion Hub Servo Ports 1 & 2 (powered via goBILDA 6V Servo Power Injector 3125-0001-0001).
  *         Config names: {@code "turret_servo_1"} and {@code "turret_servo_2"}.</li>
  *     <li><b>Turret Rotation Encoder (REV Through-Bore Encoder V1, REV-11-1271)</b>:
- *         Expansion Hub Quadrature Port 1 (8192 CPR, geared 108T Turret : 40T Encoder = 2.7x faster).
- *         Read via Motor Port 1 {@code DcMotorEx} encoder channel.
- *         Config name: {@code "turret_encoder"}.</li>
+ *         Expansion Hub Quadrature Port 2 (8192 CPR, geared 108T Turret : 40T Encoder = 2.7x faster).
+ *         Read via transfer motor 1's {@code DcMotorEx} encoder channel.
+ *         Config name: {@code "transfer_motor_1"}; standalone alias {@code "turret_encoder"}.</li>
  *     <li><b>Turret Pitch / Hood Servo (1x Axon MAX+, Servo Mode, 2:1 linkage with hood angle)</b>:
  *         Expansion Hub Servo Port 0 (powered via goBILDA 6V Servo Power Injector 3125-0001-0001).
  *         Home is {@code PITCH_HOME_SERVO_POS}, the team's +15 deg launch reference.
@@ -54,7 +54,7 @@ public class TurretSubsystem {
     public static final int ROTATION_SERVO_2_PORT = 2;
     public static final int PITCH_SERVO_PORT = 0;
     public static final String HW_TURRET_MOTOR     = "turret_motor";   // Exp Hub Motor & Quad Port 0
-    public static final String HW_TURRET_ENCODER   = "turret_encoder"; // Exp Hub Motor/Quad Port 1
+    public static final String HW_TURRET_ENCODER   = "turret_encoder"; // Standalone alias for Exp Hub Quad Port 2
     public static final String HW_LIMELIGHT        = "limelight";      // Control Hub USB 3.0
 
     // =========================================================================
@@ -89,7 +89,7 @@ public class TurretSubsystem {
     public static final Servo.Direction ROTATION_SERVO_2_DIRECTION = Servo.Direction.FORWARD;
 
     // =========================================================================
-    // REV THROUGH-BORE ENCODER V1 (QUAD PORT 1, 108T TURRET : 40T ENCODER)
+    // REV THROUGH-BORE ENCODER V1 (QUAD PORT 2, 108T TURRET : 40T ENCODER)
     // =========================================================================
     // REV-11-1271 quadrature resolution = 8192 counts per revolution (2048 CPR * 4x).
     // Geared 108T on turret/servos : 40T on encoder => encoder spins 2.7x faster than turret.
@@ -220,9 +220,10 @@ public class TurretSubsystem {
     public enum ShooterController { PIDF, BANG_BANG }
     private ShooterController shooterController = ShooterController.PIDF;
     private double bangBangPower;
-    private double shooterP = ShooterVelocityTuning.INITIAL_P, shooterFScale = 1.0;
+    private double shooterP = ShooterVelocityTuning.INITIAL_P, shooterFScale = ShooterVelocityTuning.INITIAL_F_SCALE;
     private double shooterI = ShooterVelocityTuning.INITIAL_I;
-    private double appliedShooterP = Double.NaN, appliedShooterI = Double.NaN;
+    private double shooterD = ShooterVelocityTuning.INITIAL_D;
+    private double appliedShooterP = Double.NaN, appliedShooterI = Double.NaN, appliedShooterD = Double.NaN;
     private double appliedShooterF, lastShooterSample = Double.NEGATIVE_INFINITY;
 
     private final TurretHomingController homing = new TurretHomingController(HOME_TRAVEL_SECONDS, HOME_STABLE_SECONDS, HOME_TIMEOUT_SECONDS, HOME_STABLE_WINDOW_DEG);
@@ -258,15 +259,15 @@ public class TurretSubsystem {
         shooterMotor = getDevice(hardwareMap, DcMotorEx.class,
                 HW_TURRET_MOTOR, "turretMotor", "shooter_motor", "shooter", "flywheel");
         throughBoreEncoderPort = getDevice(hardwareMap, DcMotorEx.class,
-                HW_TURRET_ENCODER, "turretEncoder", "through_bore", "turret_enc",
-                IntakeSubsystem.HW_INTAKE_MOTOR);
+                TransferSubsystem.HW_TRANSFER_MOTOR,
+                HW_TURRET_ENCODER, "turretEncoder", "through_bore", "turret_enc");
         limelight = enableVision ? tryGetDevice(hardwareMap, Limelight3A.class,
                 HW_LIMELIGHT, "limelight3a") : null;
 
         try {
             configureServos();
             configureShooterMotor();
-            // Intake owns the shared encoder channel mode/direction; do not configure/reset it here.
+            // Transfer owns the shared channel's mode/direction; do not configure/reset it here.
             configureLimelight();
 
             // Begin travel now; update during INIT and after an early START.
@@ -326,10 +327,10 @@ public class TurretSubsystem {
         shooterCurrentAmps = shooterMotor.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS);
         double nextF = ShooterVelocityTuning.feedforward(batteryVolts, shooterFScale);
         // The hub runs feedback continuously. Avoid rewriting unchanged gains for every sensor sample.
-        if (shooterController == ShooterController.PIDF && (force || shooterP != appliedShooterP || shooterI != appliedShooterI
+        if (shooterController == ShooterController.PIDF && (force || shooterP != appliedShooterP || shooterI != appliedShooterI || shooterD != appliedShooterD
                 || Math.abs(nextF - appliedShooterF) >= ShooterVelocityTuning.MIN_F_CHANGE)) {
-            shooterMotor.setVelocityPIDFCoefficients(shooterP, shooterI, ShooterVelocityTuning.INITIAL_D, nextF);
-            appliedShooterP = shooterP; appliedShooterI = shooterI; appliedShooterF = nextF;
+            shooterMotor.setVelocityPIDFCoefficients(shooterP, shooterI, shooterD, nextF);
+            appliedShooterP = shooterP; appliedShooterI = shooterI; appliedShooterD = shooterD; appliedShooterF = nextF;
         }
     }
     public void adjustShooterVelocityTuning(double deltaP, double deltaFScale) {
@@ -337,16 +338,31 @@ public class TurretSubsystem {
     }
     public void adjustShooterVelocityTuning(double deltaP, double deltaI, double deltaFScale) {
         if (!RobotMath.finite(deltaP, deltaI, deltaFScale)) return;
-        shooterP = Math.max(0, Math.min(100, shooterP + deltaP));
-        shooterI = Math.max(0, Math.min(ShooterVelocityTuning.MAX_I, shooterI + deltaI));
-        shooterFScale = Math.max(.5, Math.min(1.5, shooterFScale + deltaFScale));
+        setShooterVelocityTuning(shooterP + deltaP, shooterI + deltaI, shooterD, shooterFScale + deltaFScale);
+    }
+    /** Absolute live settings for bench tuning. Unchanged settings cause no hub writes or sensor reads. */
+    public void setShooterVelocityTuning(double p, double i, double d, double fScale) {
+        if (!RobotMath.finite(p, i, d, fScale)) return;
+        p = Math.max(0, Math.min(100, p));
+        i = Math.max(0, Math.min(ShooterVelocityTuning.MAX_I, i));
+        d = Math.max(0, Math.min(100, d));
+        fScale = Math.max(.5, Math.min(1.5, fScale));
+        if (p == shooterP && i == shooterI && d == shooterD && fScale == shooterFScale) return;
+        shooterP = p; shooterI = i; shooterD = d; shooterFScale = fScale;
         updateShooterPidf(clock.getAsDouble(), true);
     }
     public void resetShooterVelocityTuning() {
-        shooterP = ShooterVelocityTuning.INITIAL_P; shooterFScale = 1;
-        shooterI = ShooterVelocityTuning.INITIAL_I;
-        updateShooterPidf(clock.getAsDouble(), true);
+        setShooterVelocityTuning(ShooterVelocityTuning.INITIAL_P, ShooterVelocityTuning.INITIAL_I,
+                ShooterVelocityTuning.INITIAL_D, ShooterVelocityTuning.INITIAL_F_SCALE);
     }
+    public double getShooterP() { return shooterP; }
+    public double getShooterI() { return shooterI; }
+    public double getShooterD() { return shooterD; }
+    public double getShooterFScale() { return shooterFScale; }
+    public double getShooterAppliedF() { return appliedShooterF; }
+    /** Cached electrical readings sampled at 5 Hz, not additional hardware reads. */
+    public double getShooterBatteryVolts() { return batteryVolts; }
+    public double getShooterCurrentAmps() { return shooterCurrentAmps; }
 
     private void configureLimelight() {
         if (limelight != null) {
@@ -373,8 +389,11 @@ public class TurretSubsystem {
     }
     public void update(double now) {
         updateShooterPidf(now, false);
-        rawTicks = throughBoreEncoderPort.getCurrentPosition();
-        encoderVelocity = throughBoreEncoderPort.getVelocity() / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN;
+        // Undo the SDK motor-direction sign: transfer stage 1 is REVERSE, but yaw calibration is unchanged.
+        int encoderPortSign = throughBoreEncoderPort.getDirection() == DcMotor.Direction.REVERSE ? -1 : 1;
+        rawTicks = throughBoreEncoderPort.getCurrentPosition() * encoderPortSign;
+        encoderVelocity = throughBoreEncoderPort.getVelocity() * encoderPortSign
+                / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN;
         currentRpm = ShooterSpeed.flywheelRpm(shooterMotor.getVelocity());
         boolean wasReady = homing.ready();
         homing.update(now, rawTicks, rawTicks / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN);
@@ -567,7 +586,7 @@ public class TurretSubsystem {
         telemetry.addData("Shooter motor (RPM, encoder)", "%.0f | flywheel/motor ratio %.3f",
                 currentRpm / SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV, SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV);
         telemetry.addData("Flywheel PIDF (initial gains; tune loaded)", "P %.1f | I %.2f | D %.1f | F %.3f | F scale %.2f",
-                shooterP, shooterI, ShooterVelocityTuning.INITIAL_D, appliedShooterF, shooterFScale);
+                shooterP, shooterI, shooterD, appliedShooterF, shooterFScale);
         telemetry.addData("Shooter battery (V) / current (A)", "%.2f / %.2f (5 Hz)", batteryVolts, shooterCurrentAmps);
         telemetry.addData("Shooter limit (output RPM)", "%.0f target cap | %.0f free-speed estimate",
                 SHOOTER_MAX_RPM, ShooterSpeed.FLYWHEEL_MAX_RPM);

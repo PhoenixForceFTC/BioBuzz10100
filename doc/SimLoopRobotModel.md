@@ -1,6 +1,6 @@
 # BioBuzz SimLoop model and measurement provenance
 
-Updated October 31, 2026. Source: `BioBuzzSimHardware`, `BioBuzzSimModel`, production subsystem constants.
+Updated November 2, 2026. Source: `BioBuzzSimHardware`, `BioBuzzSimModel`, production subsystem constants.
 This is an SDK/lifecycle and coordination model, not a calibrated digital twin. Configuration values
 below are installed-code settings unless explicitly described as physical measurements. Do not tune
 real mechanisms from simulated speed, current, distances or shot outcomes.
@@ -9,8 +9,8 @@ real mechanisms from simulated speed, current, distances or shot outcomes.
 | --- | --- | --- |
 | Drive | leftfront/rightfront/leftback/rightback; physical mounting signs -,+,-,+; 28 ticks/rev, 5550 RPM | Matches current code; mounting signs independent of configured motor directions |
 | Chassis dynamics | 14-in track/wheelbase, 2-in radius, 64 effective ticks/in, lateral ratio .85, response 10/s | Synthetic estimates; wheel geometry, friction and acceleration not measured |
-| Intake | intake_motor; external encoder feedback measures turret, not intake shaft | Installed shared motor/encoder port; intake must not reset turret feedback |
-| Transfer | transfer_motor_1 and _2; stage 1 REVERSE, stage 2 FORWARD from production initialization | Motor dynamics synthetic; no game-piece contact or jam detection policy invented |
+| Intake | intake_motor; own shaft encoder on Expansion Hub port 1 | Independent motor/encoder dynamics; bench-only jam recovery has controller tests, no ball-contact model |
+| Transfer | transfer_motor_1 and _2; stage 1 REVERSE, stage 2 FORWARD; turret encoder on stage 1's port 2 | Operator-confirmed wiring November 2; turret removes SDK motor-direction sign; never reset shared feedback; motor dynamics synthetic |
 | Queue sensor | distance_sensor; digital HIGH, LOW default | Operator or test controls signal; production owns two-second full dwell/latch |
 | Gate | gate_servo; REVERSE; PWM 500–2500 us, logical .5 closed/.2 open | Asserted physical .5/.8 and 1500/2100 us; .20-s gate delay is code timing, not loaded clearance proof |
 | Depollinator | depollinator; 30/355 home, 165/355 deployed; 500–2500 us | Position/PWM commands checked; linkage collision/travel not modeled |

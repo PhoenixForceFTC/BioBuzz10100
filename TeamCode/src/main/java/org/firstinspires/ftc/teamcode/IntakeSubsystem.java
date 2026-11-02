@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-/** Open-loop intake on Expansion Hub motor port 1; no intake encoder cable is needed. */
+/** Open-loop intake on Expansion Hub motor port 1; encoder feedback is optional for callers. */
 public class IntakeSubsystem {
 
     public static final String HW_INTAKE_MOTOR = "intake_motor";
@@ -26,7 +26,7 @@ public class IntakeSubsystem {
         motor = hardwareMap.get(DcMotorEx.class, HW_INTAKE_MOTOR);
         motor.setPower(0.0);
         motor.setDirection(MOTOR_DIRECTION);
-        // Port 1's encoder input may belong to the turret; never reset or regulate it here.
+        // Read the motor's own encoder without resetting it or enabling velocity regulation.
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
@@ -51,6 +51,9 @@ public class IntakeSubsystem {
     public void stop() {
         commandedPower = 0; motor.setPower(0);
     }
+
+    /** Only measures intake speed when this port has the intake motor's own encoder cable. */
+    public double getVelocityTicksPerSecond() { return motor.getVelocity(); }
 
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Intake current (A, 5 Hz)", currentAmps);

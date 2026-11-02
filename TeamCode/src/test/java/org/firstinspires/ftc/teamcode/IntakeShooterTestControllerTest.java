@@ -8,6 +8,92 @@ public class IntakeShooterTestControllerTest {
     private static final double GATE_OPEN_AT = 1 + ShootingConfiguration.READY_STABLE_SECONDS + .01;
     private static final double FEED_AT = GATE_OPEN_AT + ShootingConfiguration.GATE_TO_FEED_DELAY_SECONDS + .01;
 
+    @Test public void stalledIntakeOscillatesForHalfSecondThenResumesAndCanRetry() {
+        IntakeShooterTestController c = jammedIntake(false);
+        assertEquals(-1, c.updateIntakePower(.25, false, 0), 0);
+        assertEquals(1, c.updateIntakePower(.40, false, -100), 0);
+        assertEquals(-1, c.updateIntakePower(.53, false, 100), 0);
+        assertEquals(1, c.updateIntakePower(.65, false, -100), 0);
+        assertTrue(c.isIntakeClearing());
+        assertEquals(1, c.updateIntakePower(.75, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+        assertEquals(1, c.updateIntakePower(.94, false, 0), 0);
+        assertEquals(-1, c.updateIntakePower(.96, false, 0), 0);
+        assertTrue(c.isIntakeClearing());
+    }
+
+    @Test public void intakeRequiresContinuousLowSpeedAndAcceptsEitherEncoderSign() {
+        IntakeShooterTestController c = armed();
+        c.update(0, true, false, false, false, false, true, false);
+        assertEquals(1, c.updateIntakePower(0, false, 0), 0);
+        assertEquals(1, c.updateIntakePower(.19, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+        assertEquals(1, c.updateIntakePower(.20, false, -20), 0);
+        assertEquals(1, c.updateIntakePower(.5, false, 20), 0);
+        assertEquals(1, c.updateIntakePower(.6, false, 0), 0);
+        assertEquals(1, c.updateIntakePower(.79, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+        assertEquals(-1, c.updateIntakePower(.81, false, 0), 0);
+        assertTrue(c.isIntakeClearing());
+    }
+
+    @Test public void releaseStopConflictingBumpersAndFeedCancelIntakeRecoveryImmediately() {
+        for (int input = 0; input < 4; input++) {
+            IntakeShooterTestController c = jammedIntake(false);
+            c.update(.3, input == 1 || input == 2, input == 2,
+                    input == 3, input == 3, input == 1, true, true);
+            assertEquals(0, c.updateIntakePower(.3, false, 0), 0);
+            assertFalse(c.isIntakeClearing());
+            // After releasing all controls, a new load starts forward with a fresh stall window.
+            c.update(.4, false, false, false, false, false, true, true);
+            c.update(.5, true, false, false, false, false, true, true);
+            assertEquals(1, c.updateIntakePower(.5, false, 0), 0);
+            assertFalse(c.isIntakeClearing());
+        }
+    }
+
+    @Test public void recoveryHonorsReverseAndQueueFullAndCancelsOnDirectionChange() {
+        IntakeShooterTestController c = jammedIntake(true);
+        assertEquals(1, c.updateIntakePower(.25, false, 0), 0);
+        assertEquals(-1, c.updateIntakePower(.40, false, 0), 0);
+        assertEquals(1, c.updateIntakePower(.53, false, 0), 0);
+        assertEquals(-1, c.updateIntakePower(.65, false, 0), 0);
+        assertEquals(-1, c.updateIntakePower(.75, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+
+        c = jammedIntake(false);
+        // Full-queue reverse replaces inward recovery immediately.
+        assertEquals(-1, c.updateIntakePower(.3, true, 0), 0);
+        assertFalse(c.isIntakeClearing());
+        assertEquals(1, c.updateIntakePower(.51, true, 0), 0);
+        assertTrue(c.isIntakeClearing());
+        c.update(.55, false, true, false, false, false, true, false);
+        assertEquals(1, c.updateIntakePower(.55, true, 0), 0);
+        c.update(.6, true, false, false, false, false, true, false);
+        assertEquals(1, c.updateIntakePower(.6, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+    }
+
+    @Test public void idleAndUnarmedControlsCannotStartJamRecovery() {
+        IntakeShooterTestController c = new IntakeShooterTestController();
+        c.update(0, true, false, false, false, false, true, false);
+        assertEquals(0, c.updateIntakePower(0, false, 0), 0);
+        assertEquals(0, c.updateIntakePower(5, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+        c = armed();
+        assertEquals(0, c.updateIntakePower(10, false, 0), 0);
+        assertFalse(c.isIntakeClearing());
+    }
+
+    private IntakeShooterTestController jammedIntake(boolean reverse) {
+        IntakeShooterTestController c = armed();
+        c.update(0, !reverse, reverse, false, false, false, true, false);
+        assertEquals(reverse ? -1 : 1, c.updateIntakePower(0, false, 0), 0);
+        assertEquals(reverse ? 1 : -1, c.updateIntakePower(.25, false, 0), 0);
+        assertTrue(c.isIntakeClearing());
+        return c;
+    }
+
     @Test public void heldTriggersRepeatTimedFeedsWithRecoveryAndReadinessBetweenShots() {
         IntakeShooterTestController c = feeding();
         TransferController transfer = new TransferController();

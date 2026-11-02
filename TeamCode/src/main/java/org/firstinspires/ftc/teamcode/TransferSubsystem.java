@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-/** Two-stage transfer on Expansion Hub motor ports 2 and 3, without encoder cables. */
+/** Two-stage transfer on Expansion Hub motor ports 2 and 3; stage 1's encoder input measures turret yaw. */
 public class TransferSubsystem {
 
     public static final String HW_TRANSFER_MOTOR = "transfer_motor_1";
@@ -35,6 +35,7 @@ public class TransferSubsystem {
         motor = hardwareMap.get(DcMotorEx.class, HW_TRANSFER_MOTOR);
         motor.setPower(0.0);
         motor.setDirection(MOTOR_DIRECTION);
+        // The external turret encoder shares this port; do not reset it or use it to regulate transfer.
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 

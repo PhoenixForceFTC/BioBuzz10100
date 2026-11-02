@@ -5,6 +5,13 @@ public final class IntakeShooterTestController {
     private final FiringCoordinator firing = ShootingConfiguration.firing();
     private boolean armed, spinFlywheel, loadIndex, reverseIntake;
 
+    public static final double INTAKE_JAM_MIN_VELOCITY_TICKS_PER_SECOND = 20.0;
+    public static final double INTAKE_JAM_DETECT_SECONDS = 0.20;
+    public static final double INTAKE_JAM_CLEAR_SECONDS = 0.50;
+    public static final double INTAKE_JAM_DIRECTION_SECONDS = 0.125;
+    private double previousIntakeRequest;
+    private double intakeStalledSince = Double.NaN, intakeClearingSince = Double.NaN;
+
     public static final double BENCH_YAW_TOLERANCE_DEG = 4.0;
     /** Preserve the independently requested bench readiness tolerance. */
     public static boolean isYawSettled(double errorDeg, double velocityDegPerSecond) {
@@ -35,5 +42,38 @@ public final class IntakeShooterTestController {
     public double intakePower(boolean full) {
         return reverseIntake ? -1.0 : loadIndex ? (full ? -1.0 : 1.0) : 0.0;
     }
+
+    /** Bench-only encoder jam recovery. Call once per loop after updating the controls. */
+    public double updateIntakePower(double now, boolean full, double velocityTicksPerSecond) {
+        double requestedPower = intakePower(full);
+        if (requestedPower == 0 || requestedPower != previousIntakeRequest) {
+            intakeStalledSince = intakeClearingSince = Double.NaN;
+        }
+        previousIntakeRequest = requestedPower;
+        if (requestedPower == 0) return 0;
+
+        if (isIntakeClearing()) {
+            double elapsed = now - intakeClearingSince;
+            if (elapsed < INTAKE_JAM_CLEAR_SECONDS) {
+                int phase = (int) (elapsed / INTAKE_JAM_DIRECTION_SECONDS);
+                return phase % 2 == 0 ? -requestedPower : requestedPower;
+            }
+            intakeClearingSince = Double.NaN;
+            // Give the resumed direction a fresh stall window before retrying a persistent jam.
+            intakeStalledSince = Double.NaN;
+        }
+        if (Math.abs(velocityTicksPerSecond) >= INTAKE_JAM_MIN_VELOCITY_TICKS_PER_SECOND) {
+            intakeStalledSince = Double.NaN;
+        } else {
+            if (Double.isNaN(intakeStalledSince)) intakeStalledSince = now;
+            if (now - intakeStalledSince >= INTAKE_JAM_DETECT_SECONDS) {
+                intakeClearingSince = now;
+                return -requestedPower;
+            }
+        }
+        return requestedPower;
+    }
+
+    public boolean isIntakeClearing() { return !Double.isNaN(intakeClearingSince); }
     public FiringCoordinator firing() { return firing; }
 }

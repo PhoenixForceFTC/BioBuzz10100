@@ -7,6 +7,7 @@ public final class ShooterVelocityTuning {
     public static final double INITIAL_P = 40.0;
     public static final double INITIAL_I = 0.0;
     public static final double INITIAL_D = 0.0;
+    public static final double INITIAL_F_SCALE = 1.0;
     public static final double MAX_I = 5.0;
     public static final double I_STEP = .05;
     public static final double MIN_F_CHANGE = .02;
