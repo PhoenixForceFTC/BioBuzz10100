@@ -1,27 +1,17 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.robotcore.external.Telemetry;
-
-//usage: create this class in the main code. to start a turn to a scanned limelight, do dispatch turn.
-// somewhere inside each loop should call the turn function. if there is a dispatched turn, then it will run.
-
-//todo: using the same code architecture, make it work for the turret.
-
+//usage: create this class in the main code. every loop, pass in the tag you want to face and
+// add the returned power to the drive's turn input. pass null when no tag is seen and it returns 0.
+// it doesn't touch any motors itself, so the driver can still drive/strafe while it aims,
+// and the same class can drive a turret motor later.
 
 public class RotateToLimelight {
 
-    // ---- Target rotation to hold, in degrees ----
-    private double targetrotation = 0; // should always be zero, te look straight on at april tag I think.
-
-    private boolean turnDispatched = false;
+    // ---- Target angle to hold, in degrees ----
+    // 0 = tag dead center in the camera. if the camera is mounted off-center from the shooter, offset this.
+    private double targetAngle = 0;
 
     // ---- PID gains: tune these ----
     private double kP = 0.012;
@@ -29,71 +19,41 @@ public class RotateToLimelight {
 
     private double kD = 0.0008;
 
-    // Max motor power the PID loop is allowed to command, 0-1.
+    // Max turn power the PID loop is allowed to command, 0-1.
     private double MAX_POWER = 0.6;
 
-    // Purely for the "at target" telemetry flag.
+    // Within this many degrees counts as "aimed".
     private double TOLERANCE_DEG = 1.0;
 
-    private DcMotorEx leftFront, leftBack, rightFront, rightBack;
-
-    private double currentrotation = 0;
     private double integralSum = 0;
     private double lastError = 0;
-
-    private HardwareMap hardwareMap;
+    private boolean atTarget = false;
+    private boolean active = false;
 
     private ElapsedTime pidTimer = new ElapsedTime();
 
-    public RotateToLimelight (HardwareMap h, Telemetry t) {
+    // Returns turn power in the same convention as gamepad right_stick_x: positive = turn right.
+    public double getTurnPower(LimelightData d) {
 
-        hardwareMap = h;
-
-        leftFront = hardwareMap.get(DcMotorEx.class, "leftfront");
-        leftBack = hardwareMap.get(DcMotorEx.class, "leftback");
-        rightFront = hardwareMap.get(DcMotorEx.class, "rightfront");
-        rightBack = hardwareMap.get(DcMotorEx.class, "rightback");
-
-        leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
-        rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
-
-        leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-    }
-
-    public void dispatchTurn(LimelightData d){
-        if(turnDispatched){
-            return;
+        if (d == null) {
+            reset();
+            return 0;
         }
 
-        turnDispatched = true;
+        // Limelight tx (angleX) is positive when the tag is right of center, so turning right shrinks it.
+        double error = d.getAngleX() - targetAngle;
 
-        currentrotation = d.getAngleX();
-
-        integralSum = 0;
-
-        lastError = 0;
-
-        pidTimer.reset();
-    }
-
-    public void turn(LimelightData d){
-
-        if(!turnDispatched){
-            return;
+        // fresh start: lastError = error makes the first derivative 0, so the first loop doesn't jerk the robot.
+        if (!active) {
+            active = true;
+            integralSum = 0;
+            lastError = error;
+            pidTimer.reset();
         }
 
-        currentrotation = d.getAngleX();
-
-        double error = wrapAngle(targetrotation - currentrotation);
-
-        if(error <= TOLERANCE_DEG){
-            turnDispatched = false;
-            return;
+        atTarget = Math.abs(error) <= TOLERANCE_DEG;
+        if (atTarget) {
+            return 0;
         }
 
         double dt = pidTimer.seconds();
@@ -105,23 +65,20 @@ public class RotateToLimelight {
         lastError = error;
 
         double turnPower = (kP * error) + (kI * integralSum) + (kD * derivative);
-        turnPower = clip(turnPower, -MAX_POWER, MAX_POWER);
-
-        // Positive turnPower -> spin toward increasing rotation (CCW).
-        leftFront.setPower(-turnPower);
-        leftBack.setPower(-turnPower);
-        rightFront.setPower(turnPower);
-        rightBack.setPower(turnPower);
+        return clip(turnPower, -MAX_POWER, MAX_POWER);
     }
 
-    private double wrapAngle(double angle) {
-        while (angle > 180) angle -= 360;
-        while (angle <= -180) angle += 360;
-        return angle;
+    public boolean isAtTarget() {
+        return atTarget;
+    }
+
+    public void reset() {
+        active = false;
+        atTarget = false;
     }
 
     private double clip(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
-    };
+    }
 
 }

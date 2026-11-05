@@ -6,6 +6,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+import java.util.ArrayList;
+
 /**
  * Robot-configuration names:
  * <ul>
@@ -30,6 +32,11 @@ public class testopmodethingy extends LinearOpMode {
 
     Shooter shooter;
     Intake intake;
+    Limelight limelight;
+    RotateToLimelight aim;
+
+    // picked during init with dpad left/right; decides which scoring cluster auto-aim faces.
+    boolean redAlliance = true;
 
     // goBILDA 435 RPM / 13.7:1 gearbox; the external 1:1 bevel adds no reduction.
     // Leave headroom below no-load speed for regulation under load; lower if needed.
@@ -57,22 +64,46 @@ public class testopmodethingy extends LinearOpMode {
 
         shooter = new Shooter("shooter1", "shooter2", telemetry, hardwareMap, gamepad1);
         intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
+        limelight = new Limelight(hardwareMap, telemetry);
+        aim = new RotateToLimelight();
 
-        telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
-        telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
-        telemetry.addLine("Left trigger: intake reverse | Right trigger: forward");
-        telemetry.addLine("Hold left bumper for 60% driving speed");
         telemetry.setMsTransmissionInterval(100);
-        telemetry.update();
 
-        waitForStart();
+        while (opModeInInit()) {
+            if (gamepad1.dpad_left) redAlliance = false;
+            if (gamepad1.dpad_right) redAlliance = true;
+            // update() clears telemetry, so these lines get added again on every pass.
+            telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
+            telemetry.addLine("Left stick: drive/strafe | Right stick X: rotate");
+            telemetry.addLine("Left bumper: toggle 60%/full speed, also sets intake direction");
+            telemetry.addLine("Right bumper: other intake direction | Y: intake on/off");
+            telemetry.addLine("A/B: shooter power up/down | X: shooter on/off");
+            telemetry.addLine("Hold right trigger: auto-aim at scoring AprilTags");
+            telemetry.addData("Alliance (dpad L=blue, R=red)", redAlliance ? "RED" : "BLUE");
+            telemetry.update();
+        }
 
         while (opModeIsActive()) {
             // FTC gamepads report forward stick movement as negative Y.
             double drive = Math.abs(gamepad1.left_stick_y) <= 0.05 ? 0 : -gamepad1.left_stick_y;
             double strafe = Math.abs(gamepad1.left_stick_x) <= 0.05 ? 0 : gamepad1.left_stick_x;
             double turn = Math.abs(gamepad1.right_stick_x) <= 0.05 ? 0 : gamepad1.right_stick_x;
-            double total = Math.abs(drive) + Math.abs(strafe) + Math.abs(turn);
+
+            // auto-aim: while held, the PID replaces the driver's turn, but drive/strafe still work.
+            if (gamepad1.right_trigger > 0.5) {
+                ArrayList<LimelightData> tags = limelight.scan();
+                for (LimelightData tag : tags) {
+                    telemetry.addData("Tag " + tag.getId(), "%s  tx=%.1f°  dist=%.2fm",
+                            BioBuzzTags.clusterName(tag.getId()), tag.getAngleX(), tag.getDistance());
+                }
+                LimelightData target = BioBuzzTags.selectAimTarget(tags, redAlliance);
+                turn = aim.getTurnPower(target);
+                telemetry.addData("Aim", target == null ? "no scoring tag" : (aim.isAtTarget() ? "LOCKED" : "turning"));
+            } else {
+                aim.reset();
+            }
+            // only scale down when the inputs add past 1, so small inputs (like PID output) stay small.
+            double total = Math.max(1.0, Math.abs(drive) + Math.abs(strafe) + Math.abs(turn));
 
             if(gamepad1.leftBumperWasPressed()){
                 fast = !fast;
@@ -120,6 +151,8 @@ public class testopmodethingy extends LinearOpMode {
             telemetry.update();
             idle();
         }
+
+        limelight.stop();
     }
 
     private void setEncoderMode(DcMotor motor) {

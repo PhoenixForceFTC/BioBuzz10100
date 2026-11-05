@@ -11,7 +11,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import java.util.ArrayList;
 import java.util.List;
 
-//usage: purely scans using the limelight.
+//usage: purely scans using the limelight. scan() returns an empty list (never null) when no tags are seen.
 
 public class Limelight {
 
@@ -21,21 +21,22 @@ public class Limelight {
 
     private Telemetry telemetry;
 
-    public Limelight(HardwareMap h, Telemetry t, Limelight3A l) {
-
-        limelight = l;
+    public Limelight(HardwareMap h, Telemetry t) {
 
         hardwareMap = h;
 
         telemetry = t;
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        // pipeline 0 must be set to "Fiducial Markers" (AprilTag 36h11, 82.55mm / 3.25in tags) in the Limelight web UI.
         limelight.pipelineSwitch(0);
+        // start() begins polling; don't stop() it here or getLatestResult() never refreshes.
         limelight.start();
 
         telemetry.addLine("Limelight initialized - waiting for start");
-        telemetry.update();
+    }
 
+    public void stop() {
         limelight.stop();
     }
 
@@ -49,7 +50,7 @@ public class Limelight {
 
             if (fiducials.isEmpty()) {
                 telemetry.addLine("No AprilTags detected");
-                return null;
+                return new ArrayList<>();
             } else {
                 ArrayList<LimelightData> returnData = new ArrayList<>();
                 // var name fiducial of typye LLResultTypes.FiducialResult is an iterator of fiducials list.
@@ -75,7 +76,7 @@ public class Limelight {
 
         } else {
             telemetry.addLine("No valid Limelight result");
-            return null;
+            return new ArrayList<>();
         }
     }
 }
