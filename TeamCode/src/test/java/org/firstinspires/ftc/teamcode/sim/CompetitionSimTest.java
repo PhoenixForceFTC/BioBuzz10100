@@ -322,6 +322,42 @@ class CompetitionSimTest {
         }
     }
 
+    /**
+     * Full right stick spins freely without RT; while RT auto-aims, the measured chassis turn rate stays at the
+     * turret-trackable cap in both directions. Synthetic drive response only: not the robot's loaded spin rate.
+     */
+    @Test void bothAlliancesCapChassisTurnRateOnlyWhileAutoAiming() throws Exception {
+        double cap = org.firstinspires.ftc.teamcode.AutoAimSpinLimiter.MAX_CHASSIS_RATE_DEG_PER_SECOND;
+        for (String alliance : new String[]{"Red", "Blue"}) {
+            float turn = alliance.equals("Red") ? 1f : -1f;
+            TeleOpScenario s = new TeleOpScenario(alliance + "-aim-spin-cap", alliance + "MecanumTeleOp",
+                    BioBuzzSimHardware.fullRobot(), .02, 160, 300, (p,t,a,b) -> {
+                boolean active = p == OpModePhase.ACTIVE;
+                a.right_stick_x = active && (t >= 20 && t < 120 || t >= 160 && t < 280) ? turn : 0;
+                a.right_trigger = active && t >= 160 ? 1 : 0;
+            });
+            s.run();
+            double free = peakTurnRateDegPerSecond(s, 60, 120), capped = peakTurnRateDegPerSecond(s, 200, 280);
+            String stats = String.format(java.util.Locale.US, "%s: free %.0f | aiming %.0f | cap %.0f deg/s ",
+                    alliance, free, capped, cap);
+            System.out.println("Aim turn cap " + stats);
+            assertTrue(free > cap * 1.1, "synthetic full stick must exceed the cap " + stats + s.diagnostic());
+            assertTrue(capped <= cap * 1.1, stats + s.diagnostic());
+            assertTrue(capped >= cap * .7, "aiming must still turn usefully " + stats + s.diagnostic());
+            assertStopped(s.hardware);
+        }
+    }
+
+    /** Five-tick (0.1 s) average plant heading rate, so one integration step cannot dominate. */
+    static double peakTurnRateDegPerSecond(TeleOpScenario s, int fromTick, int toTick) {
+        double peak = 0;
+        for (int t = fromTick; t + 5 <= toTick; t++) {
+            double a = s.trace.at(OpModePhase.ACTIVE, t).headingRad, b = s.trace.at(OpModePhase.ACTIVE, t + 5).headingRad;
+            peak = Math.max(peak, Math.abs(Math.toDegrees(org.firstinspires.ftc.teamcode.RobotMath.wrap(b - a))) / (5 * .02));
+        }
+        return peak;
+    }
+
     static void assertStopped(BioBuzzSimHardware h) {
         for (org.horizon36596.simloop.fakehardware.FakeMotor wheel : h.wheels) assertEquals(0, wheel.getPower(), 0.0);
         assertEquals(0, h.intake.getPower(), 0.0); assertEquals(0, h.transfer1.getPower(), 0.0);

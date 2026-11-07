@@ -18,7 +18,16 @@ public final class TurretControl {
     public static final double MAX_ENCODER_CORRECTION_DEG = 25.0;
     public static final double MANUAL_STICK_DEADBAND = .08;
     public static final double MAX_UPDATE_SECONDS = .1;
-    private double estimatedHood, commandedYawDeg, lastTime = Double.NaN;
+    /**
+     * Automatic aim leads the pose by this much: the time from the Pinpoint sample to the turret physically
+     * reaching the command (hub servo frame, servo tracking lag, loop write timing). Chassis turn rate times
+     * this delay was aim error. STARTING ESTIMATE, UNMEASURED: at least the ~10 ms average 50 Hz servo frame
+     * plus write delay, so 25 ms cannot over-lead by more than it removes. Replace with Test: Auto Aim's
+     * "Suggested aim lead" (spin at a steady rate) and record the measurement here.
+     */
+    public static final double AIM_LEAD_SECONDS = .025;
+    public static final double MAX_AIM_LEAD_SECONDS = .15;
+    private double estimatedHood, commandedYawDeg, lastTime = Double.NaN, lastHoodTime = Double.NaN;
     private double lastTargetDeg = Double.NaN, errorSince = Double.NaN, errorSign, correctionDeg;
     private boolean correctionApplied, correctionActive;
     private boolean encoderCorrectionEnabled;
@@ -36,7 +45,7 @@ public final class TurretControl {
 
     public void reset() {
         commandedYawDeg = TurretSubsystem.ROTATION_HOME_ANGLE_DEG;
-        lastTime = Double.NaN;
+        lastTime = lastHoodTime = Double.NaN;
         lastTargetDeg = Double.NaN; errorSince = Double.NaN;
         correctionDeg = 0; correctionApplied = correctionActive = false;
         manualVelocityStage1 = manualVelocityStage2 = 0;
@@ -44,21 +53,46 @@ public final class TurretControl {
         competitionWasAutomatic = false;
     }
 
-    /** Position command path, including any qualified external encoder offset. */
+    /** Position command path without encoder correction; also advances the hood estimate. */
     public double updateYawCommand(double now, double targetYawDeg, double hoodCommandDeg) {
-        double dt = Double.isNaN(lastTime) ? 0 : Math.max(0, Math.min(MAX_UPDATE_SECONDS, now - lastTime));
+        updateHoodEstimate(now, hoodCommandDeg);
+        return smoothYawCommand(now, targetYawDeg);
+    }
+
+    /**
+     * Estimated hood travel toward the command in effect since the previous estimate (no feedback).
+     * TurretSubsystem advances it with its sensor reads, before this loop's new hood command.
+     */
+    public void updateHoodEstimate(double now, double hoodCommandDeg) {
+        double dt = elapsed(now, lastHoodTime);
+        lastHoodTime = now;
+        estimatedHood += RobotMath.clip(hoodCommandDeg - estimatedHood, HOOD_TRAVEL_DEG_PER_SECOND * dt);
+    }
+
+    private double smoothYawCommand(double now, double targetYawDeg) {
+        double dt = elapsed(now, lastTime);
         lastTime = now;
         double target = TurretSubsystem.clampYawAngle(targetYawDeg);
         commandedYawDeg += (target - commandedYawDeg) * -Math.expm1(-dt / YAW_COMMAND_SMOOTHING_SECONDS);
         // Reach the exact target and then hold a constant PWM, without an asymptotic command tail.
         if (Math.abs(target - commandedYawDeg) <= YAW_COMMAND_SNAP_DEG) commandedYawDeg = target;
-        estimatedHood += RobotMath.clip(hoodCommandDeg - estimatedHood, HOOD_TRAVEL_DEG_PER_SECOND * dt);
         return commandedYawDeg;
+    }
+
+    private static double elapsed(double now, double last) {
+        return Double.isNaN(last) ? 0 : Math.max(0, Math.min(MAX_UPDATE_SECONDS, now - last));
+    }
+
+    /** Hysteretic position corrections plus the hood estimate, in one call (diagnostics and tests). */
+    public double updateYawCommand(double now, double targetYawDeg, double measuredYawDeg,
+                                   double measuredVelocityDegPerSecond, boolean homed, double hoodCommandDeg) {
+        updateHoodEstimate(now, hoodCommandDeg);
+        return updateYawCommand(now, targetYawDeg, measuredYawDeg, measuredVelocityDegPerSecond, homed);
     }
 
     /** Hysteretic position corrections, with a settled interval between bounded adjustments. */
     public double updateYawCommand(double now, double targetYawDeg, double measuredYawDeg,
-                                   double measuredVelocityDegPerSecond, boolean homed, double hoodCommandDeg) {
+                                   double measuredVelocityDegPerSecond, boolean homed) {
         double target = TurretSubsystem.clampYawAngle(targetYawDeg);
         // Ignore tiny odometry target changes when qualifying; large moves start a new episode.
         if (!Double.isFinite(lastTargetDeg) || Math.abs(target - lastTargetDeg) > ENCODER_CORRECTION_MARGIN_DEG || !homed) {
@@ -86,7 +120,7 @@ public final class TurretControl {
                 errorSince = Double.NaN; // Let the internal servo controller finish before checking again.
             }
         }
-        return updateYawCommand(now, target + correctionDeg, hoodCommandDeg);
+        return smoothYawCommand(now, target + correctionDeg);
     }
     public boolean isEncoderCorrectionActive() { return correctionActive; }
     public boolean hasAppliedEncoderCorrection() { return correctionApplied; }

@@ -142,6 +142,8 @@ Competition GP2 RS-X requests linear yaw velocity up to the rated 6 V speed of 5
 
 Competition correction starts only above 3 degrees, after same-direction error qualifies for 250 ms at measured turret speed <=3 deg/s. While active it makes bounded position adjustments with another settled interval between them. It stops adjusting below 1.5 degrees and retains the successful offset; it does not restart until error exceeds 3 degrees. Total offset remains bounded to 25 degrees and mechanical travel. Target changes above 3 degrees reset the correction episode; small odometry target noise does not. These correction qualifications do not gate feeding. Automatic feed accepts <=3-degree yaw error without any turret-rate gate.
 
+Loop order: `update()` reads the turret encoder, flywheel and Limelight and advances the hood estimate; `applyYawCommand()` writes the yaw servos after this loop's auto-aim, manual or hold target is set. All turret OpModes and the autonomous output coordinator call it once per loop. The auto-aim servo command leads the pose by `TurretControl.AIM_LEAD_SECONDS` (actuation delay, starting estimate 25 ms, unmeasured); readiness keeps the current bearing. While GP1 RT auto-aims in competition TeleOp, `AutoAimSpinLimiter` caps chassis turning at `MAX_CHASSIS_RATE_DEG_PER_SECOND` (300 deg/s, unmeasured). See [measurement steps](CompetitionTeleOp.md).
+
 GP1 RT prepares tracking of the nearest alliance cell using odometry even without a shot profile; RT+LT requests automatic firing. Hood/RPM interpolation and automatic firing await profile/release timing. There is no camera-centering fallback in competition TeleOp. The turret-only test and other diagnostic adapters remain separate.
 
 ### Turret and Limelight mounting

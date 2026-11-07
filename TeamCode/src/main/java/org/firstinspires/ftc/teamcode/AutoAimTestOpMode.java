@@ -35,6 +35,7 @@ public class AutoAimTestOpMode extends LinearOpMode {
                 turret.update();
                 double now = System.nanoTime() * 1e-9;
                 shots.update(now, odometry.getSample(), false, false, true, true);
+                turret.applyYawCommand();
                 addTelemetry(odometry, turret, shots, now, false);
                 loop.addTelemetry(telemetry); telemetry.update();
                 idle();
@@ -61,6 +62,7 @@ public class AutoAimTestOpMode extends LinearOpMode {
                 previousTime = now;
                 // Exercise automatic aim, but inhibit feeding and require an explicit flywheel hold.
                 shots.update(now, odometry.getSample(), aimHeld, false, true, !spinFlywheel);
+                turret.applyYawCommand(); // Same-loop servo write of the aim/manual target.
                 if (!spinFlywheel || !shots.solution().aimable) turret.stopShooter();
 
                 addTelemetry(odometry, turret, shots, now, aimHeld);

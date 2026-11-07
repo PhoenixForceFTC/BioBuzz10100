@@ -31,6 +31,7 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                 if (gamepad1.left_stick_button && !previousInitHome) turret.homeTurretAndZeroEncoder();
                 previousInitHome = gamepad1.left_stick_button;
                 turret.update();
+                turret.applyYawCommand();
                 telemetry.addLine("Stationary calibration: turret + gate + both transfer stages + full sensor.");
                 telemetry.addLine("No drivetrain, intake, odometry or camera. Load ONE ball per trial.");
                 telemetry.addLine("Keep the same hive opening/height and muzzle reference for this session.");
@@ -132,6 +133,7 @@ public class ShotCalibrationOpMode extends LinearOpMode {
                 boolean spin = !abort && current.right_bumper && turret.isHomed()
                         && (step == Step.TUNE || step == Step.FIRING);
                 if (spin) turret.setShooterRpm(notebook.rpm()); else turret.stopShooter();
+                turret.applyYawCommand();
                 if (step == Step.FIRING) {
                     boolean tracking = turret.isShooterAtSpeed() && turret.isHoodTracking()
                             && !turret.isRotationErrorHigh();

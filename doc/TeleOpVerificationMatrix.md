@@ -669,3 +669,25 @@ from horizontal) were checked against `FieldGeometry`/`HiveTagGeometry`; they al
 
 Simulation decision: minor calibration value change; ran unit tests, packaging and the Sensors scenario because
 the sim camera now reads the shared height. No assertion or tolerance changed.
+
+## Auto aim while turning: same-loop servo write, aim lead, turn cap (2026-11-06)
+
+Change: `TurretSubsystem.update()` now only reads sensors (and advances the hood estimate); the new
+`applyYawCommand()` writes the yaw servos after this loop's target, in both competition TeleOps, Auto Aim, the
+Turret, Shot Calibration and Intake/Shooter tests, and autonomous (`AutonomousOutputCoordinator.apply`,
+`BioBuzzRobot` INIT / not-running loops). Before, the servo received the previous loop's target. The
+auto-aim servo command (`ShotPlanner.Solution.commandYaw`, odometry fallback, corner refinement, diagnostic
+visual path) uses the pose led by `TurretControl.AIM_LEAD_SECONDS` (25 ms, UNMEASURED); `Solution.yaw` and
+the 3-degree readiness check keep the bearing now. `AutoAimSpinLimiter` caps GP1 turning at 300 deg/s
+(UNMEASURED) while RT is held, learning the stick-to-rate gain from Pinpoint. `TurretLagEstimator` and a
+turret peak-rate readout provide the measurements for both constants (see CompetitionTeleOp.md).
+
+Simulation decision: shared aiming in both competition wrappers, Auto Aim and autonomous, so the full suite ran
+(40 scenarios, all pass) plus ordinary unit tests (237, all pass), `assembleDebug` and `lintDebug`.
+Baseline (HEAD 6cc3023, new scenarios only): `bothAlliancesTrackTheGoalWithinShotToleranceWhileSpinning`
+failed with Red mean 5.34 / max 5.52 deg at a 126 deg/s spin; `bothAlliancesCapChassisTurnRateOnlyWhileAutoAiming`
+failed with 419 deg/s while aiming. After: Red mean 0.61 / max 0.63 deg, Blue 0.55 / 0.58 deg (assert max <= 3,
+mean <= 1); turn rate 300 deg/s aiming vs 419 free. The tracking-sample sanity count is > 100 (baseline had 149;
+unwinds take much of each turn); error thresholds were set before the baseline run and not changed.
+Limits: the sim turret is a 180 deg/s slew with no servo lag, so it checks ordering and lead sign, not the robot's
+lead; sim drive gain is synthetic. Rear dead-zone unwinds still leave the turret off target once per chassis turn.

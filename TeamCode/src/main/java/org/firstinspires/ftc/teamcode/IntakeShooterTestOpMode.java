@@ -49,6 +49,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                 if (gamepad1.x && !previousHome) turret.setAllServosToZeroPosition();
                 previousHome = gamepad1.x;
                 turret.update();
+                turret.applyYawCommand();
                 addControlsTelemetry();
                 telemetry.addLine("Turret homes during INIT: home points robot-right (90 deg).");
                 telemetry.addLine("After START, release bumpers/triggers to enable motor controls.");
@@ -166,6 +167,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
 
                 turret.update();
                 if (!stop) turret.updateManualYaw(gamepad1.right_stick_x, dt, false);
+                turret.applyYawCommand();
                 boolean yawInput = Math.abs(gamepad1.right_stick_x) > TurretControl.MANUAL_STICK_DEADBAND;
                 // Compare cached measured speed against this loop's selected target.
                 boolean atSpeed = selectedRpm > 0 && Math.abs(turret.getShooterCurrentRpm() - selectedRpm)

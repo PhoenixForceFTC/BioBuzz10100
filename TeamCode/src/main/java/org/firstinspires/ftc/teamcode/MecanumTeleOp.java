@@ -13,7 +13,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
  * <p>Controls (Gamepad 1 — Driver + Turret Assist, or Gamepad 2 — Dedicated Turret Operator):
  * <ul>
  *     <li><b>Gamepad 1 Left Stick</b>: Forward / Backward & Strafe translation</li>
- *     <li><b>Gamepad 1 Right Stick X</b>: Chassis rotation</li>
+ *     <li><b>Gamepad 1 Right Stick X</b>: Chassis rotation; capped to a turret-trackable rate while RT auto-aims</li>
  *     <li><b>Gamepad 1 Right / Left Stick Click</b>: Deploy depollinator 135 deg CW / return to 30 deg home</li>
  *     <li><b>Gamepad 1 Right Trigger (Hold)</b>: Prepare auto-aim, hood angle and flywheel RPM</li>
  *     <li><b>Gamepad 1 Right + Left Triggers (Hold)</b>: Start automatic shooting when ready</li>
@@ -116,6 +116,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 if (turret != null) {
                     turret.update();
                     shots.updatePose(now,odometry.getSample());
+                    turret.applyYawCommand(); // Corner refinement may have set this loop's yaw.
                 }
                 MotionSample initPose = shots == null ? null : shots.pose();
                 lights.showReference(turret != null && !turret.hasHomingFault(), turret != null && turret.isHomed(),
@@ -155,6 +156,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
             AutoAimAdjustments aimAdjustments = new AutoAimAdjustments();
             double manualShooterRpm = STARTING_FLYWHEEL_RPM;
             IntakeQueueController intakeControl = new IntakeQueueController();
+            AutoAimSpinLimiter spinLimiter = new AutoAimSpinLimiter();
             boolean previousDepollinatorDeploy = false;
             boolean previousDepollinatorHome = false;
 
@@ -174,7 +176,12 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 // 2. Robot-centric Mecanum Drive on Controller 1
                 double axial = -gamepad1.left_stick_y;
                 double lateral = gamepad1.left_stick_x;
-                double yaw = gamepad1.right_stick_x;
+                // While auto aim is held, cap chassis turning so the turret can keep up (no turret, no cap).
+                boolean autoAimHeld = gamepad1.right_trigger > TRIGGER_DEADBAND;
+                MotionSample driveSample = odometry.getSample();
+                double yaw = spinLimiter.limit(now, gamepad1.right_stick_x,
+                        driveSample != null && driveSample.ready ? driveSample.omega : Double.NaN,
+                        autoAimHeld && turret != null);
 
                 drivetrain.driveRobotCentric(axial, lateral, yaw);
                 boolean deployDepollinator = gamepad1.right_stick_button;
@@ -186,7 +193,6 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 }
                 previousDepollinatorDeploy = deployDepollinator;
                 previousDepollinatorHome = homeDepollinator;
-                boolean autoAimHeld = gamepad1.right_trigger > TRIGGER_DEADBAND;
                 boolean automaticFeedHeld = autoAimHeld && gamepad1.left_trigger > TRIGGER_DEADBAND;
                 boolean manualFeedHeld = gamepad1.a
                         || gamepad2.right_trigger > TRIGGER_DEADBAND;
@@ -249,6 +255,8 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                     shots.update(now, odometry.getSample(), autoAimHeld, automaticFeedHeld,
                             manualFeedHeld, inhibitFeedHeld, false);
                     if (autoAimHeld && !shots.solution().aimable) turret.setShooterRpm(manualShooterRpm);
+                    // Write this loop's yaw target now, not on the next loop's update().
+                    turret.applyYawCommand();
                     autoShotReady = shots.automaticTrackingReady();
                 }
 
@@ -284,6 +292,8 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                 if (firingState == FiringCoordinator.State.INHIBITED || firingState == FiringCoordinator.State.FAULT)
                     telemetry.addData("Shot", "%s | %s: %s", shotStatus, firingState, firing.reason());
                 else telemetry.addData("Shot", "%s | %s", shotStatus, firingState);
+                if (spinLimiter.limiting()) telemetry.addData("Turn speed", "LIMITED to %.0f deg/s for auto aim",
+                        AutoAimSpinLimiter.MAX_CHASSIS_RATE_DEG_PER_SECOND);
                 if (turret != null) turret.addDriverTelemetry(telemetry);
                 else telemetry.addData("Turret", "UNAVAILABLE: %s", turretError);
                 if (shots != null) shots.addDriverTelemetry(telemetry, now, autoAimHeld);
@@ -304,6 +314,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
                     if (shots != null) shots.addTelemetry(telemetry, now);
                     odometry.addTelemetry(telemetry);
                     drivetrain.addTelemetry(telemetry);
+                    spinLimiter.addTelemetry(telemetry);
                     intake.addTelemetry(telemetry);
                     gate.addTelemetry(telemetry);
                     transfer.addTelemetry(telemetry);

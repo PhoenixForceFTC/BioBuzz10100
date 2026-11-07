@@ -68,6 +68,8 @@ public final class AutonomousOutputCoordinator {
                     flywheel == Mode.OFF, yaw == Mode.AUTO, hood == Mode.AUTO, flywheel == Mode.AUTO);
             if (flywheel == Mode.MANUAL) turret.setShooterRpm(rpm);
         } else firing.update(now, false, manualFeed(), inhibited, false, false, false, false, "No shooting hardware");
+        // Same-loop servo write of the yaw target resolved above.
+        if (turret != null) turret.applyYawCommand(now);
         gate.setOpen(!inhibited && (gateOnlyRequested() || firing.gateOpen()));
         boolean feeding = firing.feeding() && gate.isOpenForFeeding() && !inhibited;
         transfer.updateCached(now, feeding, !loading || feedRequested() || gateOnlyRequested());

@@ -194,7 +194,14 @@
     "org.firstinspires.ftc.teamcode.PedroAdapterTest#plannerDriveNumbersAgreeWithTheInstalledRobotConfiguration",
     "org.firstinspires.ftc.teamcode.TeleOpIntegrationPolicyTest#firingPauseStopsAutomaticIntakeButRetainsExplicitOverrides",
     "org.firstinspires.ftc.teamcode.TeleOpIntegrationPolicyTest#trimsRemainBoundedAndResetWithoutChangingCalibrationValidity",
-    "org.firstinspires.ftc.teamcode.TeleOpIntegrationPolicyTest#lightsDistinguishManualBypassInhibitAndAutomaticReadiness"
+    "org.firstinspires.ftc.teamcode.TeleOpIntegrationPolicyTest#lightsDistinguishManualBypassInhibitAndAutomaticReadiness",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#ledPoseUsesFixedFrameVelocityAndHeadingRateWithoutChangingFreshness",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#plannerLeadsOnlyTheServoCommandAndKeepsReadinessOnTheBearingNow",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#implausibleLeadIsRejected",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#turretWritesThisLoopsTargetOnlyInApplyYawCommand",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#lagEstimatorRecoversConstantLagAndIgnoresHoldsAndUnwinds",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#spinCapHoldsTheTurretTrackableRateOnlyWhileAiming",
+    "org.firstinspires.ftc.teamcode.AimTrackingTest#slowerRobotLearnsItNeedsNoCapAndMissingOdometryKeepsTheEstimate"
   ],
   "simulationTests": [
     "org.firstinspires.ftc.teamcode.sim.SensorsSimTest#cameraRejectionDiagnosticsAgreeAcrossCameraTestsAutoAimAndBothTeleOps()",
@@ -234,7 +241,9 @@
     "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#bothAlliancesLoadWhileAimingPauseForFireAndReportIndependentLights()",
     "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#bothAlliancesApplyAndClearAutoTrimsWithoutChangingManualDefaults()",
     "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#independentLightsUseSpecifiedPulsesAndTurnOffAtStop()",
-    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#isolatedIntakeRecoversFromStallAndReleaseCancelsRecovery()"
+    "org.firstinspires.ftc.teamcode.sim.MechanismsSimTest#isolatedIntakeRecoversFromStallAndReleaseCancelsRecovery()",
+    "org.firstinspires.ftc.teamcode.sim.SensorsSimTest#bothAlliancesTrackTheGoalWithinShotToleranceWhileSpinning()",
+    "org.firstinspires.ftc.teamcode.sim.CompetitionSimTest#bothAlliancesCapChassisTurnRateOnlyWhileAutoAiming()"
   ],
   "simulationAuditDate": "2026-10-31",
   "zenithAuditDate": "2026-10-31",

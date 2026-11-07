@@ -214,4 +214,55 @@ class SensorsSimTest {
             CompetitionSimTest.assertStopped(h);
         }
     }
+
+    /**
+     * Steady spin below the synthetic 180 deg/s turret slew: away from the rear dead zone and the long-way
+     * unwind, the measured turret yaw stays on the plant's true goal bearing every loop, not only after the
+     * spin stops. Exercises same-loop servo writes and the aim lead; the sim turret has no servo lag, so this
+     * cannot establish the robot's AIM_LEAD_SECONDS.
+     */
+    @Test void bothAlliancesTrackTheGoalWithinShotToleranceWhileSpinning() throws Exception {
+        for (String alliance : new String[]{"Red", "Blue"}) {
+            BioBuzzSimHardware h = BioBuzzSimHardware.fullRobot().withCamera(BioBuzzSimHardware.raisedAudienceTags(), true);
+            float turn = alliance.equals("Red") ? .3f : -.3f;
+            TeleOpScenario s = new TeleOpScenario(alliance + "-spin-tracking", alliance + "MecanumTeleOp",
+                    h, .02, 160, 420, (p,t,a,b) -> {
+                a.right_trigger = p == OpModePhase.ACTIVE ? 1 : 0;
+                a.right_stick_x = p == OpModePhase.ACTIVE && t >= 40 && t < 400 ? turn : 0;
+            });
+            double x = alliance.equals("Red") ? -12.75 : 12.75;
+            s.model.drive.setPose(x, BioBuzzSimHardware.RAISED_TAG_VIEW_Y_INCHES, Math.PI);
+            h.pinpoint.attachChassisAt(x*25.4, BioBuzzSimHardware.RAISED_TAG_VIEW_Y_INCHES*25.4, Math.PI);
+            s.run();
+            assertTrue(s.trace.at(OpModePhase.ACTIVE, 30).telemetry.contains("Field localization : LOCALIZED"), s.diagnostic());
+            TurretSubsystem.Alliance goalAlliance = alliance.equals("Red") ? TurretSubsystem.Alliance.RED : TurretSubsystem.Alliance.BLUE;
+            double maxRate = 0, sumError = 0, maxError = 0, previous = Double.NaN;
+            int tracking = 0, settled = 0, worstTick = -1;
+            for (TeleOpTrace.Sample v : s.trace.samples) if (v.phase == OpModePhase.ACTIVE && v.tick >= 80 && v.tick < 400) {
+                if (!Double.isNaN(previous)) maxRate = Math.max(maxRate,
+                        Math.abs(Math.toDegrees(org.firstinspires.ftc.teamcode.RobotMath.wrap(v.headingRad - previous))) / .02);
+                previous = v.headingRad;
+                MotionSample truth = new MotionSample(0, v.xIn*.0254, v.yIn*.0254, v.headingRad, 0,0,0,0,.02,true,true,"plant");
+                GoalTarget goal = TeleOpFieldReference.target(goalAlliance,
+                        TeleOpFieldReference.nearestSide(truth.y, TurretSubsystem.HiveSide.AUDIENCE));
+                double bearing = Math.toDegrees(TeleOpFieldReference.yawRadians(truth, goal, ShootingConfiguration.MOUNT));
+                double error = Math.abs(TurretSubsystem.normalizeAngleDegrees(bearing - v.yaw));
+                // The rear dead zone and the long-way unwind are excluded: the turret cannot point there.
+                double edge = TurretSubsystem.ROTATION_MAX_ANGLE_DEG - 10;
+                settled = Math.abs(bearing) < edge && Math.abs(v.yaw) < edge && error < 10 ? settled + 1 : 0;
+                if (settled > 10) {
+                    tracking++; sumError += error;
+                    if (error > maxError) { maxError = error; worstTick = v.tick; }
+                }
+            }
+            String stats = String.format(java.util.Locale.US, "%s: rate %.0f deg/s | tracking %d | mean %.2f | max %.2f deg at %d ",
+                    alliance, maxRate, tracking, tracking == 0 ? Double.NaN : sumError / tracking, maxError, worstTick);
+            System.out.println("Spin tracking " + stats);
+            assertTrue(maxRate > 60 && maxRate < 170, "spin must stay below the synthetic turret slew " + stats + s.diagnostic());
+            assertTrue(tracking > 100, "too few tracking samples " + stats + s.diagnostic());
+            assertTrue(maxError <= org.firstinspires.ftc.teamcode.ShotReadiness.YAW_TOLERANCE_DEG, stats + s.diagnostic());
+            assertTrue(sumError / tracking <= 1.0, stats + s.diagnostic());
+            CompetitionSimTest.assertStopped(h);
+        }
+    }
 }

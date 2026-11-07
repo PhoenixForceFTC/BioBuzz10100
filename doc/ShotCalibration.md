@@ -90,4 +90,4 @@ where errors appear. Averaging successful but very different angle/RPM pairs can
 produce an unsuccessful intermediate pair; keep one consistent shot trajectory
 and validate the averages themselves.
 
-Flight-time data and projectile lead prediction have been removed. Current pose determines the range, yaw, hood and RPM each loop; automatic feeding has no chassis/turret speed gate. Mount geometry, the approved opening geometry and release timing still require configuration. Drivers decide whether to fire while moving.
+Flight-time data and projectile lead prediction have been removed (the turret command's actuation-delay lead, `AIM_LEAD_SECONDS`, is separate and does not change range, hood or RPM). Current pose determines the range, yaw, hood and RPM each loop; automatic feeding has no chassis/turret speed gate. Mount geometry, the approved opening geometry and release timing still require configuration. Drivers decide whether to fire while moving.

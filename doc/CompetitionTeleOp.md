@@ -21,7 +21,8 @@ telemetry distinguishes motor ticks/s from wheel RPM.
 
 November 5 drive correction: shared motor directions are now left FORWARD and
 right REVERSE, swapping forward/back, both strafes and both turns in both wrappers.
-GP1 left stick remains translation; right stick X remains rotation.
+GP1 left stick remains translation; right stick X remains rotation. While GP1 RT auto-aims,
+rotation is capped so the turret can keep up (see below).
 
 November 2 field rehome: press **GP2 D-pad Left** with the robot stationary in the
 alliance corner opposite its pollen depot, rear and side against the walls and
@@ -52,6 +53,25 @@ odometry frame. Normal periodic vision corrections resume afterward.
 dead zone. While the goal bearing is inside it, the turret holds the limit on its current side. Once the bearing
 is 3 degrees past the zone on the other side, the turret unwinds the long way through home to keep aiming, so a
 spinning robot never drives the turret through the dead zone and edge noise cannot cause repeated spins.
+A full chassis turn still forces one long-way unwind; the turret cannot aim (and auto feed waits) during it.
+
+**Automatic aim while turning (2026-11-06).** Three changes keep the turret on the goal while the chassis turns:
+- *Same-loop servo write.* `TurretSubsystem.update()` now only reads sensors; every OpMode calls
+  `applyYawCommand()` after auto aim / manual yaw set the target. Previously the servo received the previous
+  loop's target, a full loop late.
+- *Aim lead.* The servo command uses the pose predicted `TurretControl.AIM_LEAD_SECONDS` ahead (Pinpoint
+  heading rate and fixed-frame velocity). Readiness and telemetry still use the bearing now, because the ball
+  leaves now. This is actuation-delay compensation only; projectile lead remains removed.
+- *Turn cap.* While RT is held, `AutoAimSpinLimiter` limits the GP1 turn command so the measured chassis rate
+  stays at `MAX_CHASSIS_RATE_DEG_PER_SECOND` (driver view shows **Turn speed LIMITED**). It learns the
+  stick-to-rate gain from Pinpoint, so battery level does not matter. Releasing RT restores full rotation.
+
+Both constants are UNMEASURED starting values (25 ms, 300 deg/s). To measure them on the robot:
+1. **Test: Turret**, hold full RS-X both ways: **Turret peak measured rate** is the loaded turret speed. Set the
+   cap below it with margin (for example 80%).
+2. **Test: Auto Aim**, localize, hold RT and turn the chassis by hand at a steady rate: **Turret lag (ms)**
+   reports the residual lag and a **suggested lead**. Put that in `AIM_LEAD_SECONDS`; the residual should then
+   read near 0 ms. The same lines appear on the GP2 Back diagnostics page in both competition TeleOps.
 After the first field reference, odometry owns the pose and the Limelight only corrects consistent drift
 (more than 4 cm or 1.5 degrees); see [Limelight diagnostics](LimelightGoalStateDiagnostics.md).
 

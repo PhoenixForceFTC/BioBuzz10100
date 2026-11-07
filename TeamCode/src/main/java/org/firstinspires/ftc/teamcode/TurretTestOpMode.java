@@ -33,7 +33,7 @@ public class TurretTestOpMode extends LinearOpMode {
                 loop.begin();
                 if (gamepad1.a && !prevA) turret.homeTurretAndZeroEncoder();
                 prevA = gamepad1.a;
-                turret.update(); turret.addTelemetry(telemetry); loop.addTelemetry(telemetry); telemetry.update(); idle();
+                turret.update(); turret.applyYawCommand(); turret.addTelemetry(telemetry); loop.addTelemetry(telemetry); telemetry.update(); idle();
             }
             waitForStart();
             if (isStopRequested()) return;
@@ -113,6 +113,8 @@ public class TurretTestOpMode extends LinearOpMode {
                     }
                     telemetry.addData("Mode", "MANUAL | B toggles encoder correction (default OFF)");
                 }
+                turret.applyYawCommand();
+                telemetry.addLine("Loaded turret speed: hold full RS-X; read 'Turret peak measured rate'.");
 
                 turret.addTelemetry(telemetry);
                 loop.addTelemetry(telemetry); telemetry.update();

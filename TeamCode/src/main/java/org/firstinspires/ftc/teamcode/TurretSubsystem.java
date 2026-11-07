@@ -233,6 +233,7 @@ public class TurretSubsystem {
     private final TurretControl control = new TurretControl();
     private int rawTicks, encoderZeroOffsetTicks;
     private double encoderVelocity, currentRpm, targetYawDeg, targetPitchDeg, targetShooterRpm;
+    private double peakTurretRateDegPerSecond;
     private double lastCommandedRotationServoPos = .5, lastCommandedPitchServoPos = .5;
     private Alliance activeAlliance = Alliance.RED;
     private HiveSide activeHiveSide = HiveSide.FAR;
@@ -400,16 +401,12 @@ public class TurretSubsystem {
         encoderVelocity = throughBoreEncoderPort.getVelocity() * encoderPortSign
                 / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN;
         currentRpm = ShooterSpeed.flywheelRpm(shooterMotor.getVelocity());
+        if (Double.isFinite(encoderVelocity)) peakTurretRateDegPerSecond = Math.max(peakTurretRateDegPerSecond, Math.abs(encoderVelocity));
         boolean wasReady = homing.ready();
         homing.update(now, rawTicks, rawTicks / TURRET_TICKS_PER_DEGREE * ENCODER_DIRECTION_SIGN);
         if (!wasReady && homing.ready()) encoderZeroOffsetTicks = homing.zeroTicks();
-        double commandedYawDeg = control.updateYawCommand(now, targetYawDeg, getEncoderAngleDegrees(),
-                encoderVelocity, homing.ready(), targetPitchDeg);
-        if (homing.ready()) {
-            setRawRotationServoPosition(angleDegreesToRotationServoPos(commandedYawDeg));
-        } else if (homing.commandsHome()) {
-            setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
-        } // UNHOMED / FAULT retain the last bounded command; only explicit home moves home.
+        // Hood travel estimate covers the interval the previous loop's command was in effect.
+        control.updateHoodEstimate(now, targetPitchDeg);
         cachedResult = limelight == null ? null : limelight.getLatestResult();
         cachedObservation = visionEnabled ? new LimelightObservation(now,System.currentTimeMillis(),cachedResult,
                 visionFrameRate.update(cachedResult,now)) : null;
@@ -423,6 +420,24 @@ public class TurretSubsystem {
             }
         }
     }
+    /**
+     * Writes this loop's yaw target to the rotation servos. Call once per loop AFTER update() and after every
+     * yaw setter (auto aim, manual stick, hold), so the servo never receives the previous loop's target.
+     * update() only reads sensors; a target set after it waited a full loop before this split.
+     */
+    public void applyYawCommand() { applyYawCommand(clock.getAsDouble()); }
+    public void applyYawCommand(double now) {
+        double commandedYawDeg = control.updateYawCommand(now, targetYawDeg, getEncoderAngleDegrees(),
+                encoderVelocity, homing.ready());
+        if (homing.ready()) {
+            setRawRotationServoPosition(angleDegreesToRotationServoPos(commandedYawDeg));
+        } else if (homing.commandsHome()) {
+            setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
+        } // UNHOMED / FAULT retain the last bounded command; only explicit home moves home.
+    }
+    /** Highest measured turret rate since construction or reset: the loaded servo speed under full manual stick. */
+    public double getPeakTurretRateDegPerSec() { return peakTurretRateDegPerSecond; }
+    public void resetPeakTurretRate() { peakTurretRateDegPerSecond = 0; }
     public boolean isHomed() { return homing.ready(); }
     public boolean hasHomingFault() { return homing.state() == TurretHomingController.State.FAULT; }
     /** Stops normal travel without losing a valid reference. Never resumes an interrupted home. */
@@ -606,6 +621,7 @@ public class TurretSubsystem {
             LimelightDiagnostics.addTelemetry(telemetry,cachedObservation,clock.getAsDouble());
         }
         telemetry.addData("Turret robot heading (deg CW)", "%.2f / %.2f | rate %.1f deg/s", getRobotHeadingDegrees(), getTargetRobotHeadingDegrees(), -encoderVelocity);
+        telemetry.addData("Turret peak measured rate (deg/s)", "%.0f | rated %.0f no-load at 6 V", peakTurretRateDegPerSecond, TurretControl.MAX_YAW_DEG_PER_SECOND);
         telemetry.addData("Turret encoder verification", !isHomed() ? "WAITING FOR HOME"
                 : isYawPositionVerified() ? "AT TARGET" : isRotationErrorHigh() ? "OUTSIDE ERROR MARGIN" : "WITHIN ERROR MARGIN");
         telemetry.addData("Turret position error (deg)", targetYawDeg - getEncoderAngleDegrees());

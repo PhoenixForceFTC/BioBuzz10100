@@ -408,6 +408,10 @@ public final class PoseHistory {
         return delayedYaw(now,capture,txRad,0,mount);
     }
     public double delayedYaw(double now, double capture, double txRad, double tyRad, ShooterMount mount) {
+        return delayedYaw(now,capture,txRad,tyRad,mount,0);
+    }
+    /** leadSeconds: the turret command leads the current heading by the actuation delay. */
+    public double delayedYaw(double now, double capture, double txRad, double tyRad, ShooterMount mount, double leadSeconds) {
         Entry e = at(capture); MotionSample current = current(now);
         if (e == null || current == null || !current.fresh(now,.1) || now < capture || now-capture > MAX_OBSERVATION_AGE_SECONDS
                 || !RobotMath.finite(txRad,tyRad) || Math.abs(txRad)>=Math.PI/2 || Math.abs(tyRad)>=Math.PI/2) return Double.NaN;
@@ -416,10 +420,14 @@ public final class PoseHistory {
         double forward=Math.cos(mount.cameraPitch)-Math.tan(tyRad)*Math.sin(mount.cameraPitch);
         if (forward <= 0) return Double.NaN;
         double bearing=Math.atan2(-Math.tan(txRad),forward);
-        return RobotMath.wrap(e.pose.heading+e.turretYaw+mount.cameraYaw+bearing-current.heading);
+        return RobotMath.wrap(e.pose.heading+e.turretYaw+mount.cameraYaw+bearing-current.led(leadSeconds).heading);
     }
     public double delayedYaw3d(double now, double capture, TagObservation tag, ShooterMount mount) {
-        Entry e=at(capture); MotionSample current=current(now);
+        return delayedYaw3d(now,capture,tag,mount,0);
+    }
+    public double delayedYaw3d(double now, double capture, TagObservation tag, ShooterMount mount, double leadSeconds) {
+        Entry e=at(capture); MotionSample measured=current(now);
+        MotionSample current=measured == null ? null : measured.led(leadSeconds);
         if (tag == null || !tag.usable() || e == null || current == null || !current.fresh(now,.1)
                 || now < capture || now-capture > MAX_OBSERVATION_AGE_SECONDS) return Double.NaN;
         double[] level=tag.levelPosition(mount);

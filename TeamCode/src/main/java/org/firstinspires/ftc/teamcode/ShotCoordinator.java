@@ -19,6 +19,7 @@ public final class ShotCoordinator {
     private final ShotPlanner planner;
     private final PoseHistory history = new PoseHistory();
     private final FieldRehomeRefinement fieldRehome = new FieldRehomeRefinement();
+    private final TurretLagEstimator lag = new TurretLagEstimator();
     private final GoalStateObserver goalState;
     private GoalTarget relativeTarget;
     private TagObservation trackingTag;
@@ -134,22 +135,23 @@ public final class ShotCoordinator {
             if (solution.valid && !goalState.raised(now)) solution = solution.inhibit("Goal state: " + goalState.reason());
         }
         if (automatic && solution.aimable) {
+            // Servo gets the led bearing; readiness below still compares against the bearing now.
             if (controlYaw && !fieldRehome.pending()) turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(
-                    Math.toDegrees(solution.yaw), turret.getEncoderAngleDegrees()));
+                    Math.toDegrees(solution.commandYaw), turret.getEncoderAngleDegrees()));
             if (controlHood) turret.setPitchAngleDegrees(solution.hoodDeg);
             if (controlRpm && !flywheelStop) turret.setShooterRpm(solution.rpm);
         } else if (fieldOdometryOnly && automatic && !fieldRehome.pending() && turret.isHomed() && pose != null
                 && controlYaw && pose.fieldReferenced && pose.fresh(now, ShotPlanner.MAX_SAMPLE_AGE_SECONDS)) {
             // Keep odometry yaw tracking available while RPM/hood calibration is pending.
-            double degrees = Math.toDegrees(TeleOpFieldReference.yawRadians(pose, target, mount)) + yawOffsetDeg;
+            double degrees = Math.toDegrees(TeleOpFieldReference.yawRadians(pose.led(planner.leadSeconds()), target, mount)) + yawOffsetDeg;
             turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(degrees, turret.getEncoderAngleDegrees()));
         } else if (!fieldOdometryOnly && automatic && controlYaw && turret.isHomed() && turret.getVisionTag() != null
                 && turret.getVisionResult().getTimestamp() > lastTrackingFrame) {
             // Acquire the selected hive before shot calibration is available; this does not enable firing.
             // Vision selection already filters alliance, hive side, finite tx and stale frames.
-            double compensated = trackingTag != null ? history.delayedYaw3d(now,trackingCapture,trackingTag,mount)
+            double compensated = trackingTag != null ? history.delayedYaw3d(now,trackingCapture,trackingTag,mount,planner.leadSeconds())
                     : history.delayedYaw(now,trackingCapture,Math.toRadians(turret.getVisionTag().getTargetXDegrees()),
-                            Math.toRadians(turret.getVisionTag().getTargetYDegrees()),mount);
+                            Math.toRadians(turret.getVisionTag().getTargetYDegrees()),mount,planner.leadSeconds());
             if (Double.isFinite(compensated)) {
                 turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(
                         Math.toDegrees(compensated), turret.getEncoderAngleDegrees()));
@@ -157,6 +159,14 @@ public final class ShotCoordinator {
             lastTrackingFrame = turret.getVisionResult().getTimestamp();
         }
         if (flywheelStop) turret.stopShooter();
+        // Measure residual turret lag against the bearing now (telemetry only; see TurretLagEstimator).
+        if (automatic && controlYaw && turret.isHomed() && !fieldRehome.pending() && pose != null
+                && pose.fresh(now, ShotPlanner.MAX_SAMPLE_AGE_SECONDS) && (solution.aimable || (fieldOdometryOnly && pose.fieldReferenced))) {
+            double bearingNow = solution.aimable ? Math.toDegrees(solution.yaw)
+                    : Math.toDegrees(TeleOpFieldReference.yawRadians(pose, target, mount)) + yawOffsetDeg;
+            lag.update(now, TurretSubsystem.reachableYawDegrees(bearingNow, turret.getEncoderAngleDegrees()),
+                    turret.getEncoderAngleDegrees(), turret.getEncoderVelocityDegPerSec(), Math.toDegrees(pose.omega));
+        }
         double yawError = solution.valid ? Math.abs(Math.toDegrees(solution.yaw) - turret.getEncoderAngleDegrees()) : Double.POSITIVE_INFINITY;
         boolean angleReady = ShotReadiness.angleReady(yawError);
         boolean tight = angleReady && turret.isHoodTracking() && turret.isShooterAtSpeed();
@@ -271,7 +281,7 @@ public final class ShotCoordinator {
             if (fieldRehome.pending()) {
                 GoalTarget landmark = TeleOpFieldReference.target(target.alliance,
                         TeleOpFieldReference.nearestSide(current.y,target.side));
-                double yaw = Math.toDegrees(TeleOpFieldReference.yawRadians(current,landmark,mount));
+                double yaw = Math.toDegrees(TeleOpFieldReference.yawRadians(current.led(planner.leadSeconds()),landmark,mount));
                 turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(yaw, turret.getEncoderAngleDegrees()));
             }
             if (Double.isFinite(observation.frame)) lastFrame = observation.frame;
@@ -346,6 +356,7 @@ public final class ShotCoordinator {
         visionDecision = "Accepted target-relative opening";
     }
     public FiringCoordinator firing() { return firing; }
+    public TurretLagEstimator lag() { return lag; }
     public boolean validForFeeding() { return presetValid || solution.valid; }
     public ShotPlanner.Solution solution() { return solution; }
     public MotionSample pose() { return pose; }
@@ -398,7 +409,9 @@ public final class ShotCoordinator {
         telemetry.addData("Pose fusion decision", history.reason());
         if (pose != null) telemetry.addData("Odometry-frame velocity (m/s, rad/s)", "%.2f, %.2f | %.2f", pose.vx, pose.vy, pose.omega);
         if (pose != null) telemetry.addData("Pose uncertainty estimate (m)", "%.3f | no drift assumed; no feed cutoff", pose.uncertainty);
-        telemetry.addData("Current aim yaw / range (deg, m)", "%.2f | %.3f", Math.toDegrees(solution.yaw), solution.effectiveRange);
+        telemetry.addData("Current aim yaw / led command / range (deg, deg, m)", "%.2f | %.2f | %.3f",
+                Math.toDegrees(solution.yaw), Math.toDegrees(solution.commandYaw), solution.effectiveRange);
+        lag.addTelemetry(telemetry, planner.leadSeconds());
         telemetry.addData("Auto feed readiness", "Angle within 3 deg + hood/RPM; no motion gate");
         telemetry.addData("Firing", "%s | %s | committed ball possible: %s", firing.state(), firing.reason(), firing.ballMayBeCommitted());
         telemetry.addData("Timed feed attempts (not balls)", firing.feedAttempts());

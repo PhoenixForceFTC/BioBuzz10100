@@ -34,6 +34,15 @@ public final class MotionSample {
         return new MotionSample(time, x + dx, y + dy, heading, vx, vy, omega, acceleration, angularAcceleration,
                 uncertainty, ready, fieldReferenced, status, referenceId);
     }
+    /**
+     * Constant-velocity estimate of this pose {@code seconds} later (fixed-frame velocity, Pinpoint heading
+     * rate). Time, rates and provenance are unchanged so freshness still describes the measured sample.
+     */
+    public MotionSample led(double seconds) {
+        if (!(seconds > 0) || !RobotMath.finite(seconds, x, y, heading, vx, vy, omega)) return this;
+        return new MotionSample(time, x + vx * seconds, y + vy * seconds, RobotMath.wrap(heading + omega * seconds),
+                vx, vy, omega, acceleration, angularAcceleration, uncertainty, ready, fieldReferenced, status, referenceId);
+    }
     public MotionSample withReference(long id) {
         return new MotionSample(time,x,y,heading,vx,vy,omega,acceleration,angularAcceleration,uncertainty,ready,fieldReferenced,status,id);
     }

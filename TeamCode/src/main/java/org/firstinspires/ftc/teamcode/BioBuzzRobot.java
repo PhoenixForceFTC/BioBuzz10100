@@ -137,6 +137,7 @@ public final class BioBuzzRobot implements ZenithRobot {
     }
     @Override public void initLoop(AutoFromFile opMode) {
         readSensors();
+        if (turret != null) turret.applyYawCommand(now());
         opMode.telemetry.addLine("Keep robot stationary during Pinpoint calibration.");
         opMode.telemetry.addData("Autonomous hardware profile", profile);
         drive.addTelemetry(opMode.telemetry);
@@ -163,6 +164,7 @@ public final class BioBuzzRobot implements ZenithRobot {
     @Override public void afterLoop(AutoFromFile opMode) {
         if (running && !Scheduler.isScheduled(opMode.routine())) finish(opMode);
         if (running) outputs.apply(now(), drive.ready(now()) ? drive.sample() : null, turret, shots, firing, gate, transfer, intake);
+        else if (turret != null) turret.applyYawCommand(now());
         drive.addTelemetry(opMode.telemetry);
         opMode.telemetry.addData("Routine / profile", "%s | %s", opMode.spec().name, profile);
         opMode.telemetry.addData("Autonomous step / remaining (s)", "%s | %.2f", activeStep, remainingSeconds());
