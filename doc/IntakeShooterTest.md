@@ -10,7 +10,7 @@ Limelight or depollinator. Use Gamepad 1.
 The turret homes during INIT to robot-right (90 degrees), with the hood at its
 highest launch elevation (+15 degrees). Clear its travel before INIT. After START,
 release B, both bumpers and both triggers once to enable motor controls. The
-flywheel and transfer do not start automatically.
+flywheel requires RT; intake and stage 1 begin automatic loading once armed.
 
 **Bench intake jam recovery (November 2, 2026):** Connect the intake motor's own
 encoder to the encoder input for `intake_motor` (Expansion Hub port 1). The operator
@@ -24,8 +24,10 @@ intake speed. If a nonzero intake command stays below 20 ticks/s in magnitude fo
 0.20 seconds, it alternates opposite/requested direction every 0.125 seconds for
 0.50 seconds total, then resumes the requested direction. This also handles a stalled
 manual reverse or full-queue reverse. A persistent jam retries after another 0.20-second
-stall window. A moving encoder resets the stall timer. Releasing the control, both
-bumpers, feeding or B cancels recovery immediately; changing requested direction
+stall window. A moving encoder resets the stall timer. Both bumpers, B, or a feed
+request without an intake bumper override cancels recovery immediately. Releasing
+RB restores automatic loading, so recovery continues if the requested direction
+stays the same; a full queue restores reverse instead. Changing requested direction
 starts a fresh detection window. Transfer, gate and shooter keep updating throughout.
 Telemetry shows intake velocity in ticks/s and the recovery state. Thresholds are
 bench-controller constants and require physical verification with the new wiring.
@@ -37,7 +39,7 @@ competition-wrapper scenarios to check the shared encoder routing. No ball-conta
 jam model is claimed. Deterministic controller tests cover continuous stall detection,
 both velocity signs, the 0.50-second sequence, persistent-jam retries, cancellation and
 direction/full-queue changes. They do not prove that the mechanism will clear a physical jam.
-The five jam-recovery tests and three encoder-routing tests also cover initialization
+The jam-recovery tests and three encoder-routing tests also cover initialization
 order, unchanged transfer commands and independent intake feedback. No physical
 jam-clearing or robot deployment was verified.
 Verification after the wiring update: `tools/verify-teleop.ps1 -Sim -Scenario
@@ -48,30 +50,89 @@ wrappers; modeled shaft motion does not establish loaded jam-clearing behavior.
 
 | Control | Action |
 | --- | --- |
-| Hold RB | Intake inward, stage 1 loading with stage 2 off; full confirmation reverses intake and stops both transfers until feeding |
+| Bumpers released, armed, no feed request | Automatic intake/index: forward on LOW; reverse intake after 0.5 s HIGH, stage 1 runs on 0.5 s then stops; LOW resumes forward/loading |
+| Hold RB | Force intake forward regardless of sensor or feed request; index still follows its sensor/feed controls |
 | Hold LB | Reverse intake only; transfer stops and gate closes |
 | Both bumpers | Stop intake and loading; inhibit feeding |
 | Hold RT | Spin flywheel at selected RPM; release stops powering it |
-| Hold RT + LT | Qualify readiness, then repeat timed feed/recovery cycles; release either trigger to stop feeding and close the gate |
-| Tap Y / A | Increase / decrease flywheel output RPM by 100, clamped to 0..3700 RPM; starts at 2800 RPM |
+| Hold RT + LT | Staggered: qualify readiness and cycle; continuous: immediately open gate and run both transfers at full power; release either trigger to stop feeding and close gate |
+| GP2 RB (tap) | Toggle STAGGERED (default) / CONTINUOUS shooting |
+| Hold GP2 LB + D-pad up / down | Increase / decrease recovery pause by 0.05 s (0..5 s) |
+| Hold GP2 LB + D-pad right / left | Increase / decrease staggered feed duration by 0.05 s (0.05..5 s) |
+| Hold GP2 LB + Y / A | Increase / decrease stable-readiness delay by 0.05 s (0..5 s) |
+| Hold GP2 LB + X | Reset feed/recovery/readiness timing to 0.40/0.35/0.15 s; retain shooting mode |
+| Tap Y / A | Increase / decrease flywheel output RPM by 100, clamped to 0..6000 RPM; starts at 2800 RPM |
 | D-pad up / down | Lower / raise launch elevation by 0.5 degrees per press |
 | Right stick X | Rotate turret; release holds its target |
 | X | Rehome yaw and hood when bumpers and triggers are released |
 | B | Stop intake, transfer and flywheel commands and close gate; release B, bumpers and triggers to resume |
 
-Feeding pauses loading and requires a homed, settled turret and hood, plus measured
+Shooting mode and timing can be changed after START. Each button acts once per press;
+holding GP2 LB routes its tuning buttons to shooting timing instead of PIDF tuning.
+Any actual mode/timing change stops motors, closes the gate and requires releasing GP1
+B, bumpers and triggers before resuming. Telemetry shows the mode and all three times
+in seconds. Settings last for this OpMode session only.
+
+STAGGERED shooting pauses loading and requires a homed, settled turret and hood, plus measured
 flywheel speed within 100 output RPM of the selected target. Bench yaw settling accepts
 up to 4 degrees of error (the retained bench-specific tolerance) and 3 degrees/s
 of measured motion; the competition auto-aim's tighter 3-degree requirement does
 not apply to this manual test. Release the yaw stick before starting feed. Initial
 readiness must hold for the configured 0.15 seconds. Feed then waits for the gate's
-0.20-second command-to-feed delay. Both stages feed forward for 0.50 seconds with the
-gate held open (about 0.70 second open per uninterrupted attempt), followed by 0.35 seconds
-of recovery with the gate closed and both transfer motors stopped. Holding RT + LT
+0.10-second command-to-feed delay. Stage 2 then feeds for 0.40 seconds before the
+gate closes and both transfers stop. Stage 1 starts halfway through the gate-open
+window to advance the next ball, with stage 2 continuing to run. Default timeline,
+relative to the gate-open command:
+
+| Time (s) | Gate | Stage 1 | Stage 2 |
+| --- | --- | --- | --- |
+| 0.00 | Open command | Off | Off |
+| 0.10 | Open | Off | Full forward |
+| 0.25 | Open | Full forward | Full forward |
+| 0.50 | Close command | Off | Off |
+
+This starts stage 2 0.10 seconds earlier and shortens its feed window by 0.10 seconds
+versus the previous settings. Total commanded gate-open time decreases from about
+0.70 to 0.50 seconds. Recovery lasts 0.35 seconds with the gate closed and both
+transfer motors stopped. Holding RT + LT
 repeats the cycle after readiness requalifies and the gate reopens. Loss of readiness
 closes the gate and enters recovery. Releasing either trigger, pressing B or LB,
 losing home, or setting RPM to zero stops feeding. Software counts timed attempts,
-not launched balls.
+not launched balls. These are the default STAGGERED timings; the controls above can
+adjust stage-2 feed duration, recovery pause and stable-readiness delay. Stage 1's
+start time follows the midpoint of the configured gate-open window (gate delay plus
+stage-2 feed duration), and never precedes stage-2 feeding. The bench gate delay
+remains fixed at 0.10 seconds. Commands run on the next control-loop iteration;
+loaded ball travel and servo movement are not measured by these timers.
+
+CONTINUOUS mode immediately commands the gate open and both transfer stages to
+full forward power (1.0) while both triggers are held. It bypasses homing/aim/RPM
+readiness checks, gate delay, feed duration and recovery pauses. Releasing either
+trigger closes the gate and stops both transfers. B, LB/reverse, STOP and settings
+changes retain priority; startup and settings changes still require releasing the
+motor controls to re-arm. A zero selected RPM prevents feeding. Timing settings
+are retained for switching back to STAGGERED. The flywheel still uses the selected
+RPM/controller; continuous mode's full-power command applies to the transfers.
+Competition red/blue, autonomous, transfer-only and calibration callers were reviewed;
+they retain their existing behavior and timing because these session settings are
+opt-in for this bench OpMode. Their shared gate delay remains 0.20 seconds and
+timed feed remains 0.50 seconds.
+
+Simulation decision for the revised sequence: run `Mechanisms` and `Competition`.
+The existing actual-bench cycle checks the shorter stage-2 gate delay and delayed
+stage-1 advancement. `benchContinuousFeedsImmediatelyUntilTriggerReleaseOrStop`
+checks the real OpMode's GP2 mode selector, immediate full-power transfer commands,
+either-trigger release and stop/re-arm behavior. Both competition wrappers are
+included as regression checks for the opt-in helper changes. Deterministic controller
+tests check timing boundaries, custom timing/midpoint adjustment, readiness loss in
+staggered mode and readiness bypass in continuous mode. Loaded ball spacing, actual
+gate clearance and flywheel recovery still require physical testing.
+
+Verification of this bench-only sequence (November 1, 2026):
+`verify-teleop.ps1 -Sim -Scenario Mechanisms,Competition` passed 191 unit tests
+(19 bench-controller tests), 13 simulation tests, debug APK packaging and lint
+(0 errors, 14 existing warnings). No deployment or loaded ball-clearance measurement
+was performed. Retained scenario traces are under `TeamCode/build/sim/teleop/`.
 
 The flywheel starts with the FTC SDK's encoder velocity PIDF controller in
 `RUN_USING_ENCODER` mode. **Tap GP2 B** to switch between PIDF and bang-bang.
@@ -96,15 +157,15 @@ RPM interlocks are identical for both controllers. Full power cannot compensate
 for insufficient motor power under sustained load.
 
 The installed hood uses increasing PWM to lower away from its upper stop: home
-is 0.511268 and full downward travel is approximately 0.680282. D-pad Up increases
+is 0.545070 and full downward travel is approximately 0.714085. D-pad Up increases
 travel; Down returns toward home and does nothing if already at home. Both angle
 commands and raw servo commands are bounded to the permitted side of home. Verify
 with one Up press and then one Down press before attempting the full range.
 
-Flywheel RPM is output-shaft RPM after the external 2:3 speed reduction: 5550 motor
-RPM produces approximately 3700 flywheel RPM. The encoder remains on the motor (28 counts/rev);
-software converts both commands and readings. The 2800 RPM starting target retains
-the previous 4200 motor RPM operating point. Calibration displays flywheel output RPM. It does not save session files.
+The goBILDA 5203 Yellow Jacket 6000 RPM motor drives the flywheel at 1:1.
+Motor and flywheel RPM are equal; the configured free-speed estimate and target cap
+are 6000 RPM. The motor encoder remains 28 counts/rev. The starting target remains
+2800 flywheel RPM (now also 2800 motor RPM). Calibration displays flywheel output RPM. It does not save session files.
 
 Turret PWM direction is reversed for the reported mounting so the right stick
 moves the turret in the corresponding direction. The external encoder correction
@@ -120,9 +181,9 @@ of telemetry. It identifies missing trigger input, a held LB, required homing,
 flywheel RPM error, turret settling or hood travel. Actual/selected RPM and yaw
 error/rate appear directly below it. A spinning flywheel alone does not establish
 RPM readiness: its encoder cable must be connected to encoder port 0. Release LB
-while firing. If home is required, release the motor controls, press X, and wait
+while firing. In STAGGERED mode, if home is required, release the motor controls, press X, and wait
 for homing to finish before trying again. During an active feed, FEED STATUS shows
-TIMED FEED during the feed window and recovery/readiness reasons between attempts.
+STAGGERED FEED or CONTINUOUS FEED while feeding and recovery/readiness reasons between attempts.
 
 **Transfer investigation (October 31, 2026):** The reported symptoms are no stage-1
 motion with RB and no two-stage feed with RT + LT. All transfer callers were traced:
@@ -136,15 +197,15 @@ The new **TRANSFER STATUS** line shows this loop's commanded stage-1/stage-2 pow
 loading/feed/full-hold reason and digital sensor state before verbose diagnostics.
 **Transfer Stage 1 Device** and **Transfer Stage 2 Device** show the configured motor
 names and SDK connection information; compare those with Expansion Hub ports 2/3.
-With controls armed, RB alone and an unlatched empty queue should show S1 1.00,
+With controls armed, RB alone and a LOW sensor should show S1 1.00,
 S2 0.00 and LOADING. During qualified feed, both should show 1.00. These are commands,
 not proof of shaft motion. A 1.00 command with no motion requires checking the active
 configuration/controller/motor path on the robot. A 0.00 command requires checking
-the displayed full latch, OpMode pause or FEED STATUS first. Correct motor cabling
+the displayed full confirmation, OpMode pause or FEED STATUS first. Correct motor cabling
 does not establish the full sensor's digital state or flywheel/yaw readiness.
 
-HIGH continuously for two seconds latches full even if the physical queue is empty;
-LOW afterward does not clear that latch until feeding. Check sensor placement,
+HIGH continuously for 0.5 seconds confirms full even if the physical queue is empty;
+LOW immediately clears full and resumes intake/index loading. Check sensor placement,
 threshold and raw state if an empty queue reports HIGH/FULL. Polarity, full hold,
 motor directions and shooting interlocks were preserved pending physical evidence.
 Simulation was chosen to check actual bench loading/reverse/conflicting bumpers,
@@ -162,11 +223,14 @@ Start empty: check directions and clearance, then spin the flywheel and exercise
 gate/feed into a clear catch area. Next hold RB to collect one ball, release RB,
 hold RT until speed is steady, and add LT to feed. Release LT after the ball exits.
 Add more balls only after that works. Stage 2 stays off during loading; both transfers feed forward during qualified feeding.
-The full sensor must remain HIGH for two seconds to stop loading; check its
+The full sensor must remain HIGH for 0.5 seconds to reverse the intake. Stage 1
+continues forward for another 0.5 seconds, then holds stopped; stage 2 stays off.
+Pause, feed, or shutdown cancels the run-on. LOW resumes loading immediately; a new
+continuous 0.5 s HIGH can start a new run-on. Check sensor
 placement and that this delay does not cause a jam. Full does not prevent shooting.
 
 B removes motor commands; the flywheel coasts and a ball already in the shooter
 can still exit. Stop the OpMode and wait for motion to stop before clearing jams.
 STOP or a loop exception attempts to stop every motor and close the gate.
 
-See [shared motor baseline, PIDF tuning and hood reference](ShooterVelocityTuning.md) for the 3700 RPM target cap, GP2 live tuning controls, and calibration compatibility.
+See [shared motor baseline, PIDF tuning and hood reference](ShooterVelocityTuning.md) for the 6000 RPM target cap, GP2 live tuning controls, and calibration compatibility.

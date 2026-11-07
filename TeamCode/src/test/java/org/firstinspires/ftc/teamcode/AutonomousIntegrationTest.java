@@ -248,10 +248,11 @@ public class AutonomousIntegrationTest {
     }
     @Test public void confirmedFullSurvivesPauseAndAllowsReverseUntilActualFeeding() {
         full.setSimulatedInputState(true); set("loadOn"); set("intakeOn");
-        tick(0); tick(1.999); assertFalse(robot.transfer.isFull());
-        tick(.002); assertTrue(robot.transfer.isFull()); assertEquals(0,power("intake_motor"),0);
+        tick(0); tick(.499); assertFalse(robot.transfer.isFull());
+        tick(.002); assertTrue(robot.transfer.isFull()); assertEquals(-1,power("intake_motor"),0);
         set("transferStop"); full.setSimulatedInputState(false); set("loadOn"); tick(.02);
-        assertTrue(robot.transfer.isFull()); assertEquals(0,power("transfer_motor_1"),0);
+        assertFalse(robot.transfer.isFull()); assertEquals(1,power("transfer_motor_1"),0);
+        assertEquals(1,power("intake_motor"),0);
         set("intakeReverse"); tick(.02); assertEquals(-1,power("intake_motor"),0);
         Command feed=command("feedManual","seconds",1); feed.start(); tick(0); tick(.201);
         assertFalse(robot.transfer.isFull()); feed.end(EndCondition.NATURALLY);

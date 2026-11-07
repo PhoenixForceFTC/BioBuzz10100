@@ -15,7 +15,7 @@ From TUNE, B returns to PLACE to edit the distance; there is no typed numeric fi
 Hood degrees mean 0–30 degrees of downward travel from home. Home is +15 degrees
 above horizontal; 15 degrees of travel is horizontal; 30 degrees is -15 degrees.
 Launch elevation = 15 - hood travel. Dpad Up lowers elevation and Down raises it;
-telemetry displays both values. RPM is flywheel output RPM inferred from the motor encoder and the 2:3 speed ratio, not an independently measured
+telemetry displays both values. RPM is flywheel output RPM inferred from the motor encoder and the 1:1 motor-to-flywheel speed ratio, not an independently measured
 flywheel shaft speed. A changed drive ratio requires recalibration.
 
 1. During INIT, allow turret homing to finish. After START, position the robot at

@@ -61,7 +61,7 @@ the upstream held-key interface. This is keyboard input, not physical USB gamepa
 
 Robot controls remain those of the selected OpMode. For competition: GP1 Z or GP2 C requests manual
 feed; GP2 Z inhibits it; GP1 C requests automatic aim/fire (production unmeasured calibration blocks
-firing). Hold U for over two seconds to review full-queue behavior. Sensor keys are environment controls,
+firing). Hold U for over 0.5 seconds to review full-queue behavior. Sensor keys are environment controls,
 recorded separately from gamepad input, and have no effect on mechanisms absent from the fixture.
 
 Profiles:

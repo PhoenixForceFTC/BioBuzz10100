@@ -47,7 +47,7 @@ Keep the supplied `autos/robot.json` catalog: importing commands from Java alone
 | Team pose/velocity telemetry | Meters, m/s and CCW radians/rad/s. |
 | Turret yaw | Internal CCW degrees from right-facing home, [-175, 175]. Not chassis heading. |
 | Hood | Downward travel [0, 30] degrees; launch elevation = +15 minus travel. Home offset and 2:1 linkage remain implemented in Java. |
-| Flywheel | Output-shaft RPM [0, 3700], with existing gearing. |
+| Flywheel | Output-shaft RPM [0, 6000], with 1:1 motor-to-flywheel gearing (goBILDA 5203 Yellow Jacket 6000 RPM). |
 | Durations | Positive seconds up to 28; readiness waits default to 5 seconds. The global autonomous deadline is 29 seconds. |
 
 Parameter type/default/range and unit help are in `autos/robot.json` using supported schema fields. Invalid arguments or unsupported hardware actions fail during INIT, including in unselected branches. Relative yaw/hood deltas resolve once at command START; the resulting target is checked then because preceding steps can change it.
@@ -60,10 +60,10 @@ Absolute named hold/reseed poses are authored coordinates and receive the contex
 
 | Actions | Persistence, completion and cleanup |
 | --- | --- |
-| `intakeOn`, `intakeOff`, `intakeReverse`, `intakeSet(power)` | Latched power. Confirmed full blocks positive loading, permits deliberate reverse. |
+| `intakeOn`, `intakeOff`, `intakeReverse`, `intakeSet(power)` | Latched power. Confirmed HIGH reverses positive loading; LOW restores forward; deliberate reverse remains allowed. |
 | `intakeRun(power, seconds)` | Bounded run; stop on end/cancel. An old cleanup cannot override a replacement request. |
 | `loadOn`, `loadOff`, `transferStop` | Stage 1 loads only with room; stage 2 stays off. Pause/stop retains confirmed-full knowledge. |
-| `loadUntilFull(seconds)` | Own intake/transfer until confirmed full or timeout, then stop both. HIGH must remain present for two seconds to confirm. The sensor cannot count pieces. |
+| `loadUntilFull(seconds)` | Own intake/transfer until confirmed full or timeout, then stop both. HIGH must remain present for 0.5 seconds to confirm. The sensor cannot count pieces. |
 | `feedManual(seconds)` | Explicit readiness BYPASS, never an automatic fallback. Open gate, wait 0.20 seconds, feed both stages; close/stop on end. Feed inhibit wins, even over this override. |
 | `gateOpen(seconds)`, `gateClose` | Bounded gate-only opening keeps transfer stopped; close/end clears feed requests. No feed authorization is implied. |
 | `feedStop`, `feedInhibit`, `feedResume` | Stop clears requests and preserves aim/pre-spin. Inhibit latches; resume clears it without starting feed. |
@@ -91,7 +91,7 @@ Conditions are: `queueFull`, `queueSensorHigh`, `loadingActive`, `feedingActive`
 
 | Condition group | How to use it |
 | --- | --- |
-| Queue/loading | `queueSensorHigh` is raw digital status; `queueFull` includes the retained confirmed-full latch. `loadingActive` and `feedingActive` describe actual commanded stage activity. Neither counts balls. |
+| Queue/loading | `queueSensorHigh` is raw digital status; `queueFull` requires continuous HIGH for 0.5 seconds and clears immediately on LOW. `loadingActive` and `feedingActive` describe actual commanded stage activity. Neither counts balls. |
 | Gate/inhibit | `gateFeedDelayElapsed` says open-command delay has elapsed; it does not authorize shooting. `feedInhibited` reports the latched override. |
 | Drive/localization | `localizationReady` includes READY/fresh/reference checks. `driveIdle` means Pedro IDLE; holding a reached endpoint is HOLD, so this is not a path-arrival predicate. |
 | Shooting | `turretHomed`, `turretAtTarget`, `hoodTrackingEstimated`, `flywheelAtSpeed` expose individual readiness. `aimReady` only means the current solution is aimable. `shotReady` also needs valid feeding calibration and yaw/hood/RPM readiness; the firing controller still applies its stability/recovery policy. |

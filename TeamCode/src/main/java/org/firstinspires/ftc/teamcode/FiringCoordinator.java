@@ -3,7 +3,9 @@ package org.firstinspires.ftc.teamcode;
 /** Shared timed feed attempts. No launched-ball count can be inferred from the full sensor. */
 public final class FiringCoordinator {
     public enum State { IDLE, PREPARING, GATE_OPENING, FEEDING, RECOVERY, INHIBITED, FAULT }
-    public final double gateTravelSeconds, feedToExitSeconds, feedWindowSeconds, recoverySeconds, stableSeconds;
+    public final double gateTravelSeconds, feedToExitSeconds;
+    public double feedWindowSeconds, recoverySeconds, stableSeconds;
+    private boolean continuous;
     private State state = State.IDLE;
     private double entered, stableSince = Double.NaN;
     private boolean gateOpen, feeding, committed;
@@ -47,14 +49,42 @@ public final class FiringCoordinator {
         }
         if (state == State.GATE_OPENING) {
             gateOpen = true;
-            if (now - entered >= gateTravelSeconds) { enter(State.FEEDING, now, "Timed feed attempt"); attempts++; }
+            if (now - entered >= gateTravelSeconds) { enter(State.FEEDING, now, continuous ? "Continuous feed" : "Timed feed attempt"); attempts++; }
         }
         if (state == State.FEEDING) {
             gateOpen = feeding = committed = true;
-            if (!manual && now - entered >= feedWindowSeconds) {
+            if (!manual && !continuous && now - entered >= feedWindowSeconds) {
                 enter(State.RECOVERY, now, "Timed recovery"); gateOpen = feeding = false;
             }
         }
+    }
+    /** Opt-in automatic feed tuning; continuous feeding still obeys every readiness interlock. */
+    public boolean configureAutomaticFeed(double now, boolean continuous, double feedSeconds,
+                                          double pauseSeconds, double readySeconds) {
+        if (!RobotMath.finite(feedSeconds, pauseSeconds, readySeconds)
+                || feedSeconds <= 0 || pauseSeconds < 0 || readySeconds < 0)
+            throw new IllegalArgumentException("Invalid automatic feed timing");
+        if (this.continuous == continuous && feedWindowSeconds == feedSeconds
+                && recoverySeconds == pauseSeconds && stableSeconds == readySeconds) return false;
+        this.continuous = continuous;
+        feedWindowSeconds = feedSeconds;
+        recoverySeconds = pauseSeconds;
+        stableSeconds = readySeconds;
+        stop(now);
+        return true;
+    }
+    public boolean continuous() { return continuous; }
+    /** Explicit operator feed: immediate gate/transfer commands, without shot timing or readiness. */
+    public void updateUnrestrictedFeed(double now, boolean requested, boolean inhibit) {
+        gateOpen = feeding = false;
+        previousManual = false;
+        if (inhibit) { enter(State.INHIBITED, now, "Operator feed inhibit"); return; }
+        if (!requested) { stop(now); return; }
+        if (state != State.FEEDING) {
+            enter(State.FEEDING, now, "Continuous operator feed: readiness bypassed");
+            attempts++;
+        }
+        gateOpen = feeding = committed = true;
     }
     private void enter(State next, double now, String reason) {
         if (state != next) { state = next; entered = now; stableSince = Double.NaN; }

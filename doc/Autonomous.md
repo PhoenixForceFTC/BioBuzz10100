@@ -42,7 +42,7 @@ Each path's speed fraction is applied through `ForesightConfig.setPathSpeed`, in
 
 ## Named command contract
 
-The [authoring guide](ZenithAuthoringGuide.md) documents all 43 supported actions and 23 cached conditions. `autos/robot.json` provides editor controls, units/defaults/bounds and resource keys. Old command names/defaults remain compatible. Independent yaw/hood/RPM modes cannot be overwritten by later background aim updates; forward intake respects the held full latch while explicit reverse is allowed. Transfer pause/end cleanup preserves queue knowledge.
+The [authoring guide](ZenithAuthoringGuide.md) documents all 43 supported actions and 23 cached conditions. `autos/robot.json` provides editor controls, units/defaults/bounds and resource keys. Old command names/defaults remain compatible. Independent yaw/hood/RPM modes cannot be overwritten by later background aim updates; requested forward intake reverses on confirmed HIGH and resumes forward on LOW; explicit reverse is allowed. Transfer pause/end cleanup preserves queue knowledge.
 
 Automatic shooting still requires verified calibration, homing, field pose, hood/yaw/RPM readiness and release timing; no visible tag or new motion-speed cutoff is added. Explicit `feedManual` is a separately named readiness bypass with the gate delay and inhibit priority. Preset measurements remain unverified and cannot automatically feed. `stopAll` is resumable and retains home/positional posture; terminal cleanup closes cameras and invalidates terminal turret state.
 

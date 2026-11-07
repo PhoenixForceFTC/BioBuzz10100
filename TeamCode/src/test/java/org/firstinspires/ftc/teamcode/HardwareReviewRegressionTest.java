@@ -87,9 +87,10 @@ public class HardwareReviewRegressionTest {
         TransferController c=new TransferController(.6,.4);
         c.update(1,true,false,false); assertEquals(.6,c.stage1(),0); assertEquals(0,c.stage2(),0);
         c.update(1.39,true,false,false); assertFalse(c.full());
-        c.update(1.41,true,false,false); assertTrue(c.full()); assertEquals(0,c.stage1(),0);
-        c.update(1.42,false,false,false); assertTrue(c.full()); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0);
+        c.update(1.41,true,false,false); assertTrue(c.full()); assertEquals(.6,c.stage1(),0);
+        c.update(1.42,true,false,false); assertTrue(c.full()); assertEquals(.6,c.stage1(),0); assertEquals(0,c.stage2(),0);
         c.update(1.43,true,false,true); assertEquals(0,c.stage1(),0);
+        c.update(1.44,true,false,false); assertEquals(0,c.stage1(),0); // Pause cancels run-on.
         c.update(1.5,true,true,true); assertEquals(.6,c.stage1(),0); assertEquals(.6,c.stage2(),0);
         c.stop(); assertEquals(0,c.stage1(),0); assertEquals(0,c.stage2(),0); assertFalse(c.full());
     }

@@ -34,7 +34,7 @@ import java.util.List;
  *         Home is {@code PITCH_HOME_SERVO_POS}, the team's +15 deg launch reference.
  *         Increasing PWM lowers launch angle to -15 deg (30 deg hood travel), away from the upper stop.
  *         Config name: {@code "turret_pitch"}.</li>
- *     <li><b>Turret Shooter / Flywheel Motor (goBILDA 5202/5203 6000 RPM Bare YellowJacket)</b>:
+ *     <li><b>Turret Shooter / Flywheel Motor (goBILDA 5203 Yellow Jacket 6000 RPM, 1:1 to flywheel)</b>:
  *         Expansion Hub Motor Port 0 & Quadrature Port 0 (28 ticks/rev, 6000 RPM, FLOAT).
  *         Config name: {@code "turret_motor"}.</li>
  *     <li><b>Limelight 3A Vision Sensor</b>:
@@ -105,7 +105,7 @@ public class TurretSubsystem {
     // =========================================================================
     // HOOD TRAVEL FROM HOME (PORT 0, 2:1 LINKAGE): 0..30 DEG => LAUNCH +15..-15 DEG
     // =========================================================================
-    // Home includes a 2-degree downward offset from the original 0.5 mechanical reference.
+    // Home includes a 8-degree downward offset from the original 0.5 mechanical reference.
     // Linked 2:1 with turret angle: 1 deg of turret pitch requires 2 deg of Axon MAX+ servo rotation
     // (or set PITCH_SERVO_TO_TURRET_RATIO = 1.0 if measuring servo shaft degrees directly).
     // Increasing PWM moves down. Never command above the new home toward the upper stop.
@@ -114,8 +114,8 @@ public class TurretSubsystem {
     public static final double LAUNCH_HOME_ANGLE_DEG = 15.0;
     public static final double PITCH_HOME_DEG = 0.0;
     public static final double PITCH_SERVO_TO_TURRET_RATIO = 2.0; // 60 deg servo travel = 30 deg hood travel
-    // Old 13-degree command (2 degrees down from old home) is the new +15 reference.
-    public static final double PITCH_HOME_OFFSET_DEG = 2.0;
+    // Previous +9-degree position (6 degrees below previous home) is the new +15 reference.
+    public static final double PITCH_HOME_OFFSET_DEG = 8.0;
     public static final double PITCH_HOME_SERVO_POS = 0.5
             + PITCH_HOME_OFFSET_DEG * PITCH_SERVO_TO_TURRET_RATIO / AXON_MAX_TRAVEL_DEG;
     public static final double PITCH_SERVO_POS_AT_0_DEG = PITCH_HOME_SERVO_POS;
@@ -130,12 +130,12 @@ public class TurretSubsystem {
     public static final double SHOOTER_MOTOR_MAX_RPM = ShooterSpeed.MOTOR_MAX_RPM;
     public static final double SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV = ShooterSpeed.FLYWHEEL_REVS_PER_MOTOR_REV;
     public static final double SHOOTER_MAX_RPM = ShooterSpeed.FLYWHEEL_MAX_TARGET_RPM;
-    // Public shooter RPM values refer to the flywheel output shaft, not the motor.
-    public static final double SHOOTER_DEFAULT_TARGET_RPM = 4200.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
-    public static final double SHOOTER_MIN_AUTO_RPM = 3200.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
+    // Presets and readiness tolerances are output-shaft RPM, independent of motor gearing.
+    public static final double SHOOTER_DEFAULT_TARGET_RPM = 2800.0;
+    public static final double SHOOTER_MIN_AUTO_RPM = 2133.3333333333335;
     public static final double SHOOTER_MAX_AUTO_RPM = SHOOTER_MAX_RPM;
-    public static final double SHOOTER_READY_TOLERANCE_RPM = 150.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
-    public static final double SHOOTER_LOOSE_READY_TOLERANCE_RPM = 200.0 * SHOOTER_FLYWHEEL_REVS_PER_MOTOR_REV;
+    public static final double SHOOTER_READY_TOLERANCE_RPM = 100.0;
+    public static final double SHOOTER_LOOSE_READY_TOLERANCE_RPM = 133.33333333333334;
     public static final double SHOT_READY_YAW_TOLERANCE_DEG = ShotReadiness.YAW_TOLERANCE_DEG;
     public static final double YAW_VERIFY_MAX_VELOCITY_DEG_PER_SECOND = 3.0;
     public static final double SHOT_READY_PITCH_TOLERANCE_DEG = 0.25;
@@ -580,6 +580,10 @@ public class TurretSubsystem {
         telemetry.addData("Hood command (deg)", "%.2f | estimated tracking %s (no feedback)", targetPitchDeg, isHoodTracking());
         telemetry.addData("Launch elevation command (deg above horizontal)", hoodTravelToLaunchAngleDegrees(targetPitchDeg));
         telemetry.addData("Flywheel (RPM)", "%.0f / %.0f", currentRpm, targetShooterRpm);
+        telemetry.addData("Flywheel error / ready tolerance (RPM)", "%+.0f / +/-%.0f | ready %s",
+                targetShooterRpm - currentRpm, SHOOTER_READY_TOLERANCE_RPM, isShooterAtSpeed());
+        telemetry.addData("Flywheel reported max (RPM at 14 V; PIDF and bang-bang)",
+                ShooterSpeed.REPORTED_MAX_OBSERVED_RPM);
         telemetry.addData("Flywheel controller", shooterController);
         if (shooterController == ShooterController.BANG_BANG)
             telemetry.addData("Bang-bang commanded power", "%.0f%% (full recovery / coast)", 100 * bangBangPower);
@@ -588,9 +592,9 @@ public class TurretSubsystem {
         telemetry.addData("Flywheel PIDF (initial gains; tune loaded)", "P %.1f | I %.2f | D %.1f | F %.3f | F scale %.2f",
                 shooterP, shooterI, shooterD, appliedShooterF, shooterFScale);
         telemetry.addData("Shooter battery (V) / current (A)", "%.2f / %.2f (5 Hz)", batteryVolts, shooterCurrentAmps);
-        telemetry.addData("Shooter limit (output RPM)", "%.0f target cap | %.0f free-speed estimate",
+        telemetry.addData("Shooter limit (output RPM)", "%.0f command cap | %.0f catalog RPM",
                 SHOOTER_MAX_RPM, ShooterSpeed.FLYWHEEL_MAX_RPM);
-        telemetry.addData("Shooter speed headroom estimate", "%.0f%% of voltage-adjusted free speed (not measured PWM)",
+        telemetry.addData("Shooter speed headroom estimate", "%.0f%% of voltage-adjusted observed max (estimate, not measured PWM)",
                 100 * ShooterVelocityTuning.estimatedFreeSpeedUsage(targetShooterRpm, batteryVolts));
         if (visionEnabled) telemetry.addData("Shot tracking", trackingStatus);
     }

@@ -1,25 +1,25 @@
 # Shooter speed and loaded tuning
 
-`BareMotorSpecifications` is the shared configuration for nominal 6000 RPM bare
-motors on the drivetrain and shooter. The team-selected free-speed baseline is
-5550 RPM at 12 V; encoder resolution remains 28 counts/revolution. This baseline
-is not a guarantee of speed under load or a manufacturer specification for every
-motor. The current [5203 page](https://www.gobilda.com/5203-series-yellow-jacket-motor-1-1-ratio-24mm-length-8mm-rex-shaft-6000-rpm-3-3-5v-encoder/)
-lists 6000 RPM no-load, while the older [5202 page](https://www.gobilda.com/5202-series-yellow-jacket-motor-1-1-ratio-24mm-length-6mm-d-shaft-6000-rpm-3-3-5v-encoder/)
-lists 5400 RPM tested. Measure the installed motors rather than treating a
-catalog or team baseline as an exact reachable speed.
+The shooter is a [goBILDA 5203 Yellow Jacket 6000 RPM motor](https://www.gobilda.com/5203-series-yellow-jacket-motor-1-1-ratio-24mm-length-8mm-rex-shaft-6000-rpm-3-3-5v-encoder/)
+with 1:1 motor-to-flywheel drive. `ShooterSpeed` configures 6000 RPM at 12 V and
+28 encoder counts/revolution. Motor RPM and flywheel output RPM are equal. The
+6000 RPM catalog no-load speed is a configuration estimate, not a loaded measurement.
+`BareMotorSpecifications` retains the separate drivetrain baseline of 5550 RPM.
 
-With the external 2:3 reduction, the configured flywheel free-speed estimate is
-3700 RPM. Shooter commands, profiles and calibration allow the full configured maximum of
-3700 flywheel RPM, with no software headroom reserve. Default speed
-remains 2800 flywheel RPM (4200 motor RPM) in the combined bench test; competition TeleOp starts at 3500 flywheel RPM. A low battery or continuous ball load
-can reduce the achievable speed. Do not widen readiness tolerance to hide that.
+Shooter commands, profiles and calibration allow up to 6000 flywheel RPM, with no
+software headroom reserve. The combined bench test keeps its 2800 flywheel RPM
+starting target; competition TeleOp keeps 3500 flywheel RPM. Readiness tolerances
+remain expressed in output RPM. A low battery or continuous ball load can reduce
+achievable speed. Do not widen readiness tolerance to hide that. Re-measure shot
+rows and loaded PIDF response after this mechanical change; production profiles
+remain uncalibrated.
 
 All turret-based OpModes default to hub velocity PIDF in
 `RUN_USING_ENCODER`. Starting gains are P=40, I=0, D=0. P was doubled from 20 for
 stronger response to shot-induced speed error. Integral remains off initially to
 avoid windup near maximum speed, but can be tuned during the bench test. Feedforward at 12 V is
-`32767 / (5550 / 60 * 28)`, approximately 12.651. Every 0.2 seconds its F coefficient
+`32767 / (5400 / 60 * 28) * (14 / 12)`, approximately 15.170 at 12 V
+(13.003 at 14 V). This uses the reported installed speed; see the observation below. Every 0.2 seconds its F coefficient
 is multiplied by `12 / batteryVolts`, using the lowest valid hub voltage reading.
 Invalid or unavailable voltage uses the 12 V reference. These are initial gains,
 not gains validated on this flywheel. There is no second software velocity PID
@@ -127,9 +127,34 @@ If the voltage-adjusted speed estimate is near 100%, lowering the target or
 reducing the ball feed rate may be necessary; PID gains cannot supply additional
 motor power. RT + LT now repeats the competition 0.50-s feed / 0.35-s recovery cycle, with bench readiness required between attempts.
 
-Hood home is shifted 2 hood degrees down from the original servo position 0.5,
-to approximately 0.511268 (2:1 linkage, 355-degree servo travel). This is the old
-13-degree command position, now designated the team's +15-degree home reference.
-The full 30-degree downward range ends near 0.680282. D-pad Up still increases
+Hood home is shifted 8 hood degrees down from the original servo position 0.5,
+to approximately 0.545070 (2:1 linkage, 355-degree servo travel). This is the previous
++9-degree command position (6 degrees below the previous home), now designated the team's +15-degree home reference.
+The full 30-degree downward range ends near 0.714085. D-pad Up still increases
 downward travel; Down returns toward home. This is a commanded angle reference,
 not an independent measurement of projectile launch angle. Calibration displays averages without saving files. The unused historical export parser retains version checks for earlier references.
+
+## November 1 robot observation and tuning follow-up
+
+The team corrected the maximum to 5400 RPM (superseding the earlier 4700 RPM report).
+The current observation is 5400 RPM maximum at a 6000 RPM command, 14 V, in both PIDF and
+bang-bang modes, plus 100–200 RPM underspeed at operating targets blocking shooting.
+The selected lower targets, instantaneous bang-bang power and loading conditions
+are still pending. This is an installed-speed observation, not a catalog change.
+The 6000 RPM command ceiling and 100 RPM readiness tolerance remain unchanged.
+A 6000 RPM request with 5400 RPM feedback remains outside readiness.
+
+Use the observation as an initial feedforward estimate: full-scale output divided
+by the encoder velocity at 5400 RPM, then scaled by 14 / current battery voltage.
+This assumes approximately linear voltage/speed behavior; it requires physical
+tracking and overshoot validation at operating targets. It cannot increase a
+full-power physical ceiling. Bang-bang continues to request full power whenever
+its cached encoder sample is below target; PIDF gains do not affect that mode.
+
+Simulation decision: use the existing bench readiness/feed scenario first with
+old feedforward and the earlier, superseded 4700 RPM / 14 V fixture. That historical
+baseline is retained in the verification matrix. Re-run Mechanisms and Competition
+with the corrected 5400 RPM / 14 V fixture and updated feedforward. The motor response rate is still synthetic,
+with no ball impulse, current limit, voltage sag or calibrated drag. The plant
+uses the independent reported observation, not controller-desired speed. No
+readiness assertion or production calibration flag is relaxed.

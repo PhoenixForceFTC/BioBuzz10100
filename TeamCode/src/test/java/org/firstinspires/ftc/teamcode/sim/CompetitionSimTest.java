@@ -60,12 +60,14 @@ class CompetitionSimTest {
             assertTrue(s.trace.at(OpModePhase.ACTIVE, 35).xIn > 0, s.diagnostic());
             assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 35).transfer1Power, s.diagnostic());
             assertEquals(0, s.trace.at(OpModePhase.ACTIVE, 35).transfer2Power, s.diagnostic());
+            assertEquals(-1, s.trace.at(OpModePhase.ACTIVE, 35).intakePower, s.diagnostic());
+            assertEquals(0, s.trace.at(OpModePhase.ACTIVE, 55).transfer1Power, s.diagnostic());
             assertEquals(-1, s.trace.at(OpModePhase.ACTIVE, 45).intakePower, s.diagnostic());
             assertEquals(0, s.trace.at(OpModePhase.ACTIVE, 65).intakePower, s.diagnostic());
-            assertEquals(0, s.trace.at(OpModePhase.ACTIVE, 130).intakePower, s.diagnostic());
+            assertEquals(-1, s.trace.at(OpModePhase.ACTIVE, 130).intakePower, s.diagnostic());
             assertEquals(0, s.trace.at(OpModePhase.ACTIVE, 130).transfer1Power, s.diagnostic());
             assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 150).intakePower, s.diagnostic());
-            assertEquals(0, s.trace.at(OpModePhase.ACTIVE, 150).transfer1Power, s.diagnostic());
+            assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 150).transfer1Power, s.diagnostic());
             assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 200).transfer1Power, s.diagnostic());
             assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 200).transfer2Power, s.diagnostic());
             assertTrue(s.trace.samples.stream().anyMatch(v -> v.transfer2Power > 0 && Math.abs(v.gatePosition - .2) < 1e-9), s.diagnostic());

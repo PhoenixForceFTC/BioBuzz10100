@@ -48,12 +48,15 @@ final class BioBuzzSimHardware {
     }
     BioBuzzSimHardware withTurret() {
         yaw1 = servo("turret_servo_1"); yaw2 = servo("turret_servo_2"); hood = servo("turret_pitch");
-        flywheel = motor("turret_motor");
+        // Independent team observation: 5400 RPM at 14 V, 28 ticks/rev, 1:1 drive.
+        // Response rate remains synthetic; no calibrated shot/load dynamics.
+        flywheel = new FakeMotor(5400.0 / 60 * 28, 10, 28);
+        map.register("turret_motor", flywheel);
         // Real through-bore quadrature is plugged into transfer motor 1's encoder port.
         // Register only the installed name, exercising the production fallback lookup.
         if (transfer1 == null) transfer1 = motor("transfer_motor_1");
         encoder = transfer1;
-        map.register("Control Hub", new FakeVoltageSensor(12.0));
+        map.register("Control Hub", new FakeVoltageSensor(14.0));
         return this;
     }
     BioBuzzSimHardware withPinpoint() {

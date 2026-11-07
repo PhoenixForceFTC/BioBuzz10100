@@ -26,6 +26,12 @@ Every subsystem should have its own small, dedicated **Test OpMode** file (for e
 The main match OpModes (`MecanumTeleOp.java`, `MainAutonomous.java`) combine all the subsystems together in one main loop.
 - **Why**: Because the hardware logic lives inside the Subsystem classes, the main OpMode is short, easy to read, and just coordinates gamepad inputs and autonomous steps.
 
+### Scope of Subsystem and Robot Function Changes
+
+- When a change affects an overall subsystem or robot function, apply it consistently throughout the entire codebase wherever that behavior is implemented or used. Review shared subsystem classes, all affected TeleOp and Autonomous OpModes (including both competition alliance variants), standalone test OpModes, configuration, tests, simulation models, and documentation, and update each where relevant.
+- Implement shared behavior in the subsystem or shared helper whenever possible so all affected OpModes use the same logic and constants.
+- Limit a change to a single OpMode only when the request explicitly says to do so. Otherwise, a request mentioning one OpMode still requires reviewing and updating other affected uses of the same subsystem or robot function.
+
 #### Example: How Subsystems + Test OpModes + Combined OpModes Work Together
 
 ```java
@@ -126,6 +132,13 @@ public class CompetitionTeleOp extends LinearOpMode {
 
 ## 3. Build & Verification Workflow
 
+### Match Verification to the Change
+
+- For small, low-risk edits such as a value adjustment, routine tuning, or a localized function change, use the smallest useful checks: inspect the diff and affected callers, and run a focused test or compile check when relevant.
+- Do not run the entire unit test suite, lint suite, full simulation, or other lengthy verification by default for these changes. Run broader checks when the scope or risk warrants them (for example, shared behavior changes across subsystems, architecture changes, or regressions), when focused checks reveal a wider concern, or when explicitly requested.
+- Documentation-only edits normally need only a diff and formatting check. Report which checks ran and which were omitted; do not claim unrun verification passed.
+- The packaging requirement below still applies before committing or deploying robot code; it does not require running every test and lint task for each small edit.
+
 Before committing or deploying code to the Control Hub, verify that `TeamCode` compiles and packages cleanly from the repository root:
 
 ```bash
@@ -150,7 +163,8 @@ as full behavior coverage. When adding a scenario, update `tools/teleop-test-bas
 Shared behavior changes should consider both actual competition wrappers and an affected isolated test.
 Keep independent physical feedback, deterministic input/environment events and observable assertions.
 
-Run `.\tools\verify-teleop.ps1` for ordinary unit tests, debug packaging and lint. Add `-Sim -Scenario
+Use `.\tools\verify-teleop.ps1` when broader verification is warranted; it runs the full ordinary unit
+test suite, debug packaging and lint, so it is not the default for small edits. Add `-Sim -Scenario
 Mechanisms`, `Sensors`, `Competition`, `Gate` or `Drivetrain`; `-FullSim` runs all available automated
 scenarios and checks the OpMode inventory. The opt-in Gradle task is `:TeamCode:simTeleOpTest`.
 For a human review use `.\tools\review-teleop.ps1 -OpMode RedMecanumTeleOp` (or Blue), then retain the

@@ -11,9 +11,10 @@ import org.horizon36596.simloop.plant.MecanumDrivePlant;
 final class BioBuzzSimModel implements DrivetrainSimConfig {
     static final double FREE_SPEED_TICKS_PER_SECOND = 28 * 5550.0 / 60;
     static final double RESPONSE_RATE_PER_SECOND = 10;
-    static final String PARAMETERS = "seed=none; motor=28 ticks/rev,5550 RPM configured baseline; "
+    static final String PARAMETERS = "seed=none; drive motor=28 ticks/rev,5550 RPM configured baseline; "
             + "SYNTHETIC: track=14 in,wheelbase=14 in,radius=2 in,effective ticks/in=64,"
             + "strafe ratio=0.85,lag=0.1 s; mounting signs=-1,+1,-1,+1; "
+            + "flywheel=5203 Yellow Jacket,observed 5400 RPM at 14 V,28 ticks/rev,1:1 output; "
             + "turret=355 deg/servo span,8192 CPR*108/40,synthetic slew=180 deg/s; "
             + "Pinpoint=32,-74 mm,reversed pods,2000/(32pi) ticks/mm; "
             + "camera=synthetic FOV54x41,30Hz,35ms latency; no contact/ball/Lynx model";

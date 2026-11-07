@@ -110,7 +110,7 @@
   "commands": [
     {
       "name": "intakeOn",
-      "summary": "Latch forward intake; confirmed full blocks forward only.",
+      "summary": "Request forward intake; confirmed HIGH reverses it, LOW restores forward.",
       "estimateS": "0",
       "requires": [
         "intake"
@@ -140,7 +140,7 @@
     },
     {
       "name": "intakeSet",
-      "summary": "Latch motor power [-1,1]; full blocks positive loading only.",
+      "summary": "Request motor power [-1,1]; confirmed HIGH reverses positive loading, LOW restores it.",
       "params": {
         "power": {
           "type": "number",
@@ -182,7 +182,7 @@
     },
     {
       "name": "loadOn",
-      "summary": "Latch automatic stage-1 loading; stage 2 stays off; retain full latch.",
+      "summary": "Enable automatic stage-1 loading; stage 2 stays off; LOW clears full.",
       "estimateS": "0",
       "requires": [
         "transfer"
@@ -213,7 +213,7 @@
     },
     {
       "name": "loadUntilFull",
-      "summary": "Intake and stage-1 loading until confirmed full (2 seconds HIGH) or timeout; stop afterward.",
+      "summary": "Intake and stage-1 loading until confirmed full (0.5 seconds HIGH) or timeout; stop afterward.",
       "params": {
         "seconds": {
           "type": "number",
@@ -251,7 +251,7 @@
     },
     {
       "name": "feedStop",
-      "summary": "Clear all feed requests, close gate, stop transfer; retain aim/pre-spin and full latch.",
+      "summary": "Clear all feed requests, close gate, stop transfer; retain aim/pre-spin and current sensor confirmation.",
       "estimateS": "0",
       "requires": [
         "transfer",
@@ -485,13 +485,13 @@
     },
     {
       "name": "flywheelSetRpm",
-      "summary": "Latch output-shaft RPM [0,3700]; replace automatic RPM ownership; no feeding.",
+      "summary": "Latch output-shaft RPM [0,6000]; replace automatic RPM ownership; no feeding.",
       "params": {
         "rpm": {
           "type": "number",
           "min": 0,
-          "max": 3700,
-          "provenance": "Flywheel output-shaft RPM; 2:1 gearing, cap 3700."
+          "max": 6000,
+          "provenance": "Flywheel output-shaft RPM; goBILDA 5203 Yellow Jacket 6000 RPM, 1:1 motor-to-flywheel gearing, cap 6000."
         }
       },
       "estimateS": "0",
@@ -508,8 +508,8 @@
         "rpm": {
           "type": "number",
           "min": 1,
-          "max": 3700,
-          "provenance": "Flywheel output-shaft RPM; 2:1 gearing, cap 3700."
+          "max": 6000,
+          "provenance": "Flywheel output-shaft RPM; goBILDA 5203 Yellow Jacket 6000 RPM, 1:1 motor-to-flywheel gearing, cap 6000."
         },
         "timeoutSeconds": {
           "type": "number",
@@ -867,7 +867,7 @@
   "conditions": [
     {
       "name": "queueFull",
-      "summary": "Confirmed/held full latch; releases on feeding, not on pause."
+      "summary": "HIGH continuously for 0.5 seconds; LOW immediately clears full."
     },
     {
       "name": "queueSensorHigh",

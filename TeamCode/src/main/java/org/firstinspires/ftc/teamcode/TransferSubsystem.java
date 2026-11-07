@@ -16,7 +16,8 @@ public class TransferSubsystem {
     public static final DcMotor.Direction MOTOR_DIRECTION = DcMotor.Direction.REVERSE;
     public static final DcMotor.Direction STAGE_2_MOTOR_DIRECTION = DcMotor.Direction.FORWARD;
     public static final double TRANSFER_POWER = 1.0;
-    public static final double FULL_CONFIRM_TIME_SECONDS = 2.0;
+    public static final double FULL_CONFIRM_TIME_SECONDS = 0.5;
+    public static final double STAGE_1_FULL_RUN_ON_SECONDS = 0.5;
     // goBILDA 3124-0001-0001 digital mode: HIGH = object within the configured threshold.
     public static final boolean FULL_SENSOR_ACTIVE_STATE = true;
 
@@ -58,15 +59,22 @@ public class TransferSubsystem {
     /**
      * Feed runs both stages regardless of the full sensor; caller must open the gate and wait its feed delay.
      * Otherwise stage 1 loads unless full or paused for aiming/gate delay; stage 2 stays stopped.
-     * A confirmed full queue remains held until feeding begins, even if the sensor clears.
+     * Stage 1 runs on for 0.5 s after full confirmation, then stops while HIGH remains confirmed.
+     * LOW clears full immediately and resumes loading unless paused.
+     * Pausing or feeding cancels the run-on; stage 2 stays off outside feeding.
      */
     public void update(boolean feedBalls, boolean pauseLoading) {
         update(System.nanoTime() * 1e-9, feedBalls, pauseLoading);
     }
 
     public void update(double now, boolean feedBalls, boolean pauseLoading) {
+        update(now, feedBalls, pauseLoading, true);
+    }
+
+    /** Optional shot sequencing: stage 2 feeds first, then stage 1 advances the next ball. */
+    public void update(double now, boolean feedBalls, boolean pauseLoading, boolean feedStage1) {
         readSensors(now);
-        updateCached(now, feedBalls, pauseLoading);
+        applyOutputs(now, feedBalls, pauseLoading, feedStage1);
     }
 
     /** Autonomous samples before evaluating commands/conditions, then applies outputs afterward. */
@@ -81,7 +89,11 @@ public class TransferSubsystem {
     }
 
     public void updateCached(double now, boolean feedBalls, boolean pauseLoading) {
-        controller.update(now, sensorState == FULL_SENSOR_ACTIVE_STATE, feedBalls, pauseLoading);
+        applyOutputs(now, feedBalls, pauseLoading, true);
+    }
+
+    private void applyOutputs(double now, boolean feedBalls, boolean pauseLoading, boolean feedStage1) {
+        controller.update(now, sensorState == FULL_SENSOR_ACTIVE_STATE, feedBalls, pauseLoading, feedStage1);
         feeding = feedBalls;
         loadingPaused = pauseLoading;
         commandedPower = controller.stage1();
@@ -122,7 +134,8 @@ public class TransferSubsystem {
         telemetry.addData("TRANSFER STATUS", "S1 %.2f | S2 %.2f | %s | sensor %s",
                 commandedPower, stage2Power,
                 feeding ? "FEEDING SHOT"
-                        : isFull() ? "FULL LATCH: waiting for feed"
+                        : isFull() && commandedPower > 0 ? "FULL: STAGE 1 RUN-ON (0.5 s)"
+                        : isFull() ? "FULL: waiting for LOW or feed"
                         : loadingPaused ? "LOADING PAUSED BY OPMODE" : "LOADING",
                 isSensorHigh() ? "HIGH" : "LOW");
     }
@@ -132,7 +145,8 @@ public class TransferSubsystem {
         telemetry.addData("Transfer Stage 2 Device", "%s | %s", HW_TRANSFER_MOTOR_2, stage2Motor.getConnectionInfo());
         telemetry.addData("Transfer current (A, 5 Hz)", "stage 1 %.2f | stage 2 %.2f",current1,current2);
         telemetry.addData("Transfer Mode", feeding ? "FEEDING SHOT"
-                : isFull() ? "FULL: HOLDING UNTIL FEED"
+                : isFull() && commandedPower > 0 ? "FULL: STAGE 1 RUN-ON (0.5 s)"
+                : isFull() ? "FULL: HOLDING WHILE HIGH"
                 : loadingPaused ? "WAITING FOR SHOT / GATE" : "AUTOMATIC LOADING");
         telemetry.addData("Transfer Full Sensor", "%s | digital %s",
                 isFull() ? "FULL" : sensorState == FULL_SENSOR_ACTIVE_STATE ? "CONFIRMING FULL" : "SPACE AVAILABLE",

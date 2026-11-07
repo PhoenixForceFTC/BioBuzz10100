@@ -25,7 +25,7 @@ public final class AutonomousOutputCoordinator {
         return lease != null && lease.containsKey(channel) && lease.get(channel).equals(generations.get(channel));
     }
     public void intake(double power) { intakePower = power; }
-    public double intakePower(boolean queueFull) { return queueFull && intakePower > 0 ? 0 : intakePower; }
+    public double intakePower(boolean queueFull) { return queueFull && intakePower > 0 ? -intakePower : intakePower; }
     public void loading(boolean enabled) { loading = enabled; }
     public boolean loading() { return loading; }
     public void aim(boolean spin) {

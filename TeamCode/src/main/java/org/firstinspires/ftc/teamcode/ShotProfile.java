@@ -39,8 +39,7 @@ public final class ShotProfile {
     }
     public static ShotProfile example() {
         // Keep unmeasured examples below the configured target ceiling as the motor baseline changes.
-        double ratio = ShooterSpeed.FLYWHEEL_REVS_PER_MOTOR_REV
-                * BareMotorSpecifications.CONFIGURED_FREE_SPEED_RPM / BareMotorSpecifications.NOMINAL_RPM;
+        double ratio = ShooterSpeed.FLYWHEEL_MAX_TARGET_RPM / BareMotorSpecifications.NOMINAL_RPM;
         return new ShotProfile("UNMEASURED", false,
                 new Row(.6096, 2, 3200 * ratio), new Row(.9144, 4.5, 3550 * ratio),
                 new Row(1.2192, 7, 3900 * ratio), new Row(1.524, 9.5, 4250 * ratio),

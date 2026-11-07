@@ -25,7 +25,7 @@ public final class ShotCalibration {
     public Sample[] samples() { return samples.toArray(new Sample[0]); }
     private final TreeMap<Double, Average> averages = new TreeMap<>();
     private final TreeMap<Double, ShotProfile.Row> rows = new TreeMap<>();
-    private double distanceInches = 24, rpm = 3200 * ShooterSpeed.FLYWHEEL_REVS_PER_MOTOR_REV, hoodDeg = 0;
+    private double distanceInches = 24, rpm = TurretSubsystem.SHOOTER_MIN_AUTO_RPM, hoodDeg = 0;
 
     public double distanceInches() { return distanceInches; }
     public double rpm() { return rpm; }

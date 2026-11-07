@@ -33,6 +33,7 @@ public class GateSubsystem {
     private final Servo servo;
     private boolean open = false;
     private final DoubleSupplier clock;
+    private final double feedDelaySeconds;
     private double openedAt;
 
     public GateSubsystem(HardwareMap hardwareMap) {
@@ -40,7 +41,19 @@ public class GateSubsystem {
     }
 
     public GateSubsystem(HardwareMap hardwareMap, DoubleSupplier clock) {
+        this(hardwareMap, clock, FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS);
+    }
+
+    /** Per-OpMode feed delay override; other callers keep the shared default. */
+    public GateSubsystem(HardwareMap hardwareMap, double feedDelaySeconds) {
+        this(hardwareMap, () -> System.nanoTime() * 1e-9, feedDelaySeconds);
+    }
+
+    public GateSubsystem(HardwareMap hardwareMap, DoubleSupplier clock, double feedDelaySeconds) {
+        if (!Double.isFinite(feedDelaySeconds) || feedDelaySeconds < 0)
+            throw new IllegalArgumentException("Invalid gate feed delay");
         this.clock = clock;
+        this.feedDelaySeconds = feedDelaySeconds;
         servo = hardwareMap.get(Servo.class, HW_GATE_SERVO);
         if (!(servo instanceof PwmControl)) {
             throw new IllegalArgumentException(HW_GATE_SERVO + " must support PwmControl to configure 500-2500 us PWM");
@@ -64,7 +77,7 @@ public class GateSubsystem {
 
     /** Gate is commanded open and its command-to-feed delay has elapsed; no position feedback. */
     public boolean isOpenForFeeding() {
-        return open && clock.getAsDouble() - openedAt >= FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS;
+        return open && clock.getAsDouble() - openedAt >= feedDelaySeconds;
     }
 
     public boolean isOpenCommanded() { return open; }
@@ -74,7 +87,7 @@ public class GateSubsystem {
         telemetry.addData("Gate PWM Range (us)", "%d - %d | %s",
                 MIN_PULSE_US, MAX_PULSE_US, SERVO_DIRECTION);
         telemetry.addData("Gate Open Travel (deg)", GATE_OPEN_TRAVEL_DEG);
-        telemetry.addData("Gate Command-to-Feed Delay (s)", FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS);
+        telemetry.addData("Gate Command-to-Feed Delay (s)", feedDelaySeconds);
         telemetry.addData("Gate Feed Allowed", isOpenForFeeding());
         telemetry.addData("Gate Target (deg)", "%.0f (%s)",
                 open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG, open ? "OPEN" : "CLOSED");

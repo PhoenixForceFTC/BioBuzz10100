@@ -18,10 +18,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
  *     <li><b>Gamepad 1 Left Trigger (Hold)</b>: Manually open gate and feed after gate travel</li>
  *     <li><b>Gamepad 2 Right Trigger (Hold)</b>: Manually open gate and feed after gate travel</li>
  *     <li><b>Gamepad 2 Left Trigger (Hold)</b>: Force gate closed and stop both transfer stages; overrides firing</li>
- *     <li><b>Gamepad 1/2 Right / Left Bumper</b>: Intake forward/reverse, overriding the automatic full-queue stop</li>
+ *     <li><b>Gamepad 1/2 Right / Left Bumper</b>: Force intake forward/reverse, overriding the sensor</li>
  *     <li><b>Flywheel</b>: Starts at 3500 output RPM after START; GP2 Y/A adjusts manual RPM, auto-aim overrides it</li>
  *     <li><b>Transfer</b>: Stage 1 loads until full while stage 2 stays off; gate-open shots run both forward</li>
- *     <li><b>Full Queue</b>: After 2 seconds HIGH, intake and transfers hold stopped until feeding</li>
+ *     <li><b>Full Queue</b>: After 0.5 seconds HIGH, intake reverses; stage 1 runs on 0.5 seconds. LOW resumes loading.</li>
  *     <li><b>Intake</b>: Automatically runs forward with space; bumpers always override direction</li>
  *     <li><b>Gamepad 2 Right Stick X</b>: Proportional clockwise turret speed, full stick = rated 6 V speed;
  *         release holds measured heading. Front=0, right/home=90, back=180, left=270 deg (265..275 excluded).</li>
@@ -77,7 +77,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
             telemetry.addLine("GP1: LS = Drive | RS-X = Turn");
             telemetry.addLine("GP1: RS Click = Deploy Depollinator | LS Click = Home Depollinator");
             telemetry.addLine("GP1/2 Intake: RB = Forward (Motor CCW) | LB = Reverse");
-            telemetry.addLine("Intake: forward with space, stop when full | Bumpers override | Both = Stop");
+            telemetry.addLine("Intake: forward on LOW, reverse on confirmed HIGH | RB forward / LB reverse | Both = Stop");
             telemetry.addLine("GP1: RT = Auto-Aim + Fire When Ready | LT = Manual Gate + Feed");
             telemetry.addLine("GP2 RS-X = Turret Yaw");
             telemetry.addLine("GP2: D-Pad Up = Lower Hood, Down = Raise Hood (0.5 deg) | Y/A = Flywheel +/-50 RPM");
@@ -118,7 +118,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
             boolean previousRpmUp = false;
             boolean previousRpmDown = false;
             double manualShooterRpm = STARTING_FLYWHEEL_RPM;
-            IntakeQueueController intakeControl = new IntakeQueueController(0.0);
+            IntakeQueueController intakeControl = new IntakeQueueController();
             boolean previousDepollinatorDeploy = false;
             boolean previousDepollinatorHome = false;
 

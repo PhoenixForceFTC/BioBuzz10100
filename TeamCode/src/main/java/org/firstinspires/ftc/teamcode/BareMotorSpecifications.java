@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
-/** Shared team baseline for the nominal 6000 RPM bare motors; verify each motor under load. */
+/** Drivetrain bare-motor baseline and shared encoder units; shooter speed is configured in ShooterSpeed. */
 public final class BareMotorSpecifications {
     private BareMotorSpecifications() { }
     public static final double NOMINAL_RPM = 6000.0;

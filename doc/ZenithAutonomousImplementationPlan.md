@@ -21,7 +21,7 @@ The inventory was read from HEAD `d020024b94b14b5e756861d6fc297319705688ad` plus
 | Commands | Eight: `intakeOn`, `intakeOff`, `loadOn`, `loadOff`, `aim`, `shoot`, `collectPollen`, `stopAll`. |
 | Conditions | Four: `queueFull`, `pollenVisible`, `localizationReady`, `turretHomed`. |
 | Missing mechanism | `BioBuzzRobot` does not initialize/register the depollinator. Independent yaw, hood, flywheel, reverse-intake, gate and explicit manual-feed actions are missing from the registry. |
-| State coordination | Persistent aiming can overwrite later manual setpoints. Current `stopAll` calls terminal turret shutdown, which invalidates homing. Transfer hard stops reset the confirmed-full latch. These behaviors must be handled deliberately before exposing more controls. |
+| State coordination | Persistent aiming can overwrite later manual setpoints. Current `stopAll` calls terminal turret shutdown, which invalidates homing. Transfer hard stops reset full confirmation; LOW clears full immediately. These behaviors must be handled deliberately before exposing more controls. |
 | Source organization | `autos/` has robot/field/waypoint metadata and no match routine files. The pollen routine is maintained directly in APK assets, outside the UI project's routine directory. |
 | Generation | Pinned Zenith generates a stub for each source auto and assigns group `Generated`. Moving pollen into `autos/` without a generation policy would create a second entry point using the default full robot. |
 | Calibration | Pedro tuning is unverified; robot dimensions/dynamics include labeled examples. Pollen and shooting calibration requirements remain active. |
@@ -63,11 +63,11 @@ The following are proposed public contracts, not already registered commands. Pr
 | Robot function | UI representation / proposed action | Required behavior and completion |
 | --- | --- | --- |
 | Intake forward/off | Keep `intakeOn` / `intakeOff` | Existing names continue to work. Forward operation respects the confirmed-full policy. |
-| Intake reverse and variable power | `intakeReverse`; `intakeSet(power)` | Validate finite power in [-1, 1]. Confirmed full blocks forward loading, not a deliberate reverse request. Define these as latched setpoints. Requires `intake`. |
+| Intake reverse and variable power | `intakeReverse`; `intakeSet(power)` | Validate finite power in [-1, 1]. Confirmed HIGH reverses positive loading; LOW restores forward. Explicit reverse remains allowed. Define these as latched setpoints. Requires `intake`. |
 | Timed intake/ejection | `intakeRun(power, seconds)` | Run for a bounded duration, stop on interruption/completion, and make cleanup unable to overwrite a replacement owner. |
 | Automatic stage-1 loading | Keep `loadOn` / `loadOff` | Stage 1 loads while space exists; stage 2 stays off. Pausing/resuming preserves confirmed-full information. Requires `transfer`. |
 | Stop transfer while preserving queue knowledge | `transferStop` | Stop both outputs and clear feed requests without treating the queue as empty. Reserve full controller resets for an intentional lifecycle/reset operation. |
-| Coordinated collection until full | `loadUntilFull(seconds)` | Own intake/transfer, end on confirmed full or timeout, then stop loading. Readiness/full confirmation still uses the existing two-second HIGH policy. |
+| Coordinated collection until full | `loadUntilFull(seconds)` | Own intake/transfer, end on confirmed full or timeout, then stop loading. Readiness/full confirmation still uses the existing 0.5-second HIGH policy. |
 | Readiness-gated two-stage feeding | `shoot` / `shootPreset`, described below | Gate delay precedes both feed motors; full does not block feeding. Requires `gate` and `transfer`, plus the shot resources. |
 | Existing explicit manual feed override | `feedManual(seconds)` | The UI description states that shot readiness is bypassed. Preserve gate delay and feed-inhibit priority, bound duration, stop both stages and close gate on end. Never infer piece count. Can be tested with gate/transfer hardware alone. |
 | Open gate without feeding | `gateOpen(seconds)` | Bounded open command; transfers remain stopped. Close at end/interruption. It does not grant permission to feed. A latched feed inhibit wins. |
@@ -87,7 +87,7 @@ The following are proposed public contracts, not already registered commands. Pr
 | Wait for yaw | `waitTurretReady(timeoutSeconds)` | Use cached homing/error information and declared tolerance. Distinguish a mechanism-settle wait from the automatic-shot angle predicate. |
 | Hood setpoint and adjustment | `hoodSet(travelDeg)` / `hoodAdjust(deltaDeg)` | Current travel is [0, 30] degrees down from home; geometric launch elevation is +15 minus travel. Keep those quantities distinct. Requires `hood`. |
 | Hood home and estimated tracking wait | `hoodHome`; `waitHoodReady(timeoutSeconds)` | Preserve existing home offset, 2:1 linkage and estimated tracking model. Label completion as estimated because there is no position sensor. |
-| Independent flywheel RPM | `flywheelSetRpm(rpm)` | Output-shaft RPM; use the configured cap (currently 3700). Normal spin is [0, cap]. Manual RPM mode must not be overwritten by persistent automatic aiming. Requires `flywheel`. |
+| Independent flywheel RPM | `flywheelSetRpm(rpm)` | Output-shaft RPM; use the configured cap (currently 6000). Normal spin is [0, cap]. Manual RPM mode must not be overwritten by persistent automatic aiming. Requires `flywheel`. |
 | Pre-spin and wait for speed | `flywheelSpinUp(rpm, timeoutSeconds)` | Set RPM, wait for cached speed qualification, and never feed. Define success/timeout and end behavior explicitly; natural success retains the requested RPM for the following shot, interruption stops it. |
 | Stop flywheel independently | `flywheelStop` | Immediately inhibit feed and latch flywheel OFF while permitting separately requested yaw/hood tracking. A later background aim update must not restart it. |
 | Select alliance/hive side | Routine alliance plus `selectTarget(side, frame)` | Use explicit AUDIENCE/FAR choice and FIELD/AUTHORED frame. Alliance comes from the selected routine/mirror, not a hidden toggle. Selecting a new target invalidates previous shot readiness. |
@@ -160,7 +160,7 @@ Acceptance: pollen appears in the editor routine list; its deployed entry remain
 1. Add explicit `FULL_ROBOT`, `POLLEN_TEST`, and existing isolated diagnostic capability definitions. Full robot includes the depollinator; pollen retains only drive/Pinpoint, intake, transfer, gate and C270. Initialize the required hardware in INIT. An unsupported command fails at INIT with its command/step and missing capability, not a null pointer at START.
 2. Introduce the output coordinator and requirement mapping above. Keep one hardware/output owner. Snapshot sensor data once, preserve the existing native follower/scheduler lifecycle, and apply resolved mechanism requests once per loop. Avoid a new general-purpose scheduler.
 3. Separate an in-routine all-output stop from terminal turret/camera shutdown. Keep a valid home/reference across stop-and-resume actions. Define terminal cleanup for partial INIT failure and exceptions, including camera cleanup after motors stop.
-4. Preserve the transfer full latch across loading pause, shoot completion, gate close and timed-action cleanup. Only feeding and explicitly defined lifecycle/reset behavior release/reset the relevant state.
+4. Preserve HIGH confirmation across output-only pauses; LOW must immediately clear full and resume requested loading. A fresh continuous 0.5-second HIGH confirms full again. Feeding and pauses cancel stage-1 run-on.
 5. Use one robot-clock contract for command waits and gate/feed/confirmation timing used in autonomous tests. Add narrow optional clock injection where required, retaining default real-time constructors/TeleOp behavior. Do not mix a stepped command clock with wall-clock mechanism delays and call the result deterministic.
 
 Acceptance: replacement/manual commands are not overwritten by automatic aiming; stop-all can be followed by a valid new action; STOP/deadline/pose loss always removes outputs; profile tests prove no unrelated hardware lookup and no active-loop hardware initialization.
@@ -169,7 +169,7 @@ Acceptance: replacement/manual commands are not overwritten by automatic aiming;
 
 Implement the material-handling rows, metadata and conditions. Reuse existing loading/feed controllers. Add truthful getters/snapshots for raw/confirmed full state and commanded depollinator posture as needed. Preserve the existing mechanical bounds and test OpModes.
 
-Acceptance: UI-authored actions demonstrate forward/reverse/stop, full stop with intentional reverse, pause/resume without losing the full latch, manual feed with gate delay, inhibit priority, gate-only open/close, deploy/home, and interruption in every timed operation. Mechanisms can run alongside a path when resources do not overlap.
+Acceptance: UI-authored actions demonstrate forward/reverse/stop, confirmed-HIGH reversal, immediate LOW recovery, pause/resume with live sensor confirmation, manual feed with gate delay, inhibit priority, gate-only open/close, deploy/home, and interruption in every timed operation. Mechanisms can run alongside a path when resources do not overlap.
 
 ### Phase 4 — turret, hood, flywheel and shooting commands
 
@@ -194,7 +194,7 @@ Extend existing JUnit 4 tests and add focused command/coordinator/deployment tes
 | --- | --- |
 | Registry and arguments | Every matrix action and condition mapped; defaults/aliases; NaN/infinity/out-of-range arguments; unknown profiles/commands/presets; unsupported hardware rejected during INIT; Java/robot metadata requirements agree. |
 | Ownership | Background aim versus manual yaw/hood/RPM, flywheel stop versus aim, feed inhibit versus all feed modes, command replacement and marker conflicts, unrelated actions in parallel, cleanup exactly once, persistent modes after instant steps. |
-| Material handling | Two-second confirmation boundaries, sensor chatter, confirmed full latch, forward block/reverse request, loading pause, feed release, gate delay, cancellation, commanded/estimated depollinator posture and footprint declaration. |
+| Material handling | 0.5-second confirmation and run-on boundaries, LOW recovery, confirmed-HIGH reversal, loading pause, feed release, gate delay, cancellation, commanded/estimated depollinator posture and footprint declaration. |
 | Turret/shooting | Home/stall/timeout/fault, reference invalidation, bounds/signs/heading wrap, estimated hood tracking, output RPM conversion/cap, pre-spin and recovery, fixed versus auto ownership, unavailable calibration, target switch, explicit manual override. |
 | Pedro/runtime | Actual hold/path-speed behavior and numerical guard; one Pinpoint read/follower update; short turns, curves/heading modes, endpoint/distance markers, all/race/deadline, bounded waits/branches, deferred starts, both alliances/mirrors including named pose/target arguments and literal versus authored hive side, STOP before START and during each action. |
 | Fault/deadline | Pose loss/staleness, camera loss, failed initialization, exceptions during execute/end/shutdown, global deadline, safe park/stop branches, preserved original error plus attempted cleanup of all outputs. |
