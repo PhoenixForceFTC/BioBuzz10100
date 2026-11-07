@@ -1,0 +1,118 @@
+package org.firstinspires.ftc.teamcode.pedro;
+
+// If an import is red, click it and press Alt+Enter so Android Studio finds the
+// right package for your exact Pedro 3.x version. Packages moved between 2.x and 3.x.
+import com.pedropathing.algorithm.Foresight;
+import com.pedropathing.algorithm.ForesightConfig;
+import com.pedropathing.controllers.Controller;
+import com.pedropathing.math.Matrix;
+import com.pedropathing.math.Vector2D;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.revhub.drivetrains.Mecanum;
+import com.pedropathing.revhub.drivetrains.MecanumConfig;
+import com.pedropathing.revhub.localizers.PinpointConfig;
+import com.pedropathing.revhub.localizers.PinpointLocalizer;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
+/**
+ * Pedro Pathing 3.x constants (mecanum drive + goBILDA Pinpoint + Foresight).
+ * GENERIC / UNTUNED TEMPLATE.
+ *
+ * Pedro 3 has THREE parts that you hand to the Follower:
+ *   1. Drivetrain  - how the wheels are driven       (MecanumConfig)
+ *   2. Localizer   - how the robot knows where it is  (PinpointConfig)
+ *   3. Algorithm   - how it follows paths             (Foresight + ForesightConfig)
+ *
+ * KEEP THE FIELD NAMES drivetrainConfig, localizerConfig and foresightConfig.
+ * The Quickstart's Tuning.java refers to them by these names.
+ *
+ * Tags used below:
+ *   [MEASURE] you measure or choose it for your robot
+ *   [TUNER]   a tuner in Tuning.java gives you the value
+ *
+ * Tune in this order: Mecanum -> Pinpoint -> Foresight -> Tests.
+ *
+ * NOTE: foresightConfig is intentionally empty. Do NOT run paths until you have
+ * run the Foresight tuner and pasted in what it reports.
+ */
+public class Constants {
+
+    public static Mecanum drivetrain;
+
+
+    // =====================================================================
+    // 1. DRIVETRAIN CONFIG (Mecanum)
+    // =====================================================================
+    public static MecanumConfig drivetrainConfig = new MecanumConfig(cfg -> {
+
+        // [MEASURE] Motor names. Must match your Driver Station robot
+        // configuration exactly, including capitalization.
+        cfg.frontLeftName.set("leftfront");
+        cfg.frontRightName.set("rightfront");
+        cfg.backLeftName.set("leftback");
+        cfg.backRightName.set("rightback");
+
+        // [MEASURE] Motor directions. Typical mecanum: reverse the left side.
+        // Flip any that drive the wrong way. The Mecanum tuner checks this too.
+        cfg.frontLeftDirection.set(DcMotorSimple.Direction.REVERSE);
+        cfg.backLeftDirection.set(DcMotorSimple.Direction.REVERSE);
+        cfg.frontRightDirection.set(DcMotorSimple.Direction.FORWARD);
+        cfg.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
+    });
+
+
+    // =====================================================================
+    // 2. LOCALIZER CONFIG (goBILDA Pinpoint)
+    // =====================================================================
+    public static PinpointConfig localizerConfig = new PinpointConfig(c -> {
+        // [MEASURE] Must match the device name in your robot configuration.
+        c.name.set("pinpoint");
+
+        // [MEASURE] Which odometry pods you use.
+        c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+
+        // [MEASURE] Pod offsets from the robot's center of rotation, in the
+        // offset unit set below. See the goBILDA Pinpoint docs for sign
+        // conventions. The Pinpoint tuner can help verify these.
+        c.xPodOffset.set(0.0);
+        c.yPodOffset.set(0.0);
+
+        // [MEASURE] Flip a direction if that pod's reading goes the wrong way
+        // when you push the robot forward / left.
+        c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
+
+        c.globalDistanceUnit.set(DistanceUnit.INCH);
+        c.offsetUnits.set(DistanceUnit.INCH);
+    });
+
+
+    // =====================================================================
+    // 3. ALGORITHM CONFIG (Foresight)
+    // =====================================================================
+    // [TUNER] Intentionally empty. Run the Foresight tuner, then paste the
+    // values it prints inside the lambda below, using the same field names.
+    public static ForesightConfig foresightConfig = new ForesightConfig(
+            c -> {
+            }
+    );
+
+
+    // =====================================================================
+    // 4. BUILD THE FOLLOWER
+    // =====================================================================
+    // Call Constants.create(hardwareMap) from your OpModes.
+    public static Follower create(HardwareMap h) {
+        drivetrain = new Mecanum(h, drivetrainConfig);                           // how wheels are driven
+        PinpointLocalizer localizer = new PinpointLocalizer(h, localizerConfig); // where the robot is
+        Foresight algorithm = new Foresight(foresightConfig);                    // how paths are followed
+
+        // Argument order: localizer, drivetrain, algorithm. If this line is red,
+        // hover over it to see the exact constructor signature and reorder.
+        return new Follower(localizer, drivetrain, algorithm);
+    }
+}
