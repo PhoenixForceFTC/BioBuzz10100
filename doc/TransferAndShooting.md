@@ -1,12 +1,12 @@
 # Transfer loading and shooting sequence
 
-Stage 1 keeps its existing intake/loading behavior. Stage 2 stays at zero power
-while collecting, lifting balls into the queue, confirming full, aiming, opening
-the gate, and recovering. It runs only forward during gate-open shot feeding.
-There is no reverse-loading command or gate-closed stage-2 diagnostic bypass.
+November 4 software integration: [final TeleOp audit](TeleOpConsistencyChecklist.md) records shared intake jam recovery, collection while aiming, GP2 auto offsets, independent status lights and the retained current controls. Bench tuning/interlocks remain explicitly documented diagnostic policies.
 
-The table below describes the shared competition, autonomous, calibration and
-transfer-only defaults. **Test: Intake + Index + Shooter** has an explicitly
+Ordinary loading uses stage 1 only; stage 2 stays off. Competition shooting adds the explicit closed-gate recovery feed described below.
+
+The table below describes the shared autonomous, calibration and transfer-only
+defaults. Competition selects continuous/staggered as described below.
+**Test: Intake + Index + Shooter** has an explicitly
 requested bench-only sequence: stage 2 starts 0.10 s after opening, stage 1 starts
 at the midpoint (0.25 s by default), and the gate closes after a 0.40 s stage-2
 feed (0.50 s total gate-open command). Its continuous mode immediately opens the
@@ -37,20 +37,25 @@ required readiness, or STOP may end a cycle early. After shooting, ordinary
 stage-1 loading resumes according to the OpMode's existing controls; stage 2
 remains off.
 
-Competition manual override (GP1 LT or GP2 RT) keeps its hold-to-feed behavior:
-the gate first gets the same 0.20-second command-to-feed delay, then both stages feed
-continuously while held. GP2 LT closes the gate and stops both transfers with
-priority. Manual override bypasses shot readiness. The gate-only test also stays
-open while its trigger is held and does not initialize transfer motors.
+Both final Red/Blue TeleOps start CONTINUOUS: once a feed is authorized, the gate-open command and both full-power transfer commands occur together, without a gate delay. Automatic readiness and GP2 LT inhibit still apply; manual feed bypasses readiness. STAGGERED opens the gate, starts both stages together at 0.10 s, and closes the gate after a 0.30 s stage-2 feed (0.40 s total open window). Both transfers keep running while the gate is closed through the 0.10 s recovery and any subsequent readiness wait. At the next opening both transfers stop, then repeat the shared 0.10 s delay. Release, inhibit, invalid automatic solution, tracking loss or STOP cancels transfer feeding; tracking-loss recovery does not continue closed-gate feed. Mode changes reset the sequence. Autonomous and diagnostic defaults are unchanged. The gate-only test stays open while its trigger is held and does not initialize transfer motors.
+
+In both final competition TeleOps, RB on either gamepad also forces intake and
+stage-1 loading forward past the full sensor. LB reverses only the intake and
+pauses stage-1 loading; opposing bumpers stop collection. Release restores
+automatic loading. These collection overrides leave gate commands and stage-2
+behavior unchanged; shooting requests, gate/recovery pauses and GP2 LT retain their
+existing transfer priority. Autonomous and bench control mappings are unchanged.
 
 ## Shared settings and affected OpModes
 
-- `GateSubsystem.FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS` owns the command-to-feed delay;
+- `GateSubsystem.FEED_DELAY_AFTER_OPEN_COMMAND_SECONDS` owns the diagnostic/autonomous command-to-feed delay;
   `ShootingConfiguration.GATE_TO_FEED_DELAY_SECONDS` uses that same value.
-- `ShootingConfiguration.FEED_WINDOW_SECONDS` owns the two-stage feed duration.
+- `ShootingConfiguration.FEED_WINDOW_SECONDS` owns the diagnostic/autonomous feed duration.
   Recovery and readiness remain 0.35 s and 0.15 s.
-- Both alliance competition TeleOps, both match-autonomous adapters and guided
-  shot calibration use the shared settings. The combined intake/index/shooter
+- Both alliance competition TeleOps use `CompetitionFeedController` for mode
+  selection and simultaneous stage starts, with competition-only 0.10 s gate and 0.30 s feed settings.
+  Both match-autonomous adapters and guided shot calibration retain their existing
+  shared settings and policies. The combined intake/index/shooter
   test uses the bench-only overrides described above.
   Calibration requests one attempt; the other timed shooting controls repeat
   while requested. Autonomous scoring remains bounded by the route's scoring
@@ -72,6 +77,8 @@ gate arrival has no position feedback.
 estimate; it does not stop the motors. `RELEASE_TIMING_MEASURED` remains false.
 Confirm ball clearance, exit timing and flywheel recovery on the robot before
 declaring release timing measured. Timed attempts do not count launched balls.
+
+The gate servo is wired directly to Expansion Hub servo port 3, bypassing the 6 V power injector. It receives immediate full-position targets without software ramping for maximum available speed. The 0.043 s/60-degree rating at 6 V is catalog reference only; actual direct-hub loaded speed is unmeasured.
 
 ## Desktop verification
 

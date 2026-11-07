@@ -159,4 +159,28 @@ public class GoalObservationTest {
         assertFalse(o.raised(2.17));
     }
 
+    @Test public void telemetryStateReadPreservesSpecificRejectedPoseBeforeFirstAcceptance() {
+        GoalStateObserver o=observer(30);
+        TagObservation backward=new TagObservation(30,.186,-.015,1.113,0,0,0,.007);
+        o.update(1.01,1,1,Collections.singletonList(backward),true);
+        assertEquals(GoalStateObserver.State.UNKNOWN,o.state(1.01));
+        assertTrue(o.reason(),o.reason().contains("Tag 30: Facing check failed"));
+        assertEquals(Double.POSITIVE_INFINITY,o.age(1.01),0);
+        assertEquals(GoalStateObserver.State.UNKNOWN,o.state(1.02));
+        assertTrue(o.reason(),o.reason().contains("Facing check failed"));
+    }
+
+    @Test public void rejectedFreshPoseReasonSurvivesAnOldAcceptedCapture() {
+        GoalStateObserver o=observer(30); qualify(o,30,1,1.25);
+        assertTrue(o.raised(1.16));
+        TagObservation invalid=new TagObservation(30,0,0,2,Double.NaN,0,0,1);
+        o.update(2.01,2,2,Collections.singletonList(invalid),true);
+        assertEquals(GoalStateObserver.State.UNKNOWN,o.state(2.01));
+        assertTrue(o.reason(),o.reason().contains("Non-finite"));
+        qualify(o,30,3,1.25);
+        assertTrue(o.reason(),o.raised(3.16));
+        assertFalse(o.raised(3.4));
+        assertEquals("Selected cell lost / stale",o.reason());
+    }
+
 }

@@ -23,15 +23,14 @@ public class GoalStateTestOpMode extends LinearOpMode {
                 previousLeft = gamepad1.dpad_left; previousRight = gamepad1.dpad_right;
                 observer.select(alliance,side); camera.update();
                 double now = System.nanoTime()*1e-9;
-                LimelightObservation frame = new LimelightObservation(now,System.currentTimeMillis(),camera.getResult());
+                LimelightObservation frame = camera.getObservation();
                 observer.update(now,frame.frame,frame.captureTime,frame.tags,ShootingConfiguration.LEVEL_CHASSIS_ASSUMED);
                 telemetry.addData("Selected cell", "%s / %s",alliance,side);
                 telemetry.addData("Observed goal state",observer.state(now));
                 telemetry.addData("Height / tag plane (m, deg)", "%.3f | %.1f",observer.heightMeters(),observer.planeDegrees());
-                telemetry.addData("Capture age (s)",observer.age(now));
+                telemetry.addData("Goal classification pose age (s)","%.3f",observer.age(now));
                 telemetry.addData("Decision",observer.reason());
-                for (TagObservation tag : frame.tags) telemetry.addData("Metric tag " + tag.id,
-                        "right %.3f down %.3f forward %.3f m | area %.3f%% | usable %s",tag.x,tag.y,tag.z,tag.area,tag.usable());
+                LimelightDiagnostics.addTelemetry(telemetry,frame,now);
                 telemetry.addLine("B/X Red/Blue | Dpad L/R Audience/Far | Assumes LEVEL chassis; tolerances UNVALIDATED");
                 telemetry.addLine("Camera requirements UNVERIFIED: 36h11, 82.55 mm individual tags, Full 3D enabled.");
                 loop.addTelemetry(telemetry); telemetry.update(); idle();

@@ -47,7 +47,7 @@ class HumanReviewSimTest {
             assertEquals(ticks, replayEnvironment.size(), "Missing environment frames");
         }
         BioBuzzSimHardware h = BioBuzzSimHardware.forOpMode(opMode);
-        if (profile.startsWith("raised-audience") && h.camera != null) h.withCamera(BioBuzzSimHardware.raisedAudienceTags(), profile.equals("raised-audience-normalized"));
+        if (profile.startsWith("raised-audience") && h.camera != null) h.withCamera(BioBuzzSimHardware.raisedAudienceTags(), !profile.equals("raised-audience-inverted"));
         else assertEquals("no-tags", profile, "Raised-audience needs a camera-equipped OpMode");
         final KeyboardWindow window = recorded == null && !smoke ? KeyboardWindow.open("BioBuzz: " + opMode,
                 Arrays.asList("WASD drive | JL turn | Z/C triggers | Q/E bumpers | 1/2/3/4 A/B/X/Y",
@@ -87,8 +87,8 @@ class HumanReviewSimTest {
                     });
             holder[0] = s;
             if (profile.startsWith("raised-audience")) {
-                s.model.drive.setPose(opMode.startsWith("Blue") ? 12.75 : -12.75, -60, Math.PI);
-                h.pinpoint.attachChassisAt(s.model.drive.getX()*25.4, -60*25.4, Math.PI);
+                s.model.drive.setPose(opMode.startsWith("Blue") ? 12.75 : -12.75, BioBuzzSimHardware.RAISED_TAG_VIEW_Y_INCHES, Math.PI);
+                h.pinpoint.attachChassisAt(s.model.drive.getX()*25.4, BioBuzzSimHardware.RAISED_TAG_VIEW_Y_INCHES*25.4, Math.PI);
             }
             RealTimePacer pacer = new RealTimePacer();
             s.observer = v -> {

@@ -32,11 +32,11 @@
   "kinematics": {
     "maxForwardVelInPerS": {
       "value": 40,
-      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      "provenance": "UNMEASURED EXAMPLE: measure loaded speed on goBILDA 5000 bare motors, 20:80 gears + coaxial 30:91 belt (12.133333 motor rev/wheel rev), 104-mm goBILDA 30A mecanums; see doc/Drivetrain.md. Not derived from no-load wheel RPM."
     },
     "maxStrafeVelInPerS": {
       "value": 35,
-      "provenance": "UNMEASURED EXAMPLE: replace after Pedro tuning on BioBuzz 10100"
+      "provenance": "UNMEASURED EXAMPLE: measure loaded strafe speed on the 20:80 gear + 30:91 belt drivetrain with 104-mm goBILDA 30A mecanums; see doc/Drivetrain.md."
     },
     "forwardDecelInPerS2": {
       "value": 40,

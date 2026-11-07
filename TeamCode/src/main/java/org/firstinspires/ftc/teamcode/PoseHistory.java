@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
 import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.List;
 import java.util.Deque;
 import org.firstinspires.ftc.teamcode.RobotMath.Vec;
 
@@ -12,6 +14,28 @@ public final class PoseHistory {
     public static final double ACQUISITION_POSITION_TOLERANCE_METERS = .15;
     public static final double ACQUISITION_HEADING_TOLERANCE_RAD = Math.toRadians(8);
     public static final double TAG_PLANE_TOLERANCE_DEG = 10;
+    /** Fraction of each accepted multi-tag frame applied to position and heading. */
+    public static final double CORRECTION_GAIN = .35;
+    /** A later frame may nudge heading by at most this much error; larger disagreement is rejected. */
+    public static final double MAX_HEADING_CORRECTION_RAD = Math.toRadians(8);
+    /** Tags within one frame must agree this closely on robot heading and position. */
+    public static final double FRAME_HEADING_AGREEMENT_RAD = Math.toRadians(8), FRAME_POSITION_AGREEMENT_METERS = .10;
+    /**
+     * A rotating camera turns capture-latency error into a pose error. Fuse only frames whose turret
+     * and chassis rotation stayed below this rate (plus encoder noise) around capture and since.
+     */
+    public static final double MAX_FUSION_TURN_RADIANS_PER_SECOND = Math.toRadians(20);
+    public static final double FUSION_SETTLE_SECONDS = .10, FUSION_ANGLE_NOISE_RADIANS = Math.toRadians(.5);
+    /**
+     * Drift-only relocalization after acquisition: Pinpoint owns the pose. The camera compares the last
+     * DRIFT_FRAMES settled multi-tag frames (within DRIFT_WINDOW_SECONDS) against odometry and changes the
+     * pose only when their consistent average disagrees by more than the deadband; that correction is
+     * blended in over DRIFT_BLEND_SECONDS so the turret does not snap.
+     */
+    public static final int DRIFT_FRAMES = 5;
+    public static final double DRIFT_WINDOW_SECONDS = 1.0, DRIFT_BLEND_SECONDS = .4;
+    public static final double DRIFT_POSITION_DEADBAND_METERS = .04, DRIFT_HEADING_DEADBAND_RAD = Math.toRadians(1.5);
+    public static final double DRIFT_FRAME_AGREEMENT_METERS = .04, DRIFT_FRAME_AGREEMENT_RAD = Math.toRadians(1.5);
     public static final class Entry {
         public final MotionSample pose;
         public final double turretYaw;
@@ -20,20 +44,25 @@ public final class PoseHistory {
     private final Deque<Entry> history = new ArrayDeque<>();
     private double correctionX, correctionY, lastFrame = Double.NEGATIVE_INFINITY;
     private double correctionYaw, candidateX, candidateY, candidateYaw, candidateTime;
+    private double candidateSumX, candidateSumY, candidateSumSin, candidateSumCos, candidateLocalX, candidateLocalY;
     private int candidateFrames;
     private boolean visionFieldReference;
     private double lastObservation = Double.NEGATIVE_INFINITY;
+    /** Settled camera-minus-odometry samples: {capture, headingError, dx, dy, pivotX, pivotY}. */
+    private final Deque<double[]> driftFrames = new ArrayDeque<>();
+    private double blendYaw, blendX, blendY, blendPivotX, blendPivotY, blendRemaining, blendTime;
     private double acceptedUncertainty = Double.NaN;
     private String reason = "No target observation";
     public void reset() {
         history.clear(); acceptedUncertainty = Double.NaN; correctionX = correctionY = 0; lastFrame = lastObservation = Double.NEGATIVE_INFINITY;
         correctionYaw = 0; visionFieldReference = false; candidateFrames = 0;
+        driftFrames.clear(); blendRemaining = 0;
         reason = "Reference / target changed";
     }
     /** A new target or encoder home does not change the established local-to-field transform. */
     public void invalidateObservation(boolean clearHistory) {
         if (clearHistory) history.clear();
-        candidateFrames = 0;
+        candidateFrames = 0; driftFrames.clear();
         lastFrame = lastObservation = Double.NEGATIVE_INFINITY;
         if (!visionFieldReference) acceptedUncertainty = Double.NaN;
         reason = "Target / turret reference changed";
@@ -43,6 +72,7 @@ public final class PoseHistory {
         if (!history.isEmpty() && sample.referenceId != history.getLast().pose.referenceId) reset();
         if (!history.isEmpty() && sample.time <= history.getLast().pose.time) return;
         history.addLast(new Entry(sample, turretYaw));
+        applyBlend(sample.time);
         while (history.size() > 2 && (sample.time - history.getFirst().pose.time > HISTORY_SECONDS || history.size() > 256)) history.removeFirst();
     }
     public Entry at(double time) {
@@ -79,43 +109,159 @@ public final class PoseHistory {
         double uncertainty = Double.isFinite(acceptedUncertainty) ? acceptedUncertainty : p.uncertainty;
         return corrected(p, uncertainty);
     }
-    /** Bootstrap both position and heading from a raised tag's outward normal, not a local IMU yaw. */
+    /** Apply a validated corner/vision fusion result without changing heading or differentiating a reset. */
+    boolean refineFieldTranslation(double dx, double dy, double uncertainty, double capture) {
+        if (history.isEmpty() || !history.getLast().pose.fieldReferenced
+                || !RobotMath.finite(dx,dy,uncertainty,capture) || uncertainty <= 0
+                || Math.hypot(dx,dy) > FieldRehomeRefinement.MAX_CORRECTION_METERS) return false;
+        correctionX += dx; correctionY += dy; acceptedUncertainty = uncertainty; lastObservation = capture;
+        reason = "Corner reference refined with consistent Limelight frames";
+        return true;
+    }
+    /** Single-tag form kept for callers with one observation; see the multi-tag overload. */
     public boolean acquireFieldReference3d(double now, double frame, double capture, TagObservation tag,
                                            GoalTarget target, ShooterMount mount) {
-        if (tag == null || !tag.usable() || !RobotMath.finite(now,frame,capture) || frame <= lastFrame)
+        return acquireFieldReference3d(now,frame,capture,tag == null ? null : Collections.singletonList(tag),
+                Collections.singletonList(target),mount);
+    }
+    /**
+     * Bootstrap position and heading from every accepted raised tag in one frame. Heading comes from
+     * each tag's +X edge, which stays horizontal on the 30-deg cell (2.5x steadier than the steep
+     * outward normal on the physical 2026-11-05 frame); position and heading are averaged over tags
+     * and over the ACQUISITION_FRAMES consistent frames.
+     */
+    public boolean acquireFieldReference3d(double now, double frame, double capture, List<TagObservation> tags,
+                                           List<GoalTarget> targets, ShooterMount mount) {
+        if (tags == null || tags.isEmpty() || tags.contains(null)) return reject("Missing metric acquisition pose");
+        for (TagObservation tag : tags) {
+            String rejection = tag.rejectionReason();
+            if (rejection != null) return reject("Tag " + tag.id + ": " + rejection);
+        }
+        if (!RobotMath.finite(now,frame,capture) || frame <= lastFrame)
             return reject("Invalid / duplicate acquisition frame");
         lastFrame = frame;
         if (now < capture || now-capture > MAX_OBSERVATION_AGE_SECONDS) return rejectAcquisition("Stale acquisition frame");
         Entry e = at(capture);
-        GoalTarget.Tag known = target.tags.get(tag.id);
-        if (e == null || e.pose.fieldReferenced || !target.scoreable() || target.frame != GoalTarget.Frame.FIELD
-                || known == null || !mount.measured) return rejectAcquisition("Missing acquisition history / field map");
-        double[] level = tag.levelPosition(mount), normal = tag.rotate(0,0,1);
-        normal = TagObservation.level(normal[0],normal[1],normal[2],mount.cameraPitch);
-        if (Math.abs(mount.cameraHeight+level[2]-known.height) > .1
-                || Math.abs(tag.planeDegrees(mount)-ShootingConfiguration.HIGH_GOAL_OPENING_PLANE_DEG) > TAG_PLANE_TOLERANCE_DEG)
-            return rejectAcquisition("Tag is not in nominal raised geometry");
-        double fieldNormalYaw = target.side == TurretSubsystem.HiveSide.AUDIENCE ? -Math.PI/2 : Math.PI/2;
-        double heading = RobotMath.wrap(fieldNormalYaw-Math.atan2(normal[1],normal[0])
-                -mount.zeroYaw-e.turretYaw-mount.cameraYaw);
-        MotionSample origin = new MotionSample(capture,0,0,heading,0,0,0,0,.02,true,true,"Vision origin");
-        Vec ray = new Vec(level[0],level[1]).rotate(heading+mount.zeroYaw+e.turretYaw+mount.cameraYaw);
-        Vec position = new Vec(known.x,known.y).minus(ray).minus(mount.cameraPosition(origin,e.turretYaw));
+        if (e == null || e.pose.fieldReferenced || mapRejection(tags,targets,mount) != null)
+            return rejectAcquisition("Missing acquisition history / field map");
+        if (geometryRejection(tags,targets,mount,true) != null) return rejectAcquisition("Tag is not in nominal raised geometry");
+        String motion = fusionMotionRejection(capture);
+        if (motion != null) return rejectAcquisition(motion);
+        double[] fix = new double[4];
+        String disagreement = fuseFrame(tags,targets,e,mount,fix);
+        if (disagreement != null) return rejectAcquisition(disagreement);
+        Vec position = new Vec(fix[1],fix[2]), local = new Vec(e.pose.x,e.pose.y);
         if (Math.abs(position.x) > TeleOpFieldReference.FIELD_HALF_WIDTH_METERS
                 || Math.abs(position.y) > TeleOpFieldReference.FIELD_HALF_WIDTH_METERS)
             return rejectAcquisition("Acquired pose outside field");
-        double yaw = RobotMath.wrap(heading-e.pose.heading);
-        Vec translation = position.minus(new Vec(e.pose.x,e.pose.y).rotate(yaw));
-        if (candidateFrames == 0 || capture-candidateTime > MAX_OBSERVATION_AGE_SECONDS
-                || Math.hypot(translation.x-candidateX,translation.y-candidateY) > ACQUISITION_POSITION_TOLERANCE_METERS
-                || Math.abs(RobotMath.wrap(yaw-candidateYaw)) > ACQUISITION_HEADING_TOLERANCE_RAD) {
-            candidateFrames = 0; candidateX = translation.x; candidateY = translation.y; candidateYaw = yaw;
+        double yaw = RobotMath.wrap(fix[0]-e.pose.heading);
+        if (candidateFrames > 0 && capture-candidateTime <= MAX_OBSERVATION_AGE_SECONDS) {
+            Vec translation = position.minus(local.rotate(candidateYaw));
+            if (Math.hypot(translation.x-candidateX,translation.y-candidateY) > ACQUISITION_POSITION_TOLERANCE_METERS
+                    || Math.abs(RobotMath.wrap(yaw-candidateYaw)) > ACQUISITION_HEADING_TOLERANCE_RAD) candidateFrames = 0;
+        } else candidateFrames = 0;
+        if (candidateFrames == 0) {
+            candidateSumX = candidateSumY = candidateSumSin = candidateSumCos = 0;
+            candidateLocalX = candidateLocalY = 0;
         }
-        candidateTime = capture;
-        if (++candidateFrames < ACQUISITION_FRAMES) return reject("Acquiring field reference " + candidateFrames + "/" + ACQUISITION_FRAMES);
-        correctionYaw = yaw; correctionX = translation.x; correctionY = translation.y; visionFieldReference = true;
-        acceptRelative(capture,tag.uncertaintyMeters()); reason = "Field position / heading acquired from tag " + tag.id;
+        candidateTime = capture; candidateFrames++;
+        candidateSumSin += Math.sin(yaw); candidateSumCos += Math.cos(yaw);
+        candidateSumX += position.x; candidateSumY += position.y;
+        candidateLocalX += local.x; candidateLocalY += local.y;
+        candidateYaw = Math.atan2(candidateSumSin,candidateSumCos);
+        Vec mean = new Vec(candidateSumX/candidateFrames,candidateSumY/candidateFrames)
+                .minus(new Vec(candidateLocalX/candidateFrames,candidateLocalY/candidateFrames).rotate(candidateYaw));
+        candidateX = mean.x; candidateY = mean.y;
+        if (candidateFrames < ACQUISITION_FRAMES) return reject("Acquiring field reference " + candidateFrames + "/" + ACQUISITION_FRAMES);
+        correctionYaw = candidateYaw; correctionX = candidateX; correctionY = candidateY; visionFieldReference = true;
+        driftFrames.clear(); blendRemaining = 0;
+        acceptRelative(capture,fix[3]); reason = "Field position / heading acquired from tags " + ids(tags);
         return true;
+    }
+    /** Null when every tag has a field-map entry in its landmark target. */
+    private static String mapRejection(List<TagObservation> tags, List<GoalTarget> targets, ShooterMount mount) {
+        if (targets == null || targets.size() != tags.size() || !mount.measured) return "Missing field map";
+        for (int i = 0; i < tags.size(); i++) {
+            GoalTarget target = targets.get(i);
+            if (target == null || !target.scoreable() || target.frame != GoalTarget.Frame.FIELD
+                    || target.tags.get(tags.get(i).id) == null) return "Missing field map for tag " + tags.get(i).id;
+        }
+        return null;
+    }
+    private static String geometryRejection(List<TagObservation> tags, List<GoalTarget> targets, ShooterMount mount, boolean checkPlane) {
+        for (int i = 0; i < tags.size(); i++) {
+            TagObservation tag = tags.get(i);
+            GoalTarget.Tag known = targets.get(i).tags.get(tag.id);
+            if (Math.abs(mount.cameraHeight+tag.levelPosition(mount)[2]-known.height) > .1
+                    || checkPlane && Math.abs(tag.planeDegrees(mount)-HiveTagGeometry.RAISED_TAG_PLANE_DEG) > TAG_PLANE_TOLERANCE_DEG)
+                return "Tag " + tag.id + " is not in nominal raised geometry";
+        }
+        return null;
+    }
+    /**
+     * Null when turret yaw and chassis heading stayed steady around the capture and since it.
+     * A turning camera converts capture-latency error into a field-pose error.
+     */
+    public String fusionMotionRejection(double capture) {
+        if (history.isEmpty()) return "Missing capture-time turret / heading history";
+        Entry e = at(capture), before = at(capture-FUSION_SETTLE_SECONDS), latest = at(history.getLast().pose.time);
+        if (e == null || before == null || latest == null) return "Missing capture-time turret / heading history";
+        double settle = MAX_FUSION_TURN_RADIANS_PER_SECOND*FUSION_SETTLE_SECONDS+FUSION_ANGLE_NOISE_RADIANS;
+        double since = MAX_FUSION_TURN_RADIANS_PER_SECOND*Math.max(0,latest.pose.time-capture)+FUSION_ANGLE_NOISE_RADIANS;
+        if (Math.abs(RobotMath.wrap(e.turretYaw-before.turretYaw)) > settle
+                || Math.abs(RobotMath.wrap(latest.turretYaw-e.turretYaw)) > since)
+            return "Turret moving near camera capture; waiting for it to settle";
+        if (Math.abs(RobotMath.wrap(e.pose.heading-before.pose.heading)) > settle
+                || Math.abs(RobotMath.wrap(latest.pose.heading-e.pose.heading)) > since)
+            return "Chassis turning near camera capture; waiting for steady view";
+        return null;
+    }
+    /** Field yaw of a raised tag's +X edge: far-cell tags run along +X, audience-cell tags along -X. */
+    static double tagEdgeFieldYaw(GoalTarget target) {
+        return target.side == TurretSubsystem.HiveSide.AUDIENCE ? Math.PI : 0;
+    }
+    /** Robot heading implied by one tag's horizontal +X edge at the capture-time turret angle. */
+    static double tagHeading(TagObservation tag, GoalTarget target, Entry e, ShooterMount mount) {
+        double[] edge = tag.rotate(1,0,0);
+        edge = TagObservation.level(edge[0],edge[1],edge[2],mount.cameraPitch);
+        return RobotMath.wrap(tagEdgeFieldYaw(target)-Math.atan2(edge[1],edge[0])
+                -mount.zeroYaw-e.turretYaw-mount.cameraYaw);
+    }
+    /** Robot position implied by one tag for a given robot heading. */
+    static Vec tagPosition(TagObservation tag, GoalTarget.Tag known, double heading, Entry e, ShooterMount mount) {
+        double[] level = tag.levelPosition(mount);
+        MotionSample origin = new MotionSample(e.pose.time,0,0,heading,0,0,0,0,.02,true,true,"Vision origin");
+        Vec ray = new Vec(level[0],level[1]).rotate(heading+mount.zeroYaw+e.turretYaw+mount.cameraYaw);
+        return new Vec(known.x,known.y).minus(ray).minus(mount.cameraPosition(origin,e.turretYaw));
+    }
+    /** Averages heading, then position, over the frame's tags. out = {heading, x, y, uncertainty}. */
+    private static String fuseFrame(List<TagObservation> tags, List<GoalTarget> targets, Entry e, ShooterMount mount, double[] out) {
+        double sin = 0, cos = 0;
+        double[] headings = new double[tags.size()];
+        for (int i = 0; i < tags.size(); i++) {
+            headings[i] = tagHeading(tags.get(i),targets.get(i),e,mount);
+            sin += Math.sin(headings[i]); cos += Math.cos(headings[i]);
+        }
+        double heading = Math.atan2(sin,cos);
+        for (int i = 0; i < tags.size(); i++) if (Math.abs(RobotMath.wrap(headings[i]-heading)) > FRAME_HEADING_AGREEMENT_RAD)
+            return "Tags disagree on heading in one frame";
+        Vec[] positions = new Vec[tags.size()];
+        double x = 0, y = 0, uncertainty = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < tags.size(); i++) {
+            TagObservation tag = tags.get(i);
+            positions[i] = tagPosition(tag,targets.get(i).tags.get(tag.id),heading,e,mount);
+            x += positions[i].x; y += positions[i].y; uncertainty = Math.min(uncertainty,tag.uncertaintyMeters());
+        }
+        x /= tags.size(); y /= tags.size();
+        for (Vec position : positions) if (Math.hypot(position.x-x,position.y-y) > FRAME_POSITION_AGREEMENT_METERS)
+            return "Tags disagree on position in one frame";
+        out[0] = heading; out[1] = x; out[2] = y; out[3] = uncertainty/Math.sqrt(tags.size());
+        return null;
+    }
+    private static String ids(List<TagObservation> tags) {
+        StringBuilder b = new StringBuilder();
+        for (TagObservation tag : tags) b.append(b.length() == 0 ? "" : ", ").append(tag.id);
+        return b.toString();
     }
     private boolean rejectAcquisition(String message) { candidateFrames = 0; return reject(message); }
     /** Known tag positions are state-specific. Never consume botpose as though it were camera pose. */
@@ -136,25 +282,121 @@ public final class PoseHistory {
         Vec delta = observedCamera.minus(mount.cameraPosition(e.pose, e.turretYaw));
         if (delta.norm() > MAX_JUMP_METERS) return reject("Implausible vision position jump");
         // Correct history in a shared transform, never by differentiating a pose reset.
-        correctionX += delta.x * .35; correctionY += delta.y * .35;
+        correctionX += delta.x * CORRECTION_GAIN; correctionY += delta.y * CORRECTION_GAIN;
         acceptedUncertainty = Math.hypot(.05,delta.norm()*.65);
         lastObservation = captureTime; reason = "Accepted tag " + tagId; return true;
     }
-    /** 3D observation fusion; does not infer range from a configured tag height. */
+    /** Single-tag form kept for the diagnostic path; see the multi-tag overload. */
     public boolean observe3d(double now, double frame, double capture, TagObservation tag, GoalTarget target, ShooterMount mount) {
-        if (tag == null || !tag.usable() || !RobotMath.finite(now,frame,capture) || frame <= lastFrame) return reject("Invalid / duplicate 3D observation");
+        return observe3d(now,frame,capture,tag == null ? null : Collections.singletonList(tag),Collections.singletonList(target),mount);
+    }
+    /**
+     * Multi-tag 3D fusion after a field reference exists. Moves position and heading a fixed fraction
+     * toward the frame's averaged estimate (heading rotates about the capture-time position, so the
+     * robot does not jump). Does not infer range from a configured tag height.
+     */
+    public boolean observe3d(double now, double frame, double capture, List<TagObservation> tags,
+                             List<GoalTarget> targets, ShooterMount mount) {
+        if (tags == null || tags.isEmpty() || tags.contains(null)) return reject("Missing metric observation pose");
+        for (TagObservation tag : tags) {
+            String rejection = tag.rejectionReason();
+            if (rejection != null) return reject("Tag " + tag.id + ": " + rejection);
+        }
+        if (!RobotMath.finite(now,frame,capture) || frame <= lastFrame) return reject("Invalid / duplicate 3D observation");
         lastFrame = frame;
         if (now < capture || now-capture > MAX_OBSERVATION_AGE_SECONDS) return reject("Stale 3D observation");
         Entry e = at(capture);
-        GoalTarget.Tag known = target.tags.get(tag.id);
-        if (e == null || !e.pose.fieldReferenced || !target.scoreable() || target.frame != GoalTarget.Frame.FIELD || known == null || !mount.measured) return reject("Missing field map / capture reference");
-        double[] level = tag.levelPosition(mount);
-        Vec ray = new Vec(level[0],level[1]).rotate(e.pose.heading+mount.zeroYaw+e.turretYaw+mount.cameraYaw);
-        Vec delta = new Vec(known.x,known.y).minus(ray).minus(mount.cameraPosition(e.pose,e.turretYaw));
-        if (delta.norm() > MAX_JUMP_METERS || Math.abs(mount.cameraHeight+level[2]-known.height) > .1) return reject("Implausible 3D field correction");
-        correctionX += delta.x*.35; correctionY += delta.y*.35;
-        acceptRelative(capture,Math.hypot(tag.uncertaintyMeters(),delta.norm()*.65)); reason = "Accepted metric tag " + tag.id;
+        if (e == null || !e.pose.fieldReferenced || mapRejection(tags,targets,mount) != null) return reject("Missing field map / capture reference");
+        if (geometryRejection(tags,targets,mount,false) != null) return reject("Implausible 3D field correction");
+        String motion = fusionMotionRejection(capture);
+        if (motion != null) return reject(motion);
+        double[] fix = new double[4];
+        String disagreement = fuseFrame(tags,targets,e,mount,fix);
+        if (disagreement != null) return reject(disagreement);
+        double headingError = RobotMath.wrap(fix[0]-e.pose.heading);
+        if (Math.abs(headingError) > MAX_HEADING_CORRECTION_RAD)
+            return reject(String.format(java.util.Locale.US,"Vision heading differs by %.1f deg; correction rejected",Math.toDegrees(headingError)));
+        Vec capturePosition = new Vec(e.pose.x,e.pose.y);
+        Vec delta = new Vec(fix[1],fix[2]).minus(capturePosition);
+        if (delta.norm() > MAX_JUMP_METERS) return reject("Implausible 3D field correction");
+        double turn = headingError*CORRECTION_GAIN;
+        Vec rotated = new Vec(correctionX,correctionY).minus(capturePosition).rotate(turn).plus(capturePosition);
+        correctionYaw = RobotMath.wrap(correctionYaw+turn);
+        correctionX = rotated.x+delta.x*CORRECTION_GAIN; correctionY = rotated.y+delta.y*CORRECTION_GAIN;
+        acceptRelative(capture,Math.hypot(fix[3],delta.norm()*.65)); reason = "Accepted metric tags " + ids(tags);
         return true;
+    }
+    /**
+     * Drift-only check used by TeleOp and Auto Aim once a field reference exists. Accepted frames refresh
+     * observation age; the pose changes only for consistent disagreement beyond the deadband.
+     */
+    public boolean checkDrift3d(double now, double frame, double capture, List<TagObservation> tags,
+                                List<GoalTarget> targets, ShooterMount mount) {
+        if (tags == null || tags.isEmpty() || tags.contains(null)) return reject("Missing metric observation pose");
+        for (TagObservation tag : tags) {
+            String rejection = tag.rejectionReason();
+            if (rejection != null) return reject("Tag " + tag.id + ": " + rejection);
+        }
+        if (!RobotMath.finite(now,frame,capture) || frame <= lastFrame) return reject("Invalid / duplicate 3D observation");
+        lastFrame = frame;
+        if (now < capture || now-capture > MAX_OBSERVATION_AGE_SECONDS) return reject("Stale 3D observation");
+        if (blendRemaining > 0) return reject("Applying odometry drift correction");
+        Entry e = at(capture);
+        if (e == null || !e.pose.fieldReferenced || mapRejection(tags,targets,mount) != null) return reject("Missing field map / capture reference");
+        if (geometryRejection(tags,targets,mount,false) != null) return reject("Implausible 3D field correction");
+        String motion = fusionMotionRejection(capture);
+        if (motion != null) return reject(motion);
+        double[] fix = new double[4];
+        String disagreement = fuseFrame(tags,targets,e,mount,fix);
+        if (disagreement != null) return reject(disagreement);
+        double headingError = RobotMath.wrap(fix[0]-e.pose.heading);
+        double dx = fix[1]-e.pose.x, dy = fix[2]-e.pose.y;
+        if (Math.hypot(dx,dy) > MAX_JUMP_METERS || Math.abs(headingError) > MAX_HEADING_CORRECTION_RAD)
+            return reject(String.format(java.util.Locale.US,"Camera disagrees with odometry by %.0f cm / %.1f deg; ignored",
+                    100*Math.hypot(dx,dy),Math.toDegrees(headingError)));
+        while (!driftFrames.isEmpty() && (capture-driftFrames.peekFirst()[0] > DRIFT_WINDOW_SECONDS || driftFrames.size() >= DRIFT_FRAMES))
+            driftFrames.removeFirst();
+        driftFrames.addLast(new double[]{capture,headingError,dx,dy,e.pose.x,e.pose.y});
+        acceptRelative(capture,fix[3]);
+        if (driftFrames.size() < DRIFT_FRAMES) {
+            reason = "Checking odometry against camera " + driftFrames.size() + "/" + DRIFT_FRAMES;
+            return true;
+        }
+        double sin = 0, cos = 0, meanX = 0, meanY = 0, pivotX = 0, pivotY = 0;
+        for (double[] d : driftFrames) {
+            sin += Math.sin(d[1]); cos += Math.cos(d[1]); meanX += d[2]; meanY += d[3]; pivotX += d[4]; pivotY += d[5];
+        }
+        int n = driftFrames.size();
+        double meanYaw = Math.atan2(sin,cos); meanX /= n; meanY /= n; pivotX /= n; pivotY /= n;
+        for (double[] d : driftFrames) if (Math.abs(RobotMath.wrap(d[1]-meanYaw)) > DRIFT_FRAME_AGREEMENT_RAD
+                || Math.hypot(d[2]-meanX,d[3]-meanY) > DRIFT_FRAME_AGREEMENT_METERS) {
+            reason = "Camera frames inconsistent; odometry kept";
+            return true;
+        }
+        String delta = String.format(java.util.Locale.US,"%.1f cm, %.1f deg",100*Math.hypot(meanX,meanY),Math.toDegrees(meanYaw));
+        if (Math.hypot(meanX,meanY) <= DRIFT_POSITION_DEADBAND_METERS && Math.abs(meanYaw) <= DRIFT_HEADING_DEADBAND_RAD) {
+            reason = "Odometry agrees with camera (" + delta + ")";
+            return true;
+        }
+        blendYaw = meanYaw; blendX = meanX; blendY = meanY; blendPivotX = pivotX; blendPivotY = pivotY;
+        blendRemaining = DRIFT_BLEND_SECONDS; blendTime = history.getLast().pose.time;
+        driftFrames.clear();
+        reason = "Odometry drift corrected (" + delta + ")";
+        return true;
+    }
+    /** Spreads a drift correction over several loops: rotate about the drift pivot, then translate. */
+    private void applyBlend(double time) {
+        if (blendRemaining <= 0 || !(time > blendTime)) return;
+        double dt = time-blendTime, fraction = Math.min(1,dt/blendRemaining);
+        double turn = blendYaw*fraction, moveX = blendX*fraction, moveY = blendY*fraction;
+        Vec pivot = new Vec(blendPivotX,blendPivotY);
+        Vec rotated = new Vec(correctionX,correctionY).minus(pivot).rotate(turn).plus(pivot);
+        correctionYaw = RobotMath.wrap(correctionYaw+turn);
+        correctionX = rotated.x+moveX; correctionY = rotated.y+moveY;
+        blendPivotX += moveX; blendPivotY += moveY;
+        blendYaw -= turn; blendX -= moveX; blendY -= moveY;
+        blendRemaining -= dt; blendTime = time;
+        if (fraction >= 1) blendRemaining = 0;
     }
     /** Target-relative measurement constrains relative aiming uncertainty, never creates a field reference. */
     public void acceptRelative(double capture, double uncertainty) {

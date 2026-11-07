@@ -4,6 +4,27 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class TransferControllerTest {
+    @Test public void forwardIntakeOverrideLoadsStage1PastFullWithoutChangingShotOrPausePriority() {
+        TransferController c = new TransferController();
+        c.update(0, true, false, false);
+        c.update(.5, true, false, false);
+        c.update(1.1, true, false, false);
+        assertTrue(c.full()); assertEquals(0, c.stage1(), 0);
+        c.update(1.2, true, false, false, true, true);
+        assertEquals(1, c.stage1(), 0); assertEquals(0, c.stage2(), 0);
+        assertTrue(c.full()); // The override must not reset sensor confirmation.
+        c.update(1.3, true, false, false, true, false);
+        assertEquals(0, c.stage1(), 0); assertEquals(0, c.stage2(), 0);
+        c.update(1.4, false, false, true, true, true); // Reverse/both, gate travel, or inhibit.
+        assertEquals(0, c.stage1(), 0); assertEquals(0, c.stage2(), 0);
+        c.update(1.5, false, true, true, true, true); // Existing gate-open feed still wins.
+        assertEquals(1, c.stage1(), 0); assertEquals(1, c.stage2(), 0);
+        c.update(1.6, false, true, true, false, true); // Sequenced feeds retain stage-1 control.
+        assertEquals(0, c.stage1(), 0); assertEquals(1, c.stage2(), 0);
+        c.update(1.7, false, false, false, true, false);
+        assertEquals(1, c.stage1(), 0); assertEquals(0, c.stage2(), 0);
+    }
+
     @Test public void teleOpStopsAtLatchedFullAndResumesAfterFeedClearsQueue() {
         IntakeQueueController intake = new IntakeQueueController();
         TransferController transfer = new TransferController();

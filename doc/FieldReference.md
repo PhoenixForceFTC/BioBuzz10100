@@ -35,7 +35,7 @@ Figures 9-16 and 9-17, printed pp.76-77, confirm the existing alliance/side mapp
 | Blue audience | 38-41 | 38, 39, 40, 41 |
 | Blue far / scoring side | 42-45 | 45, 44, 43, 42 |
 
-Figure 9-15 gives tag-center offsets from the cluster center: **-6.5, -2.75, +2.75, +6.5 in.** across the sticker (**-165.1, -69.85, +69.85, +165.1 mm**). Each sticker's IDs increase from left to right when viewed facing its printed surface. When using the team's field +X toward blue convention, audience-side IDs increase with X, while far-side IDs decrease with X. Do not give all four IDs the cluster center or the opening center.
+Figure 9-15 gives tag-center offsets from the cluster center: **-6.5, -2.75, +2.75, +6.5 in.** across the sticker (**-165.1, -69.85, +69.85, +165.1 mm**). Each sticker's IDs increase from left to right when viewed facing its printed surface. **Corrected 2026-11-05 from a physical Limelight frame:** with the team's field +X toward blue convention, far-side IDs **increase** with X and audience-side IDs **decrease** with X. The sticker's bottom edge faces field center (below), so a robot under the cell sees each sticker upside down and its IDs increase right-to-left in the camera image (red far: tag 30 camera-right of 31, 32, 33). The earlier overhead-drawing reading above produced the mirror order and made TeleOp aim beside the goal; `HiveTagGeometry.nominalRaisedTags` and `PhysicalLimelightFrameTest` now encode the physical order. Do not give all four IDs the cluster center or the opening center.
 
 Additional dimensions in Figure 9-15:
 

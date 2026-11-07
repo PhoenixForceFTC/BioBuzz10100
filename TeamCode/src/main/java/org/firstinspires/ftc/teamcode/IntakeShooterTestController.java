@@ -13,12 +13,12 @@ public final class IntakeShooterTestController {
     private double gateOpenedAt = Double.NaN;
     private boolean feedStage1;
 
-    public static final double INTAKE_JAM_MIN_VELOCITY_TICKS_PER_SECOND = 20.0;
-    public static final double INTAKE_JAM_DETECT_SECONDS = 0.20;
-    public static final double INTAKE_JAM_CLEAR_SECONDS = 0.50;
-    public static final double INTAKE_JAM_DIRECTION_SECONDS = 0.125;
-    private double previousIntakeRequest;
-    private double intakeStalledSince = Double.NaN, intakeClearingSince = Double.NaN;
+    // Compatibility aliases for the bench tuning display and existing callers.
+    public static final double INTAKE_JAM_MIN_VELOCITY_TICKS_PER_SECOND = IntakeJamRecovery.MIN_VELOCITY_TICKS_PER_SECOND;
+    public static final double INTAKE_JAM_DETECT_SECONDS = IntakeJamRecovery.DETECT_SECONDS;
+    public static final double INTAKE_JAM_CLEAR_SECONDS = IntakeJamRecovery.CLEAR_SECONDS;
+    public static final double INTAKE_JAM_DIRECTION_SECONDS = IntakeJamRecovery.DIRECTION_SECONDS;
+    private final IntakeJamRecovery intakeRecovery = new IntakeJamRecovery();
 
     public static final double BENCH_YAW_TOLERANCE_DEG = 4.0;
     /** Preserve the independently requested bench readiness tolerance. */
@@ -81,37 +81,11 @@ public final class IntakeShooterTestController {
         return loadIndex ? (full ? -1.0 : 1.0) : 0.0;
     }
 
-    /** Bench-only encoder jam recovery. Call once per loop after updating the controls. */
+    /** Call once per loop after updating controls; pass this processed power directly to the motor. */
     public double updateIntakePower(double now, boolean full, double velocityTicksPerSecond) {
-        double requestedPower = intakePower(full);
-        if (requestedPower == 0 || requestedPower != previousIntakeRequest) {
-            intakeStalledSince = intakeClearingSince = Double.NaN;
-        }
-        previousIntakeRequest = requestedPower;
-        if (requestedPower == 0) return 0;
-
-        if (isIntakeClearing()) {
-            double elapsed = now - intakeClearingSince;
-            if (elapsed < INTAKE_JAM_CLEAR_SECONDS) {
-                int phase = (int) (elapsed / INTAKE_JAM_DIRECTION_SECONDS);
-                return phase % 2 == 0 ? -requestedPower : requestedPower;
-            }
-            intakeClearingSince = Double.NaN;
-            // Give the resumed direction a fresh stall window before retrying a persistent jam.
-            intakeStalledSince = Double.NaN;
-        }
-        if (Math.abs(velocityTicksPerSecond) >= INTAKE_JAM_MIN_VELOCITY_TICKS_PER_SECOND) {
-            intakeStalledSince = Double.NaN;
-        } else {
-            if (Double.isNaN(intakeStalledSince)) intakeStalledSince = now;
-            if (now - intakeStalledSince >= INTAKE_JAM_DETECT_SECONDS) {
-                intakeClearingSince = now;
-                return -requestedPower;
-            }
-        }
-        return requestedPower;
+        return intakeRecovery.update(now, intakePower(full), velocityTicksPerSecond);
     }
 
-    public boolean isIntakeClearing() { return !Double.isNaN(intakeClearingSince); }
+    public boolean isIntakeClearing() { return intakeRecovery.isClearing(); }
     public FiringCoordinator firing() { return firing; }
 }

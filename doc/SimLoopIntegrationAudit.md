@@ -18,7 +18,7 @@ not a new commit or deployment. Original October 28 named unit-test baseline rem
 | Red/blue were never simulated | Run actual wrappers for drive/queue/feed/inhibit, early START, STOP, endurance and conditional camera localization |
 | No calibrated automatic-success scenario | Test-only subclasses inherit the competition loop and inject artificial shot rows through a small coordinator factory; production profile/measurement flags unchanged |
 | Camera/application timestamp epochs differed | Read SDK staleness plus capture/target latency, with epoch-equivalence/invalid-age tests; preserve freshness limits |
-| Raw camera tag normal differs from robot convention | Preserve production axes. Keep a raw rejection regression and explicit test-only Rx(pi) normalization profile; physical convention still pending |
+| Raw camera tag normal differs from robot convention | Resolved 2026-11-05 by a physical frame: robot Limelight matches raw SimLoop (+Z into print). Single Rx(pi) conversion in `LimelightObservation`; inverted-camera rejection regression retained |
 | Pedro retained laptop time | Include com.pedropathing in the SimLoop class-loader instrumentation, along with team code and SolversLib |
 | No human mechanism review | Separate keyboard-review task/script with both gamepads, queue signal, camera outage, Pinpoint fault and turret jam controls; live status and retained telemetry |
 | No reproducible human bug report | Upstream gamepad track plus environment/setup/STOP sidecars; replay asserts every decoded output row against the original |
@@ -89,11 +89,10 @@ whole session directory plus revision/diff and reviewer observations when sharin
 
 ## Remaining robot evidence
 
-The unresolved camera question is specific: provide a saved full-3D Limelight result at a known physical
-robot/tag/turret pose, or verify whether current field localization succeeds on the robot. SimLoop's
-printed-face normal is -Z; the existing code and legacy Limelight guide use outward +Z. The normalized
-fixture proves the downstream algorithm under its declared convention, not which convention the
-installed firmware emits. Do not promote that adapter to production without this evidence.
+Camera convention update (2026-11-05): a physical full-3D frame of raised Red far tags 30-33 showed raw
+facing scores of -0.96 to -0.99, so the installed firmware reports +Z into the print like SimLoop.
+Production converts once in `LimelightObservation`; the former normalizing adapter is now the
+inverted-camera rejection fixture. Physical height/plane accuracy remains unvalidated.
 
 Keep existing hardware sign-offs. Obtain actual shot rows/release timing and model measurements where
 needed. Do not claim that a green synthetic automatic-shot test authorizes production automatic feed.

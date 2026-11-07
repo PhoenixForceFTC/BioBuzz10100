@@ -14,7 +14,12 @@ public final class IntakeQueueController {
     }
 
     public double update(boolean full, boolean forwardBumper, boolean reverseBumper) {
+        return update(full, forwardBumper, reverseBumper, false);
+    }
+
+    /** Pause ordinary collection for firing/inhibit; explicit direction overrides remain available. */
+    public double update(boolean full, boolean forwardBumper, boolean reverseBumper, boolean pauseAutomatic) {
         if (forwardBumper || reverseBumper) return (forwardBumper ? 1 : 0) - (reverseBumper ? 1 : 0);
-        return full ? fullQueuePower : 1;
+        return pauseAutomatic ? 0 : full ? fullQueuePower : 1;
     }
 }

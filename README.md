@@ -1,5 +1,11 @@
 # BioBuzz 10100 — V1 Codebase Overview
 
+November 5 drive-direction correction: shared drivetrain motor directions are left
+FORWARD and right REVERSE, correcting all translation and rotation in both alliance
+TeleOps, standalone drive tests and autonomous. See [drive configuration](doc/Drivetrain.md).
+
+November 4 software integration: [final TeleOp audit](doc/TeleOpConsistencyChecklist.md) records shared intake jam recovery, collection while aiming, GP2 auto offsets, independent status lights and the retained current controls. Bench tuning/interlocks remain explicitly documented diagnostic policies.
+
 Optional laptop TeleOp simulation is available through `.\tools\verify-teleop.ps1 -Sim`;
 the default `.\tools\verify-teleop.ps1` runs ordinary tests, APK packaging and lint only.
 Coverage now includes actual mechanism tests, both competition TeleOps, and recorded keyboard review.
@@ -22,31 +28,30 @@ Confirmed servo supply: [goBILDA 6V Servo Power Injector 3125-0001-0001](https:/
 - **Coding Standards & Subsystem Architecture**: See [AGENTS.md](AGENTS.md) for FTC robot code best practices, including how to split mechanisms into reusable **Subsystem classes**, standalone **Test OpModes**, and **Combined Competition OpModes**.
 - **TeamCode Reference**: See [TeamCode/src/main/java/org/firstinspires/ftc/teamcode/readme.md](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/readme.md) for detailed hardware documentation.
 
-Turret rotation, hood, and depollinator servos are **Axon MAX+**; the gate is a **goBILDA 2000 Series Dual Mode Super Speed (2000-0025-0004)** in positional mode. References to Axon MAX mean MAX+. The rated maximum speed at **6.0 V is 0.115 s/60°** (about **521.74°/s** at the shaft; **260.87°/s** at the hood through its 2:1 linkage), per the [manufacturer specification](https://docs.axon-robotics.com/archive/max). `AxonMaxPlus` centralizes this rating and the robot's programmed 355° / 500–2500 us settings. Travel estimates are not physical position feedback; verify programmed range and loaded timing on the robot. The gate uses 300° travel over 500–2500 us: closed `0.5`, open `0.2` (90° CW viewed from the output shaft with REVERSE direction). Its [manufacturer specification](https://www.gobilda.com/2000-series-dual-mode-servo-25-4-super-speed/) rates 0.043 s/60° at 6.0 V (0.0645 s for 90°); feeding starts 0.20 s after the gate-open command.
+Turret rotation, hood, and depollinator servos are **Axon MAX+**; the gate is a **goBILDA 2000 Series Dual Mode Super Speed (2000-0025-0004)** in positional mode. References to Axon MAX mean MAX+. The rated maximum speed at **6.0 V is 0.115 s/60°** (about **521.74°/s** at the shaft; **260.87°/s** at the hood through its 2:1 linkage), per the [manufacturer specification](https://docs.axon-robotics.com/archive/max). `AxonMaxPlus` centralizes this rating and the robot's programmed 355° / 500–2500 us settings. Travel estimates are not physical position feedback; verify programmed range and loaded timing on the robot. The gate uses 300° travel over 500–2500 us: closed `0.5`, open `0.2` (90° CW viewed from the output shaft with REVERSE direction). Its [manufacturer specification](https://www.gobilda.com/2000-series-dual-mode-servo-25-4-super-speed/) rates 0.043 s/60° at 6.0 V (0.0645 s for 90°); the competition staggered delay is 0.10 s (diagnostic/autonomous default 0.20 s). The gate servo is wired directly to Expansion Hub servo port 3, bypassing the 6 V power injector. It receives immediate full-position targets without software ramping for maximum available speed. The 0.043 s/60-degree rating at 6 V is catalog reference only; actual direct-hub loaded speed is unmeasured.
 
 ## Current State of the Code (`V1`)
 
-Transfer loading uses stage 1 with stage 2 off. Shared timed shooting commands the gate open,
-waits 0.20 s, then runs both stages forward for 0.50 s with the gate
-held open (about 0.70 s total), followed by 0.35 s recovery. Competition manual
-override remains continuous while held after settling. These are unmeasured
-starting timings. The combined intake/index/shooter bench test overrides them:
-stage 2 starts at 0.10 s, stage 1 at the gate-open midpoint (0.25 s), and the gate
-closes at about 0.50 s; its continuous mode immediately opens the gate and runs
-both transfers until either trigger is released. See the
-[transfer sequence, settings and test controls](doc/TransferAndShooting.md).
+Both final alliance TeleOps use either controller's RB to force intake and stage-1
+loading forward past full, LB to reverse only intake and pause loading, and both
+bumpers to stop collection. Release restores automatic collection. Shooting and
+gate behavior retain priority. See [competition controls](doc/CompetitionTeleOp.md).
+
+Both final Red/Blue TeleOps start CONTINUOUS: once a feed is authorized, the gate-open command and both full-power transfer commands occur together, without a gate delay. Automatic readiness and GP2 LT inhibit still apply; manual feed bypasses readiness. STAGGERED opens the gate, starts both stages together at 0.10 s, and closes the gate after a 0.30 s stage-2 feed (0.40 s total open window). Both transfers keep running while the gate is closed through the 0.10 s recovery and any subsequent readiness wait. At the next opening both transfers stop, then repeat the shared 0.10 s delay. Release, inhibit, invalid automatic solution, tracking loss or STOP cancels transfer feeding; tracking-loss recovery does not continue closed-gate feed. Mode changes reset the sequence. Autonomous and diagnostic defaults are unchanged.
+
+The bench retains its 0.10 s gate / 0.40 s feed / 0.50 s open window. See [transfer sequence, settings and test controls](doc/TransferAndShooting.md).
 
 The codebase follows the 3-layer modular architecture described in [AGENTS.md](AGENTS.md):
 
 1. **Layer 1 — Subsystem Classes (Plain Java Classes)**:
-   - **[MecanumDrivetrain.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/MecanumDrivetrain.java)**: Encapsulates the 4-motor mecanum drivetrain configured for **goBILDA 5202/5203 Series Bare Motors** (no planetary gearbox, 1:1 ratio, `5550.0 configured RPM`, `28.0` quadrature encoder counts per revolution, `RUN_USING_ENCODER`, `ZeroPowerBehavior.BRAKE`, and `1.1x` lateral strafe compensation).
+   - **[MecanumDrivetrain.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/MecanumDrivetrain.java)**: Four **goBILDA 5000-0002-4008 bare motors** with 20T:80T gears and coaxial 30T:91T belt drive: **12.133333:1 motor-to-wheel reduction**. Motor settings are `28 ticks/rev`, `5800 RPM` catalog-tested no-load at 12 V, internal gearing `1:1`, `RUN_USING_ENCODER` and `BRAKE`; the 104-mm goBILDA mecanum wheels with 30A rollers have `339.733333 motor ticks/rev` and a `478.02 RPM` no-load estimate. Retains `1.1x` lateral strafe compensation. See [hardware, units and calibration](doc/Drivetrain.md).
    - **[PinpointOdometry.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PinpointOdometry.java)**: Encapsulates the **goBILDA Pinpoint Odometry Computer** (`"pinpoint"`) paired with two **goBILDA 4-Bar Odometry Pods** (`3110-0001-0002`, 32 mm wheel, 2000 CPR $\approx 19.8944\text{ ticks/mm}$):
      - **Forward/Backward (X) Pod**: $24.80\text{ mm} + \frac{14.40\text{ mm}}{2} = +32.00\text{ mm}$ left of center (`xOffset = +32.00 mm`), and $72.20\text{ mm}$ back of center.
      - **Left/Right Strafe (Y) Pod**: $81.20\text{ mm} - \frac{14.40\text{ mm}}{2} = 74.00\text{ mm}$ behind center (`yOffset = -74.00 mm`), and $33.80\text{ mm}$ right of center.
      - **Pod Encoder Directions**: Both X and Y pods set to `EncoderDirection.REVERSED`.
    - **[TurretSubsystem.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/TurretSubsystem.java)**: Encapsulates the turret rotation servos, REV Through-Bore Encoder V1, pitch/hood servo, 6000 RPM shooter flywheel motor, and Limelight 3A goal tracking:
      - **Turret Rotation Servos (`"turret_servo_1"`, `"turret_servo_2"`)**: Two Axon MAX+ servos in Servo Mode (`500–2500 us` PWM, `355°` range) on Expansion Hub Servo Ports 1 & 2 (powered via goBILDA 6V Servo Power Injector), geared `1:1` with turret rotation. Home (`0.5`) points robot-right at heading `90°`. Robot headings increase clockwise: front `0°`, right `90°`, back `180°`, left `270°`; headings between `265°` and `275°` are excluded. Internal servo-relative yaw remains `-175°..+175°`, counterclockwise from right-facing home.
-     - **Turret Rotation Encoder (`"turret_encoder"`)**: REV Through-Bore Encoder V1 (`8192 CPR`) on Expansion Hub Quadrature Port 1, geared `108T Turret : 40T Encoder` (`2.7x` faster = `22,118.4 ticks/turret rev`, `61.44 ticks/deg`). Zeroed after servo homing and used for measured angle/rate and optional single bounded correction after a persistent error.
+     - **Turret Rotation Encoder**: REV Through-Bore Encoder V1 (`8192 CPR`) on Expansion Hub Quadrature Port 2, read through `transfer_motor_1` (`turret_encoder` is a standalone configuration alias). Geared `108T Turret : 40T Encoder` (`2.7x` faster = `22,118.4 ticks/turret rev`, `61.44 ticks/deg`). Homing captures a software zero without resetting the shared channel. The intake's own encoder uses port 1.
      - **Turret Pitch / Hood Servo (`"turret_pitch"`)**: Axon MAX+ servo in Servo Mode on Expansion Hub Servo Port 0, linked `2:1` with turret pitch angle. Home position `0.545070` (8 hood degrees below the original servo 0.5 reference; the previous +9° position) is the new +15° command reference. Increasing PWM lowers elevation to -15° over 30° of hood travel (60° shaft travel, servo position approximately `0.714085`).
      - **Turret Shooter / Flywheel Motor (`"turret_motor"`)**: 6000 RPM goBILDA 5203 Yellow Jacket motor on Expansion Hub Motor & Quadrature Port 0 (`28.0 ticks/rev`, `6000.0 configured RPM`, `RUN_USING_ENCODER`, `FLOAT`, 1:1 motor-to-flywheel drive).
      - **Limelight 3A (`"limelight"`)**: Connected via powered USB hub to Control Hub USB 3.0 port, mounted `30.0°` up from horizontal toward the goal (per-tag metric 3D poses supply observed height and range, rotating camera transforms, pose history and the shared compensated shot planner).
@@ -56,9 +61,19 @@ The codebase follows the 3-layer modular architecture described in [AGENTS.md](A
    - **[PinpointTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PinpointTestOpMode.java)** (`"Test: Pinpoint Odometry Only"`): Tests `PinpointOdometry` by itself with motors unpowered so you can push the robot by hand and verify X, Y, Heading, and raw 4-bar pod counts.
    - **[ServoZeroCalibrationOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/ServoZeroCalibrationOpMode.java)** (`Calibrate: DISCONNECTED Servo RAW`, group `Calibration`): Select ONE mechanically disconnected servo with D-pad Left/Right. After START, both bumpers toggle arming; hold RT plus A/X/Y for midpoint/0/1. No command is sent at INIT or START. Installed turret/hood, gate and depollinator use their bounded subsystem tests; coupled turret servos are tested together.
    - **[TurretTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/TurretTestOpMode.java)** (`"Test: Turret"`): Manual turret mechanism test (rotation, `0°–30°` downward hood travel (+15° to -15° launch elevation) stepping from `0.545070`, flywheel, homing, and Through-Bore Encoder verification). Limelight and odometry are not initialized; no automatic aiming is performed.
-   - **[AutoAimTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/AutoAimTestOpMode.java)** (`"Test: Auto Aim"`): Tests the shared competition aiming coordinator using Limelight, Pinpoint odometry, and the turret. Hold GP1 `RT` to aim; additionally hold `RB` to spin the flywheel. `A` rehomes the turret, `B`/`X` selects Red/Blue, and D-pad Left/Right selects Audience/Far (also selectable during INIT). Push the chassis by hand; drivetrain, intake, transfer, and gate are not initialized, and feeding is inhibited. Uses `ShootingConfiguration` measured mount, target geometry, shot profile, timing, and starting field pose; unmeasured defaults block automatic firing and calibrated shot planning; fresh selected-hive tags can still be tracked in yaw.
+   - **[AutoAimTestOpMode.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/AutoAimTestOpMode.java)** (`"Test: Auto Aim"`): Tests the shared competition aiming coordinator using Limelight, Pinpoint odometry, and the turret. Hold GP1 `RT` to aim; additionally hold `RB` to spin the flywheel. `A` rehomes the turret, `B`/`X` selects Red/Blue, and odometry selects the nearest alliance cell. RS-X manually scans with RT released. Push the chassis by hand; drivetrain, intake, transfer, and gate are not initialized, and feeding is inhibited. Uses competition `TELEOP_ODOMETRY` localization and encoder correction. Mapped raised tags establish the field reference; unmeasured defaults block calibrated hood/RPM and automatic firing while field-referenced yaw remains available.
 3. **Layer 3 — Combined TeleOp (`@TeleOp(group = "Competition")`)**:
    - **[MecanumTeleOp.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/MecanumTeleOp.java)** (shared base for `Mecanum TeleOp - Red` and `Mecanum TeleOp - Blue`): Combines `MecanumDrivetrain`, `PinpointOdometry`, and `TurretSubsystem` on **Controller 1 (`gamepad1`)** and **Controller 2 (`gamepad2`)**.
+   Competition field rehome: press GP2 D-pad Left while seated rear/side against
+   the corner opposite your pollen depot, front inward. Blue: audience-right,
+   180 degrees; Red: far-left, 0 degrees. Works in INIT/ACTIVE once per press;
+   Keep still while the turret aims the Limelight and refines the position from
+   five fresh frames; telemetry reports VISION REFINED or CORNER ONLY after a
+   three-second timeout. With the measured 55-degree Limelight the raised tags
+   are below the image from the corner, so expect CORNER ONLY.
+   GP2 X remains turret home.
+   See [placement and coordinates](doc/CompetitionTeleOp.md).
+
 4. **Autonomous pollen collection**:
    - **[PollenAuto.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PollenAuto.java)** (`Test: Pollen Navigation (Pedro + Ivy)`, group `Test`): Diagnostic C270 collection using Pedro paths/holds scheduled by Ivy through Zenith. Retains close-frame confirmation, bounded blind pickup, target-loss stopping and time/travel/full-queue limits. Requires Pedro and camera calibration. This is separate from the real match routines. See [camera setup and tuning](doc/PollenAuto.md).
 

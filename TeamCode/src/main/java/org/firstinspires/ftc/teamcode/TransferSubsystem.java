@@ -31,6 +31,7 @@ public class TransferSubsystem {
     private double stage2Power = 0.0;
     private boolean feeding = false;
     private boolean loadingPaused = false;
+    private boolean forcedStage1Loading = false;
 
     public TransferSubsystem(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, HW_TRANSFER_MOTOR);
@@ -57,7 +58,8 @@ public class TransferSubsystem {
     }
 
     /**
-     * Feed runs both stages regardless of the full sensor; caller must open the gate and wait its feed delay.
+     * Feed runs both stages regardless of the full sensor; caller owns gate timing and interlocks,
+     * including immediate continuous feed and closed-gate timed recovery in competition TeleOp.
      * Otherwise stage 1 loads unless full or paused for aiming/gate delay; stage 2 stays stopped.
      * Stage 1 runs on for 0.5 s after full confirmation, then stops while HIGH remains confirmed.
      * LOW clears full immediately and resumes loading unless paused.
@@ -73,8 +75,14 @@ public class TransferSubsystem {
 
     /** Optional shot sequencing: stage 2 feeds first, then stage 1 advances the next ball. */
     public void update(double now, boolean feedBalls, boolean pauseLoading, boolean feedStage1) {
+        update(now, feedBalls, pauseLoading, feedStage1, false);
+    }
+
+    /** Intake-forward override loads stage 1 past full; stage 2 and shot/pause priorities are unchanged. */
+    public void update(double now, boolean feedBalls, boolean pauseLoading, boolean feedStage1,
+                       boolean forceStage1Loading) {
         readSensors(now);
-        applyOutputs(now, feedBalls, pauseLoading, feedStage1);
+        applyOutputs(now, feedBalls, pauseLoading, feedStage1, forceStage1Loading);
     }
 
     /** Autonomous samples before evaluating commands/conditions, then applies outputs afterward. */
@@ -93,9 +101,16 @@ public class TransferSubsystem {
     }
 
     private void applyOutputs(double now, boolean feedBalls, boolean pauseLoading, boolean feedStage1) {
-        controller.update(now, sensorState == FULL_SENSOR_ACTIVE_STATE, feedBalls, pauseLoading, feedStage1);
+        applyOutputs(now, feedBalls, pauseLoading, feedStage1, false);
+    }
+
+    private void applyOutputs(double now, boolean feedBalls, boolean pauseLoading, boolean feedStage1,
+                              boolean forceStage1Loading) {
+        controller.update(now, sensorState == FULL_SENSOR_ACTIVE_STATE, feedBalls, pauseLoading,
+                feedStage1, forceStage1Loading);
         feeding = feedBalls;
         loadingPaused = pauseLoading;
+        forcedStage1Loading = forceStage1Loading && !feedBalls && !pauseLoading;
         commandedPower = controller.stage1();
         motor.setPower(commandedPower);
         stage2Power = controller.stage2();
@@ -112,7 +127,7 @@ public class TransferSubsystem {
 
     public void pause() {
         commandedPower = stage2Power = 0;
-        feeding = false; loadingPaused = true; controller.pause();
+        feeding = false; loadingPaused = true; forcedStage1Loading = false; controller.pause();
         RobotShutdown.stopAll(() -> motor.setPower(0), () -> stage2Motor.setPower(0));
     }
 
@@ -121,6 +136,7 @@ public class TransferSubsystem {
         controller.stop();
         feeding = false;
         loadingPaused = false;
+        forcedStage1Loading = false;
         stage2Power = 0.0;
         RobotShutdown.stopAll(() -> motor.setPower(0), () -> stage2Motor.setPower(0));
     }
@@ -129,11 +145,20 @@ public class TransferSubsystem {
         addTelemetry(telemetry, System.nanoTime() * 1e-9);
     }
 
+    /** Compact match view: what the transfer is doing, without motor powers or sensor internals. */
+    public void addDriverTelemetry(Telemetry telemetry) {
+        telemetry.addData("Transfer", feeding ? "FEEDING SHOT"
+                : isFull() ? "FULL"
+                : forcedStage1Loading ? "MANUAL LOADING"
+                : loadingPaused ? "PAUSED" : "LOADING");
+    }
+
     /** Put this summary before verbose diagnostics so a stopped transfer has a visible reason. */
     public void addStatusTelemetry(Telemetry telemetry) {
         telemetry.addData("TRANSFER STATUS", "S1 %.2f | S2 %.2f | %s | sensor %s",
                 commandedPower, stage2Power,
                 feeding ? "FEEDING SHOT"
+                        : forcedStage1Loading ? "MANUAL STAGE 1 LOADING"
                         : isFull() && commandedPower > 0 ? "FULL: STAGE 1 RUN-ON (0.5 s)"
                         : isFull() ? "FULL: waiting for LOW or feed"
                         : loadingPaused ? "LOADING PAUSED BY OPMODE" : "LOADING",
@@ -145,6 +170,7 @@ public class TransferSubsystem {
         telemetry.addData("Transfer Stage 2 Device", "%s | %s", HW_TRANSFER_MOTOR_2, stage2Motor.getConnectionInfo());
         telemetry.addData("Transfer current (A, 5 Hz)", "stage 1 %.2f | stage 2 %.2f",current1,current2);
         telemetry.addData("Transfer Mode", feeding ? "FEEDING SHOT"
+                : forcedStage1Loading ? "MANUAL STAGE 1 LOADING"
                 : isFull() && commandedPower > 0 ? "FULL: STAGE 1 RUN-ON (0.5 s)"
                 : isFull() ? "FULL: HOLDING WHILE HIGH"
                 : loadingPaused ? "WAITING FOR SHOT / GATE" : "AUTOMATIC LOADING");

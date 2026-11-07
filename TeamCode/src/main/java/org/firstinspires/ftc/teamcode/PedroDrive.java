@@ -63,6 +63,7 @@ public final class PedroDrive {
     public Path atSpeed(Path path, double fraction) { return path.with(config.setPathSpeed(fraction)); }
     public void stop() { follower.stop(); drivetrain.stop(); }
     public void addTelemetry(Telemetry telemetry) {
+        motors.addConfigurationTelemetry(telemetry);
         telemetry.addData("Pedro v3", "%s | tuning %s", follower.mode(), PedroConfiguration.TUNING_VERIFIED ? "VERIFIED" : "REQUIRED");
         telemetry.addData("Pedro pose (in, deg)", "%.2f, %.2f | %.1f", follower.pose().x(), follower.pose().y(), Math.toDegrees(follower.pose().heading()));
         telemetry.addData("Pedro velocity (in/s, rad/s)", "%.1f, %.1f | %.2f", follower.velocity().vx, follower.velocity().vy, follower.velocity().omega);

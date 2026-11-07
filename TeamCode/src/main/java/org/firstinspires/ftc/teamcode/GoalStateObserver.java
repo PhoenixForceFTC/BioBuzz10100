@@ -11,7 +11,7 @@ public final class GoalStateObserver {
     public enum State { UNKNOWN, TRANSITIONING, RAISED, LOWERED }
     public static final double MAX_AGE_SECONDS = .15, STABLE_SECONDS = .12;
     public static final int CONSISTENT_FRAMES = 3;
-    public static final double RAISED_TAG_PLANE_DEG = FieldGeometry.HIVE_TILT_DEG;
+    public static final double RAISED_TAG_PLANE_DEG = HiveTagGeometry.RAISED_TAG_PLANE_DEG;
     public static final double HEIGHT_ENTER_TOLERANCE_METERS = .07, HEIGHT_RETAIN_TOLERANCE_METERS = .10;
     public static final double PLANE_ENTER_TOLERANCE_DEG = 8, PLANE_RETAIN_TOLERANCE_DEG = 12;
     public static final double TAG_HEIGHT_AGREEMENT_METERS = .06, TAG_CLUSTER_AGREEMENT_METERS = .08, TAG_AXES_AGREEMENT_DEG = 8;
@@ -46,7 +46,8 @@ public final class GoalStateObserver {
         if (tags != null) for (TagObservation tag : tags) {
             if (tag == null || TurretSubsystem.getHiveSideForTag(alliance,tag.id) != side) continue;
             selectedVisible = true;
-            if (!tag.usable()) { invalidate("Invalid / zero / unusable selected-tag 3D pose"); return; }
+            String rejection = tag.rejectionReason();
+            if (rejection != null) { invalidate("Tag " + tag.id + ": " + rejection); return; }
         }
         // Invalid/no-target camera payloads revoke permission even if the camera frame counter stalls.
         if (!selectedVisible) { invalidate("Selected cell missing"); return; }
@@ -103,7 +104,8 @@ public final class GoalStateObserver {
         } else reason = "Qualifying distinct consistent frames";
     }
     public State state(double now) {
-        if (!Double.isFinite(now) || now < capture || now-capture > MAX_AGE_SECONDS) invalidate("Selected cell lost / stale");
+        // Preserve the specific update rejection, including before any pose has been accepted.
+        if (state != State.UNKNOWN && (!Double.isFinite(now) || now < capture || now-capture > MAX_AGE_SECONDS)) invalidate("Selected cell lost / stale");
         return state;
     }
     public boolean raised(double now) { return state(now) == State.RAISED; }

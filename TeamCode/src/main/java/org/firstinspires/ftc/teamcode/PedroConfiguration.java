@@ -4,7 +4,11 @@ import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.math.Matrix;
 import com.pedropathing.math.Vector2D;
 
-/** Pedro v3 tuning, in inches and radians. Example dynamics must be measured on this robot. */
+/**
+ * Pedro v3 tuning, in inches and radians. Example dynamics must be measured on the
+ * 20:80 gear / 30:91 belt drivetrain; unloaded wheel RPM cannot establish loaded dynamics.
+ * Pinpoint pod resolution is independent of the drivetrain motor encoders/reduction.
+ */
 public final class PedroConfiguration {
     private PedroConfiguration() {}
     public static final boolean TUNING_VERIFIED = false;

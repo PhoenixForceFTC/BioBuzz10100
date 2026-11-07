@@ -20,6 +20,10 @@ public final class RobotLoop {
         previousStart = started;
         for (LynxModule hub : hubs) hub.clearBulkCache();
     }
+    /** Compact match view: loop rate only. */
+    public void addRateTelemetry(Telemetry telemetry) {
+        telemetry.addData("Loop (Hz)", "%.0f", periodMs > 0 ? 1000/periodMs : 0);
+    }
     public void addTelemetry(Telemetry telemetry) {
         if (started != 0) workMs = (System.nanoTime()-started)/1e6;
         telemetry.addData("Java loop (ms, Hz)", "period %.2f | %.1f Hz | work to telemetry %.2f ms",

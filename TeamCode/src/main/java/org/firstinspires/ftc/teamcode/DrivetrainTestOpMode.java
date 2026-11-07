@@ -22,8 +22,8 @@ public class DrivetrainTestOpMode extends LinearOpMode {
         RobotLoop loop = new RobotLoop(hardwareMap);
         MecanumDrivetrain drivetrain = new MecanumDrivetrain(hardwareMap);
 
-        telemetry.addData("Status", "Drivetrain Test Initialized (%.0f PPR, %.0f RPM)",
-                MecanumDrivetrain.BARE_MOTOR_TICKS_PER_REV, MecanumDrivetrain.BARE_MOTOR_MAX_RPM);
+        telemetry.addData("Status", "Drivetrain Test Initialized");
+        drivetrain.addConfigurationTelemetry(telemetry);
         telemetry.addLine("Normal Drive: Left Stick = Translate | Right Stick X = Rotate");
         telemetry.addLine("Single Wheel Test: Hold RB + X (FL), Y (FR), A (BL), or B (BR)");
         loop.addTelemetry(telemetry); telemetry.update();

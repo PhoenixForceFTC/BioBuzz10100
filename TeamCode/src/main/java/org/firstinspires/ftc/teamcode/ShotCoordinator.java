@@ -18,6 +18,7 @@ public final class ShotCoordinator {
     private final ShotProfile profile;
     private final ShotPlanner planner;
     private final PoseHistory history = new PoseHistory();
+    private final FieldRehomeRefinement fieldRehome = new FieldRehomeRefinement();
     private final GoalStateObserver goalState;
     private GoalTarget relativeTarget;
     private TagObservation trackingTag;
@@ -28,17 +29,19 @@ public final class ShotCoordinator {
     private GoalTarget target;
     private ShotPlanner.Solution solution = ShotPlanner.Solution.invalid("Not requested");
     private boolean previousAutomatic, previousHomed;
-    private boolean presetValid;
+    private boolean presetValid, automaticTrackingReady;
+    private double yawOffsetDeg, hoodOffsetDeg, rpmOffset;
     private MotionSample pose;
     private double lastFrame = Double.NEGATIVE_INFINITY;
     private double lastTrackingFrame = Double.NEGATIVE_INFINITY;
+    private String visionDecision = "No camera observation processed";
     public ShotCoordinator(TurretSubsystem turret, GoalTarget target) {
         this(turret, target, AimMode.DIAGNOSTIC);
     }
     /** Competition TeleOp uses fixed field targets; camera observations only correct the pose. */
     public ShotCoordinator(TurretSubsystem turret, GoalTarget target, AimMode mode) {
         this(turret, target, ShootingConfiguration.MOUNT, ShootingConfiguration.PROFILE,
-                ShootingConfiguration.firing(),
+                mode == AimMode.TELEOP_ODOMETRY ? CompetitionFeedController.firing() : ShootingConfiguration.firing(),
                 ShootingConfiguration.RELEASE_TIMING_MEASURED
                         && (mode != AimMode.DIAGNOSTIC || ShootingConfiguration.VISION_TIMING_MEASURED), mode);
     }
@@ -63,13 +66,33 @@ public final class ShotCoordinator {
         if (mode != AimMode.TELEOP_ODOMETRY) lastFieldCorrection = Double.NEGATIVE_INFINITY;
         goalState.select(next.alliance,next.side);
         turret.setTargetHiveCell(next.alliance, next.side); turret.resetTrackingTrim();
+        visionDecision = "Shot target changed; awaiting camera observation";
     }
     public void invalidateReference(double now) {
+        if (fieldRehome.pending()) fieldRehome.cancel("reference invalidated");
         presetValid = false;
         history.reset(); relativeTarget = null; lastPoseSample = null; pose = null;
         solution = ShotPlanner.Solution.invalid("Reference changed");
+        visionDecision = "Odometry reference changed; awaiting camera observation";
         firing.stop(now);
     }
+    public void requestFieldRehomeRefinement(double now) {
+        if (mode == AimMode.TELEOP_ODOMETRY) fieldRehome.request(now);
+    }
+    public boolean fieldRehomePending() { return fieldRehome.pending(); }
+    public void cancelFieldRehomeRefinement(String reason) {
+        if (fieldRehome.pending()) fieldRehome.cancel(reason);
+    }
+    /** Offset changes must earn a fresh readiness interval, including during continuous fire. */
+    public void setAutoAimAdjustments(double now, AutoAimAdjustments offsets) {
+        if (yawOffsetDeg != offsets.yawDeg() || hoodOffsetDeg != offsets.hoodDeg() || rpmOffset != offsets.rpm()) {
+            yawOffsetDeg = offsets.yawDeg(); hoodOffsetDeg = offsets.hoodDeg(); rpmOffset = offsets.rpm();
+            automaticTrackingReady = false;
+            firing.stop(now);
+        }
+    }
+    /** Current checks only; the firing state machine still enforces the stable readiness interval. */
+    public boolean automaticTrackingReady() { return automaticTrackingReady; }
     /** Call after one odometry update and one turret update. No second hardware reads. */
     public void update(double now, MotionSample sample, boolean automatic, boolean manualFeed,
                        boolean inhibit, boolean flywheelStop) {
@@ -99,9 +122,11 @@ public final class ShotCoordinator {
         }
         solution = !turret.isHomed() ? ShotPlanner.Solution.invalid("Turret: " + turret.getHomingStatus())
                 : planner.solve(now, pose, relativeTarget != null ? relativeTarget : target, profile);
+        solution = solution.withOffsets(yawOffsetDeg, hoodOffsetDeg, rpmOffset);
         // Timing blocks feed only; keep current-pose hood/RPM/yaw updates available while tuning.
         if (solution.valid && !timingMeasured) solution = solution.inhibit(fieldOdometryOnly
                 ? "Release timing UNMEASURED" : "Release / vision timing UNMEASURED");
+        if (fieldRehome.pending() && solution.valid) solution = solution.inhibit("Corner Limelight refinement in progress");
         // Camera freshness/state gates apply only to the legacy diagnostics.
         if (!fieldOdometryOnly) {
             if (solution.aimable && !history.targetFresh(now)) solution = solution.inhibit("Target observation lost / stale: " + history.reason());
@@ -109,16 +134,15 @@ public final class ShotCoordinator {
             if (solution.valid && !goalState.raised(now)) solution = solution.inhibit("Goal state: " + goalState.reason());
         }
         if (automatic && solution.aimable) {
-            if (controlYaw) turret.setTargetYawDegrees(Math.toDegrees(solution.yaw));
+            if (controlYaw && !fieldRehome.pending()) turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(
+                    Math.toDegrees(solution.yaw), turret.getEncoderAngleDegrees()));
             if (controlHood) turret.setPitchAngleDegrees(solution.hoodDeg);
             if (controlRpm && !flywheelStop) turret.setShooterRpm(solution.rpm);
-        } else if (fieldOdometryOnly && automatic && turret.isHomed() && pose != null
+        } else if (fieldOdometryOnly && automatic && !fieldRehome.pending() && turret.isHomed() && pose != null
                 && controlYaw && pose.fieldReferenced && pose.fresh(now, ShotPlanner.MAX_SAMPLE_AGE_SECONDS)) {
             // Keep odometry yaw tracking available while RPM/hood calibration is pending.
-            double degrees = Math.toDegrees(TeleOpFieldReference.yawRadians(pose, target, mount));
-            if (Math.abs(degrees) > TurretSubsystem.ROTATION_MAX_ANGLE_DEG)
-                degrees = Math.copySign(TurretSubsystem.ROTATION_MAX_ANGLE_DEG, turret.getEncoderAngleDegrees());
-            turret.setTargetYawDegrees(degrees);
+            double degrees = Math.toDegrees(TeleOpFieldReference.yawRadians(pose, target, mount)) + yawOffsetDeg;
+            turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(degrees, turret.getEncoderAngleDegrees()));
         } else if (!fieldOdometryOnly && automatic && controlYaw && turret.isHomed() && turret.getVisionTag() != null
                 && turret.getVisionResult().getTimestamp() > lastTrackingFrame) {
             // Acquire the selected hive before shot calibration is available; this does not enable firing.
@@ -127,10 +151,8 @@ public final class ShotCoordinator {
                     : history.delayedYaw(now,trackingCapture,Math.toRadians(turret.getVisionTag().getTargetXDegrees()),
                             Math.toRadians(turret.getVisionTag().getTargetYDegrees()),mount);
             if (Double.isFinite(compensated)) {
-                double degrees = Math.toDegrees(compensated);
-                if (Math.abs(degrees) > TurretSubsystem.ROTATION_MAX_ANGLE_DEG)
-                    degrees = Math.copySign(TurretSubsystem.ROTATION_MAX_ANGLE_DEG,turret.getEncoderAngleDegrees());
-                turret.setTargetYawDegrees(degrees);
+                turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(
+                        Math.toDegrees(compensated), turret.getEncoderAngleDegrees()));
             }
             lastTrackingFrame = turret.getVisionResult().getTimestamp();
         }
@@ -141,6 +163,7 @@ public final class ShotCoordinator {
         boolean loose = angleReady && turret.isHoodTracking()
                 && turret.getTargetShooterRpm() > 0 && Math.abs(turret.getShooterCurrentRpm() - solution.rpm)
                 <= TurretSubsystem.SHOOTER_LOOSE_READY_TOLERANCE_RPM;
+        automaticTrackingReady = automatic && solution.valid && tight && !inhibit && !flywheelStop;
         firing.update(now, automatic && automaticFeed, manualFeed, inhibit, flywheelStop, solution.valid, tight, loose, solution.reason);
         turret.setTrackingStatus(solution.reason);
     }
@@ -163,11 +186,8 @@ public final class ShotCoordinator {
     }
     static double visualTrackingYawDegrees(double measuredYawDeg, double txDeg, double cameraYawDeg) {
         // tx is right-positive; internal turret yaw and camera mounting yaw are left-positive.
-        double bearing = TurretSubsystem.normalizeAngleDegrees(measuredYawDeg + cameraYawDeg - txDeg);
-        // In the excluded left sector, hold the current side instead of slewing across home.
-        if (Math.abs(bearing) > TurretSubsystem.ROTATION_MAX_ANGLE_DEG)
-            return Math.copySign(TurretSubsystem.ROTATION_MAX_ANGLE_DEG, measuredYawDeg);
-        return bearing;
+        // Dead-zone hold and long-way unwind are shared with odometry aiming.
+        return TurretSubsystem.reachableYawDegrees(measuredYawDeg + cameraYawDeg - txDeg, measuredYawDeg);
     }
     public void updatePose(double now, MotionSample sample) {
         if (sample == lastPoseSample && now == lastPoseUpdate && turret.isHomed() == previousHomed) return;
@@ -176,7 +196,10 @@ public final class ShotCoordinator {
             history.invalidateObservation(true); lastFrame = Double.NEGATIVE_INFINITY;
             turret.resetTrackingTrim(); relativeTarget = null; goalState.invalidate("Turret reference changed"); previousHomed = turret.isHomed();
         }
-        if (sample == null) { pose = null; relativeTarget = null; goalState.invalidate("No odometry"); return; }
+        if (sample == null) {
+            pose = null; relativeTarget = null; goalState.invalidate("No odometry");
+            visionDecision = "No Pinpoint sample"; return;
+        }
         if (sample.referenceId != previousReferenceId) {
             firing.stop(now);
             history.reset(); relativeTarget = null; goalState.invalidate("Odometry reference changed");
@@ -187,10 +210,12 @@ public final class ShotCoordinator {
         if (mode == AimMode.AUTONOMOUS_ODOMETRY) {
             // Routes and shots share odometry. No mid-route camera correction or direct visual aim.
             pose = history.current(now);
+            visionDecision = "Camera corrections disabled during autonomous route";
             return;
         }
         LLResult result = turret.getVisionResult();
-        LimelightObservation observation = new LimelightObservation(now,System.currentTimeMillis(),result);
+        LimelightObservation observation = turret.getVisionObservation();
+        if (observation == null) observation = new LimelightObservation(now,System.currentTimeMillis(),result);
         if (mode == AimMode.TELEOP_ODOMETRY) {
             updateFieldLocalization(now,observation);
             pose = history.current(now);
@@ -203,6 +228,7 @@ public final class ShotCoordinator {
         }
         if (!fieldOdometryOnly) {
             goalState.update(now,observation.frame,observation.captureTime,observation.tags,ShootingConfiguration.LEVEL_CHASSIS_ASSUMED);
+            visionDecision = observation.rejectionReason != null ? observation.rejectionReason : goalState.reason();
             if (!goalState.raised(now)) relativeTarget = null;
         }
         if (result != null && turret.isHomed() && result.getTimestamp() > lastFrame) {
@@ -216,7 +242,9 @@ public final class ShotCoordinator {
                     if (correctionAllowed) {
                         if (history.observe3d(now,observation.frame,observation.captureTime,best,target,mount)) {
                             lastFieldCorrection = now;
+                            visionDecision = history.reason();
                         } else {
+                            visionDecision = history.reason();
                             relativeTarget = null; history.invalidateObservation(false);
                         }
                     }
@@ -227,28 +255,67 @@ public final class ShotCoordinator {
     }
     private void updateFieldLocalization(double now, LimelightObservation observation) {
         MotionSample current = history.current(now);
-        if (!ShootingConfiguration.FIELD_RELOCALIZATION_ENABLED || !ShootingConfiguration.LEVEL_CHASSIS_ASSUMED
-                || !turret.isHomed() || current == null || !current.fresh(now,ShotPlanner.MAX_SAMPLE_AGE_SECONDS)
-                || !Double.isFinite(observation.frame) || observation.frame <= lastFrame) return;
-        lastFrame = observation.frame;
-        if (current.fieldReferenced && now-lastFieldCorrection < FIELD_RELOCALIZATION_INTERVAL_SECONDS) return;
-        TagObservation best = null;
-        for (TagObservation tag : observation.tags) {
-            if (tag.usable() && tag.id >= 30 && tag.id <= 45
-                    && Math.abs(tag.planeDegrees(mount)-ShootingConfiguration.HIGH_GOAL_OPENING_PLANE_DEG) <= PoseHistory.TAG_PLANE_TOLERANCE_DEG
-                    && Math.abs(mount.cameraHeight+tag.levelPosition(mount)[2]-ShootingConfiguration.HIGH_GOAL_TAG_CENTER_HEIGHT_METERS) <= .1
-                    && (best == null || tag.uncertaintyMeters() < best.uncertaintyMeters())) best = tag;
+        if (fieldRehome.pending()) {
+            fieldRehome.expire(now);
+            if (!ShootingConfiguration.FIELD_RELOCALIZATION_ENABLED || !ShootingConfiguration.LEVEL_CHASSIS_ASSUMED
+                    || !mount.measured) fieldRehome.cancel("vision geometry/configuration unavailable");
+            if (!fieldRehome.pending() || !turret.isHomed() || current == null
+                    || !current.fresh(now,ShotPlanner.MAX_SAMPLE_AGE_SECONDS)) {
+                visionDecision = !fieldRehome.pending() ? fieldRehome.status()
+                        : !turret.isHomed() ? "Turret not homed: " + turret.getHomingStatus()
+                        : "Pinpoint sample unavailable / not ready / stale";
+                return;
+            }
+            if (fieldRehome.update(now,observation.frame,observation.captureTime,observation.tags,history,mount))
+                lastFieldCorrection = now;
+            if (fieldRehome.pending()) {
+                GoalTarget landmark = TeleOpFieldReference.target(target.alliance,
+                        TeleOpFieldReference.nearestSide(current.y,target.side));
+                double yaw = Math.toDegrees(TeleOpFieldReference.yawRadians(current,landmark,mount));
+                turret.setTargetYawDegrees(TurretSubsystem.reachableYawDegrees(yaw, turret.getEncoderAngleDegrees()));
+            }
+            if (Double.isFinite(observation.frame)) lastFrame = observation.frame;
+            visionDecision = fieldRehome.status();
+            return;
         }
-        if (best == null) return;
-        GoalTarget landmark = TeleOpFieldReference.targetForTag(best.id);
-        boolean accepted = current.fieldReferenced
-                ? history.observe3d(now,observation.frame,observation.captureTime,best,landmark,mount)
-                : history.acquireFieldReference3d(now,observation.frame,observation.captureTime,best,landmark,mount);
-        if (accepted) lastFieldCorrection = now;
+        if (!ShootingConfiguration.FIELD_RELOCALIZATION_ENABLED) { visionDecision = "Field relocalization disabled by configuration"; return; }
+        if (!ShootingConfiguration.LEVEL_CHASSIS_ASSUMED) { visionDecision = "Requires supported level chassis"; return; }
+        if (!mount.measured) { visionDecision = "Camera mount unmeasured"; return; }
+        if (!turret.isHomed()) { visionDecision = "Turret not homed: " + turret.getHomingStatus(); return; }
+        if (current == null || !current.fresh(now,ShotPlanner.MAX_SAMPLE_AGE_SECONDS)) {
+            visionDecision = "Pinpoint sample unavailable / not ready / stale"; return;
+        }
+        if (observation.rejectionReason != null) { visionDecision = observation.rejectionReason; return; }
+        if (now < observation.captureTime || now-observation.captureTime > PoseHistory.MAX_OBSERVATION_AGE_SECONDS) {
+            visionDecision = "Stale / future camera capture"; return;
+        }
+        if (observation.frame <= lastFrame) return; // Retain the last decision while polling the same frame.
+        lastFrame = observation.frame;
+        // Fuse every accepted tag in the frame; a single "best" tag changed frame to frame and its
+        // per-tag noise moved the aim point.
+        java.util.List<TagObservation> accepted = new java.util.ArrayList<>();
+        java.util.List<GoalTarget> landmarks = new java.util.ArrayList<>();
+        String rejected = "No mapped hive tags in camera frame";
+        for (TagObservation tag : observation.tags) {
+            String rejection = TeleOpFieldReference.raisedTagRejectionReason(tag,mount);
+            if (rejection != null) { rejected = rejection; continue; }
+            accepted.add(tag); landmarks.add(TeleOpFieldReference.targetForTag(tag.id));
+        }
+        if (accepted.isEmpty()) { visionDecision = rejected; return; }
+        boolean fused = current.fieldReferenced
+                // Odometry owns the pose; the camera only corrects consistent drift beyond the deadband.
+                ? history.checkDrift3d(now,observation.frame,observation.captureTime,accepted,landmarks,mount)
+                : history.acquireFieldReference3d(now,observation.frame,observation.captureTime,accepted,landmarks,mount);
+        if (fused) lastFieldCorrection = now;
+        visionDecision = history.reason();
     }
     private void observeOpening(LimelightObservation observation) {
         PoseHistory.Entry capture = history.at(observation.captureTime);
-        if (capture == null || !ShootingConfiguration.OPENING.verified) { relativeTarget = null; return; }
+        if (capture == null || !ShootingConfiguration.OPENING.verified) {
+            relativeTarget = null;
+            visionDecision = capture == null ? "Missing capture-time Pinpoint / turret history" : "Tag-to-opening transform unverified";
+            return;
+        }
         double x = 0, y = 0, z = 0, uncertainty = .025;
         int count = 0;
         java.util.List<GoalTarget.Tag> tags = new java.util.ArrayList<>();
@@ -276,11 +343,31 @@ public final class ShotCoordinator {
         relativeTarget = new GoalTarget(target.alliance,target.side,GoalTarget.HiveState.RAISED,x,y,z,true,
                 ShootingConfiguration.OPENING.identity,tags.toArray(new GoalTarget.Tag[0])).inLocalFrame();
         history.acceptRelative(observation.captureTime,uncertainty);
+        visionDecision = "Accepted target-relative opening";
     }
     public FiringCoordinator firing() { return firing; }
     public boolean validForFeeding() { return presetValid || solution.valid; }
     public ShotPlanner.Solution solution() { return solution; }
     public MotionSample pose() { return pose; }
+    public String visionDecision() { return visionDecision; }
+    private String localizationStatus(double now) {
+        return pose != null && pose.fieldReferenced
+                ? pose.fresh(now,ShotPlanner.MAX_SAMPLE_AGE_SECONDS) ? "LOCALIZED" : "FIELD REFERENCE RETAINED; ODOMETRY NOT READY / STALE"
+                : "WAITING: " + visionDecision;
+    }
+
+    /**
+     * Compact match view: localization, the latest corner-rehome result, and auto-aim trims while
+     * aiming or whenever a trim is still applied.
+     */
+    public void addDriverTelemetry(Telemetry telemetry, double now, boolean aiming) {
+        if (fieldOdometryOnly) telemetry.addData("Field localization", localizationStatus(now));
+        if (mode == AimMode.TELEOP_ODOMETRY && !FieldRehomeRefinement.NOT_REQUESTED.equals(fieldRehome.status()))
+            telemetry.addData("Field rehome refinement", fieldRehome.status());
+        if (aiming || yawOffsetDeg != 0 || hoodOffsetDeg != 0 || rpmOffset != 0)
+            telemetry.addData("Auto trims (yaw deg / hood deg / RPM)", "%.1f / %.1f / %.0f", yawOffsetDeg, hoodOffsetDeg, rpmOffset);
+    }
+
     public void addTelemetry(Telemetry telemetry, double now) {
         telemetry.addData("Aim reference", mode == AimMode.AUTONOMOUS_ODOMETRY ? "FIELD ODOMETRY | fixed route target"
                 : fieldOdometryOnly ? "FIELD ODOMETRY | periodic validated vision corrections" : "Field / target-relative diagnostics");
@@ -290,8 +377,8 @@ public final class ShotCoordinator {
             telemetry.addData("Vision relocalization", mode == AimMode.AUTONOMOUS_ODOMETRY ? "Disabled during autonomous route" : target.tags.isEmpty()
                     ? "No tag field map" : ShootingConfiguration.FIELD_RELOCALIZATION_ENABLED
                     ? "Enabled | nominal TU06 map | " + history.reason() : "Disabled by configuration");
-            telemetry.addData("Field localization", pose != null && pose.fieldReferenced
-                    ? "LOCALIZED" : "WAITING FOR MAPPED RAISED TAG + HOMED TURRET; automatic aim unavailable");
+            telemetry.addData("Field localization", localizationStatus(now));
+            if (mode == AimMode.TELEOP_ODOMETRY) telemetry.addData("Field rehome refinement", fieldRehome.status());
             if (pose != null && pose.fieldReferenced) {
                 telemetry.addData("Aiming field pose (m, deg)", "%.3f, %.3f | %.1f", pose.x, pose.y, Math.toDegrees(pose.heading));
                 org.firstinspires.ftc.teamcode.RobotMath.Vec pivot = new org.firstinspires.ftc.teamcode.RobotMath.Vec(pose.x, pose.y).plus(mount.pivot.rotate(pose.heading));
@@ -305,8 +392,10 @@ public final class ShotCoordinator {
         }
         telemetry.addData("Shot profile", "%s | %s", profile.geometryId, profile.calibrated ? "CALIBRATED" : "UNCALIBRATED EXAMPLE");
         telemetry.addData("Shot solution", solution.reason);
-        telemetry.addData("Vision age (s)", history.observationAge(now));
-        telemetry.addData("Vision decision", history.reason());
+        telemetry.addData("Auto offsets (yaw deg / hood deg / RPM)", "%.1f / %.1f / %.0f", yawOffsetDeg, hoodOffsetDeg, rpmOffset);
+        telemetry.addData("Accepted vision pose age (s)", history.observationAge(now));
+        telemetry.addData("Vision decision", visionDecision);
+        telemetry.addData("Pose fusion decision", history.reason());
         if (pose != null) telemetry.addData("Odometry-frame velocity (m/s, rad/s)", "%.2f, %.2f | %.2f", pose.vx, pose.vy, pose.omega);
         if (pose != null) telemetry.addData("Pose uncertainty estimate (m)", "%.3f | no drift assumed; no feed cutoff", pose.uncertainty);
         telemetry.addData("Current aim yaw / range (deg, m)", "%.2f | %.3f", Math.toDegrees(solution.yaw), solution.effectiveRange);

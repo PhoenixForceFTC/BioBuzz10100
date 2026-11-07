@@ -5,6 +5,20 @@ Local checks come first; CI remains deferred. The pinned version is `v0.2.0-alph
 Read the [audit](../doc/SimLoopIntegrationAudit.md), [coverage matrix](../doc/TeleOpVerificationMatrix.md)
 and [model assumptions](../doc/SimLoopRobotModel.md) before interpreting a pass as evidence.
 
+The drivetrain fixture includes the reported goBILDA 5000 bare motors, 20:80 gears
+and coaxial 30:91 belt reduction (12.133333 motor rev/wheel rev). It derives motor
+ticks/in from those stages and the reported 104-mm goBILDA 30A mecanum wheels
+(52-mm nominal radius, 26.411232 motor ticks/in). Drivetrain scenarios
+check the actual isolated test, Red/Blue wrappers and Pedro diagnostic's manual
+drive/STOP conversion; loaded compression/slip and autonomous path accuracy still
+need physical validation. See [hardware and units](../doc/Drivetrain.md).
+
+The November 5 direction regression checks all six stick directions in those four
+actual OpModes. Physical mounting signs +,-,+,- replace the previous assumption
+based on the team's all-directions-reversed report; they remain independent of
+production motor directions. This is software regression evidence under that
+reported orientation, not a fresh physical measurement.
+
 ## Automated checks (humans and agents)
 
 Run from the repository root with the usual FTC JDK/Android SDK setup:
@@ -33,7 +47,7 @@ and inject artificial shot rows explicitly; their results do not certify product
 
 ```powershell
 .\tools\review-teleop.ps1 -OpMode RedMecanumTeleOp -Seconds 120
-.\tools\review-teleop.ps1 -OpMode BlueMecanumTeleOp -Profile raised-audience-normalized
+.\tools\review-teleop.ps1 -OpMode BlueMecanumTeleOp -Profile raised-audience
 .\tools\review-teleop.ps1 -OpMode TransferTestOpMode
 .\tools\review-teleop.ps1 -OpMode TurretTestOpMode
 ```
@@ -59,18 +73,29 @@ the upstream held-key interface. This is keyboard input, not physical USB gamepa
 | P held | Pinpoint NOT_READY fault; release clears fault |
 | V held | Freeze physical turret yaw; encoder stays at the physical angle |
 
-Robot controls remain those of the selected OpMode. For competition: GP1 Z or GP2 C requests manual
-feed; GP2 Z inhibits it; GP1 C requests automatic aim/fire (production unmeasured calibration blocks
-firing). Hold U for over 0.5 seconds to review full-queue behavior. Sensor keys are environment controls,
+Robot controls remain those of the selected OpMode. For competition: GP1 1 (A) or GP2 C requests manual
+feed; GP2 Z inhibits it; GP1 C prepares automatic aim/hood/RPM and C+Z requests
+shooting. GP2 2 (B) toggles continuous/staggered. Production unmeasured calibration blocks
+firing. Hold U for over 0.5 seconds to review full-queue behavior. Sensor keys are environment controls,
 recorded separately from gamepad input, and have no effect on mechanisms absent from the fixture.
+
+Competition GP2 Left Arrow requests alliance-corner rehome and a three-second
+Limelight refinement; the turret points toward its hive. Keep the chassis still
+until telemetry reports VISION REFINED or CORNER ONLY (with the 55-degree camera the corner cannot see the raised tags, so the Sensors corner scenarios assert CORNER ONLY). Five fresh compatible
+frames after measured turret settling refine position with the corner prior.
+GP2 yaw input or turret home cancels refinement; automatic feed waits while
+pending. The built-in raised-audience profile has no red-far raised tags; use
+the dedicated Sensors corner-rehome scenario for both intended corner landmarks.
 
 Profiles:
 - `no-tags` (default): no camera detections; manual drive/feed works without absolute field reference.
-- `raised-audience`: raw upstream camera convention; the current production normal check rejects it.
-- `raised-audience-normalized`: explicit TEST-ONLY target-basis conversion to the current robot convention.
-  This exercises geometric localization; it is **not proof of physical Limelight compatibility**.
+- `raised-audience`: raw upstream camera convention (tag +Z into the print). This matches the physical
+  Limelight frame recorded 2026-11-05, which `LimelightObservation` converts to the robot's outward +Z.
+  It exercises geometric localization; it is **not proof of physical pose accuracy**.
+- `raised-audience-inverted`: TEST-ONLY inverted target normal; the robot must reject it with a facing diagnostic.
+Both profiles rotate SimLoop's upright stickers 180 degrees in-plane to match the field's upside-down underside stickers.
 
-Raised profiles start at alliance X = +/-12.75 in, Y = -60 in, heading = pi, with audience cells raised.
+Raised profiles start at alliance X = +/-12.75 in, Y = -40 in (`RAISED_TAG_VIEW_Y_INCHES`; the 55-degree camera loses the tags beyond about 52 in), heading = pi, with audience cells raised.
 They require a camera-equipped fixture. The robot is not handed this field pose: it must acquire a
 reference from camera observations. Camera settings, visibility, latency and finite turret response
 remain simulated. Neither profile invents measured shot rows or scores real balls.
@@ -124,3 +149,5 @@ is copied. SimLoop, its desktop classifier and PsiKit dependencies are test-only
 Jupiter/Vintage 5.11.3, Platform launcher 1.11.3 and real JSON 20250517 preserve JUnit 4 discovery and JVM
 parsing. `returnDefaultValues=true` supports SDK matrix construction; it does not simulate Android services,
 USB, VisionPortal, storage or Lynx scheduling. Fixed simulated ticks do not benchmark Control Hub timing.
+
+November 4 integration: selected competition scenarios cover aim-only collection, firing pauses, auto offsets and three independent PWM light commands; Mechanisms covers intake encoder stall/release and LightsTestOpMode channel/pulse/STOP behavior. See doc/TeleOpVerificationMatrix.md for the bounded verification results and model limits.

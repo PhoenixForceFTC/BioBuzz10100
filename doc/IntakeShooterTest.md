@@ -1,5 +1,7 @@
 # Intake, index and shooter bench test
 
+November 4 software integration: [final TeleOp audit](TeleOpConsistencyChecklist.md) records shared intake jam recovery, collection while aiming, GP2 auto offsets, independent status lights and the retained current controls. Bench tuning/interlocks remain explicitly documented diagnostic policies.
+
 **Test status: complete October 26, 2026.** The operator confirmed all transfer and intake tests complete, and turret rotation, shooting/angle and gate tests good. See [mechanism test sign-off](HardwareReviewImplementationStatus.md#mechanism-tests--complete-october-26-2026). Numerical calibration remains separate.
 
 Select **Test: Intake + Index + Shooter** in the Driver Station's Test group.
@@ -19,8 +21,8 @@ Hub port 2), read through `transfer_motor_1`. The turret reads that port without
 resetting it or changing transfer power, direction or mode; it removes the SDK's
 motor-direction sign so the REVERSE transfer motor does not flip yaw calibration.
 Standalone configurations can still use a `turret_encoder` alias for port 2.
-Only this combined bench TeleOp monitors
-intake speed. If a nonzero intake command stays below 20 ticks/s in magnitude for
+As of November 4, the combined bench, intake-only, competition and autonomous
+intake paths share the same encoder-based recovery algorithm. If a nonzero intake command stays below 20 ticks/s in magnitude for
 0.20 seconds, it alternates opposite/requested direction every 0.125 seconds for
 0.50 seconds total, then resumes the requested direction. This also handles a stalled
 manual reverse or full-queue reverse. A persistent jam retries after another 0.20-second
@@ -30,7 +32,8 @@ RB restores automatic loading, so recovery continues if the requested direction
 stays the same; a full queue restores reverse instead. Changing requested direction
 starts a fresh detection window. Transfer, gate and shooter keep updating throughout.
 Telemetry shows intake velocity in ticks/s and the recovery state. Thresholds are
-bench-controller constants and require physical verification with the new wiring.
+shared IntakeJamRecovery constants, with compatibility aliases for bench callers;
+physical recovery effectiveness remains unverified.
 
 Simulation decision: after the confirmed wiring change, update the fixture to drive
 transfer motor 1's encoder from physical turret yaw, leaving the intake encoder coupled

@@ -26,7 +26,8 @@ public final class ShotCalibrationExport {
         p.setProperty("geometry",geometry); p.setProperty("calibration_status",STATUS);
         p.setProperty("units","distance=m,hood=deg_down_from_home,rpm=flywheel_rev/min");
         p.setProperty("distance_reference","horizontal_muzzle_to_opening");
-        p.setProperty("mount","pivot_forward_mm=50.68184865,camera_from_pivot_mm=-99.53073974,camera_height_mm=335,pitch_up_deg=30");
+        p.setProperty("mount","pivot_forward_mm=50.68184865,camera_from_pivot_mm=-99.53073974,camera_height_mm=335,pitch_up_deg="
+                +ShootingConfiguration.CAMERA_PITCH_UP_DEG);
         ShotCalibration.Sample[] samples=notebook.samples(); ShotProfile.Row[] rows=notebook.rows();
         p.setProperty("sample_count",Integer.toString(samples.length)); p.setProperty("row_count",Integer.toString(rows.length));
         for (int i=0;i<samples.length;i++) {

@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
-/** Team-approved nominal field targets; corner constants are retained as a bench reference only. */
+/** Team-approved nominal field targets and blue-corner placement geometry (red is its point mirror). */
 public final class TeleOpFieldReference {
     private TeleOpFieldReference() { }
     public static final double FIELD_HALF_WIDTH_METERS = FieldGeometry.FIELD_HALF_WIDTH_METERS;
@@ -30,6 +30,23 @@ public final class TeleOpFieldReference {
             TurretSubsystem.HiveSide side = TurretSubsystem.getHiveSideForTag(alliance,id);
             if (side != null) return target(alliance,side);
         }
+        return null;
+    }
+    /** Same nominal raised-tag checks for initial localization and corner refinement. */
+    public static String raisedTagRejectionReason(TagObservation tag, ShooterMount mount) {
+        if (tag == null) return "No metric tag pose";
+        if (tag.id < 30 || tag.id > 45) return "Tag " + tag.id + " outside hive field map";
+        String rejection = tag.rejectionReason();
+        if (rejection != null) return "Tag " + tag.id + ": " + rejection;
+        if (!mount.measured) return "Camera mount unmeasured";
+        double height = mount.cameraHeight+tag.levelPosition(mount)[2];
+        double plane = tag.planeDegrees(mount);
+        if (!(Math.abs(plane-HiveTagGeometry.RAISED_TAG_PLANE_DEG) <= PoseHistory.TAG_PLANE_TOLERANCE_DEG))
+            return String.format(java.util.Locale.US,"Tag %d: plane %.1f deg; expected %.1f +/- %.1f deg",
+                    tag.id,plane,HiveTagGeometry.RAISED_TAG_PLANE_DEG,PoseHistory.TAG_PLANE_TOLERANCE_DEG);
+        if (!(Math.abs(height-ShootingConfiguration.HIGH_GOAL_TAG_CENTER_HEIGHT_METERS) <= .1))
+            return String.format(java.util.Locale.US,"Tag %d: height %.3f m; expected %.3f +/- 0.100 m",
+                    tag.id,height,ShootingConfiguration.HIGH_GOAL_TAG_CENTER_HEIGHT_METERS);
         return null;
     }
     /** Bearing from the turret pivot; independent of shot-profile calibration and camera visibility. */

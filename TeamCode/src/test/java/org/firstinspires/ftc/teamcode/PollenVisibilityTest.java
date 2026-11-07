@@ -18,7 +18,8 @@ public class PollenVisibilityTest {
     }
     @Test public void old350mmTransitionIsInvisibleAndNewExampleIsVisibleButStillUncalibrated() {
         double near=model.nearestPickupVisibleMm(config);
-        assertTrue(near>540 && near<570);
+        // Independent expected floor-ray intersection for the 195-mm / 15-degree mount.
+        assertEquals(498.589,near,.001);
         assertNull(target(1,350)); assertNotNull(target(1,650));
         assertTrue(model.pickupVisible(config)); assertFalse(config.autonomousEligible(true));
     }
@@ -41,10 +42,12 @@ public class PollenVisibilityTest {
         assertEquals(px,t.contactXPx,0); assertEquals(py,t.contactYPx,0);
     }
     @Test public void activeIntrinsicsChangeVisibilityAndEnabledInvisibleConfigurationIsRejected() {
-        PollenCameraModel zoom=new PollenCameraModel(320,240,500,500,160,120,null);
+        // At 15 degrees down, 500-px focal length still permits the 650-mm transition.
+        assertTrue(new PollenCameraModel(320,240,500,500,160,120,null).pickupVisible(config));
+        PollenCameraModel zoom=new PollenCameraModel(320,240,700,700,160,120,null);
         assertTrue(zoom.nearestPickupVisibleMm(config)>model.nearestPickupVisibleMm(config));
         assertFalse(zoom.pickupVisible(config));
-        assertThrows(IllegalArgumentException.class,()->new PollenConfiguration(195,10,248,0,60,500,500,160,120,
+        assertThrows(IllegalArgumentException.class,()->new PollenConfiguration(195,15,248,0,60,700,700,160,120,
                 true,true,true,true,false,20,40,80,80,350,200));
         assertThrows(IllegalArgumentException.class,()->new PollenCameraModel(320,240,0,200,160,120,null));
         assertThrows(IllegalArgumentException.class,()->new PollenCameraModel(320,240,200,200,160,120,new double[]{Double.NaN,0,0,0}));

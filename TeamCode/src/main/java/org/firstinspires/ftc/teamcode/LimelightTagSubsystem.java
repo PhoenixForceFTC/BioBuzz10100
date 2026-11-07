@@ -15,6 +15,8 @@ public class LimelightTagSubsystem implements AutoCloseable {
 
     private final Limelight3A limelight;
     private LLResult result;
+    private LimelightObservation observation;
+    private final LimelightObservation.FrameRate frameRate = new LimelightObservation.FrameRate();
 
     public LimelightTagSubsystem(HardwareMap hardwareMap) {
         limelight = hardwareMap.get(Limelight3A.class, HW_LIMELIGHT);
@@ -24,9 +26,12 @@ public class LimelightTagSubsystem implements AutoCloseable {
 
     public void update() {
         result = limelight.getLatestResult();
+        double now = System.nanoTime()*1e-9;
+        observation = new LimelightObservation(now,System.currentTimeMillis(),result,frameRate.update(result,now));
     }
 
     public LLResult getResult() { return result; }
+    public LimelightObservation getObservation() { return observation; }
 
     public double getFrameTimestamp() {
         return result == null ? Double.NEGATIVE_INFINITY : result.getTimestamp();
@@ -62,6 +67,7 @@ public class LimelightTagSubsystem implements AutoCloseable {
         telemetry.addData("Tag IDs", count > 0 ? ids.toString() : "None");
         telemetry.addData("Camera data", result == null ? "Waiting for results"
                 : fresh ? "Fresh" : "Stale (ignored)");
+        LimelightDiagnostics.addTelemetry(telemetry,observation,System.nanoTime()*1e-9);
     }
 
     @Override

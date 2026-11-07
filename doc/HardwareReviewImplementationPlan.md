@@ -12,8 +12,8 @@ Scope: repair hardware-control logic, implement observed goal-state detection an
 ## Baseline already completed
 
 - Preserve all existing local changes. The latest desktop baseline is 81 passing unit tests and a successful debug APK build. Earlier lint reported zero errors and 14 warnings.
-- Keep the confirmed C270 mount: 195 mm lens height, 248 mm forward, zero lateral offset, upright/forward, 10 degrees below horizontal.
-- Keep the Limelight mount: 335 mm lens height, 30 degrees above horizontal, and the previously confirmed rotating pivot/camera offsets.
+- The October baseline C270 mount was 195 mm lens height, 248 mm forward, zero lateral offset, upright/forward, 10 degrees below horizontal. The team updated pitch to **15 degrees below horizontal on November 5, 2026**; current configuration and geometry are in [PollenAuto.md](PollenAuto.md).
+- Keep the Limelight mount: 335 mm lens height, 55 degrees above horizontal (lens axis; front glass team-measured 55 degrees from vertical on 2026-11-05; originally documented as 30), and the previously confirmed rotating pivot/camera offsets.
 - Keep high-goal opening/tag-center heights of 1.50/1.25 m and opening-plane angle of 60 degrees. The opening angle is not the hood command.
 - Keep the confirmed 6 V servo injector and Control Hub I2C port 0 for Pinpoint.
 - Keep the fourth-ball sensor on stage 1. Loading runs stage 1 forward with stage 2 stopped; feeding opens/settles the gate and runs both stages at full power, stage 1 REVERSE and stage 2 FORWARD. Gate closure blocks passage to the flywheel. Opening alone does not release a ball.
@@ -35,7 +35,7 @@ Acceptance: a missing servo cannot command another hub; normal diagnostics respe
 Add a small hardware-independent observation/classification component and a read-only Limelight diagnostic OpMode. Use `LLResultTypes.FiducialResult.getTargetPoseCameraSpace()`; the installed FTC SDK exposes it. See the [Limelight FTC API](https://docs.limelightvision.io/docs/docs-limelight/apis/ftc-programming).
 
 - Read fresh per-tag 3D position/orientation with tag ID and capture time. Require the correct alliance/cell, finite nonzero pose, plausible range and usable detection geometry. Do not interpret missing/zero 3D output as a real close target.
-- Convert camera coordinates using the known 335-mm lens height and 30-degree pitch. Height estimation is independent of global field X/Y. Account for chassis pitch/roll when available, or explicitly limit validity to the supported level-chassis assumption.
+- Convert camera coordinates using the known 335-mm lens height and 55-degree pitch. Height estimation is independent of global field X/Y. Account for chassis pitch/roll when available, or explicitly limit validity to the supported level-chassis assumption.
 - Compare observed height with the raised-tag expectation of 1.25 m and corroborate with tag-plane orientation. Inspect the measured tag plane, not the opening's 60-degree angle directly.
 - Require distinct consistent frames, agreement among visible tags from the same cell when available, and hysteresis. Track RAISED, LOWERED where supported by evidence, and UNKNOWN/TRANSITIONING; only a fresh, stable RAISED observation can qualify automatic feeding.
 - A missing target, conflicting poses, a tipping cell, stale frames or a side change removes automatic firing permission immediately. Reacquisition must qualify again.
@@ -78,7 +78,7 @@ Primary files: `PollenConfiguration`, `PollenVision`, `PollenTarget`, `PollenTra
 - Retain the confirmed camera mount and use one authoritative pickup configuration.
 - Use active camera intrinsics consistently; undistort contact pixels when valid distortion calibration is available. Keep fallback-FOV estimates explicitly approximate.
 - Calculate/validate the visible floor region for the active camera model and contour-clipping policy. Reject an enabled pickup configuration whose confirmation distance lies outside that visible region.
-- Replace reliance on the current 350-mm example: with the present approximate model, targets disappear near 550 mm. Confirm a target while it is visible, then use odometry/heading and bounded travel/time for the final blind pickup.
+- Replace reliance on the original 350-mm example: with the October 10-degree approximate model, targets disappeared near 550 mm. The November 5 15-degree mount brings that boundary to about 500 mm; 350 mm remains invisible. Confirm a target while it is visible, then use odometry/heading and bounded travel/time for the final blind pickup. Current uncalibrated examples remain 650-mm confirmation and 450-mm blind travel.
 - Keep disappearance before confirmed acquisition distinct from the expected loss during committed pickup. Stale camera data, invalid odometry, full queue, STOP and time/travel limits must still stop motion.
 - Show the visibility boundary, pickup settings, calibration status and rejection reason in the standalone camera test. Final transition distance/travel depend on real intrinsics and intake geometry; do not label a computed example as physically calibrated.
 

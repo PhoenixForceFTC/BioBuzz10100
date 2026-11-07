@@ -10,7 +10,7 @@ Current scope is pollen detection and navigation. Match paths and scoring/parkin
 
 | Device | Configuration / mounting |
 | --- | --- |
-| Logitech C270 | Configure as `webcam_1`, connected through the powered USB hub to the Control Hub. Team-confirmed lens mount: **195 mm above floor**, **248 mm forward**, **0 mm sideways** from robot center; straight forward, upright, optical axis **10 degrees below horizontal**. |
+| Logitech C270 | Configure as `webcam_1`, connected through the powered USB hub to the Control Hub. Team-confirmed lens mount: **195 mm above floor**, **248 mm forward**, **0 mm sideways** from robot center; straight forward, upright, optical axis **15 degrees below horizontal**. |
 | Limelight 3A | Remains the turret's AprilTag camera. The pollen routine uses the C270 and does not initialize the turret or Limelight. |
 | Drivetrain | Existing `MecanumDrivetrain` hardware names and motor configuration. |
 | Pinpoint | Control Hub **I2C port 0**, configured as `pinpoint`; leave the robot stationary during INIT calibration. |
@@ -27,11 +27,11 @@ The camera runs at 320 x 240 with MJPEG. Image processing runs on the camera thr
 1. Run **Test: Pollen Camera Calibration** in the Test group. It initializes only the C270, so the drivetrain, Pinpoint, turret, and intake can be disconnected.
 2. Inspect the Driver Station Camera Stream during INIT. Contours show the raw color detections; telemetry reports the selected, filtered target. Place individual pollen pieces at known distances and on both sides of the image.
 3. Confirm that a target on the robot's right has a positive bearing, a left target has a negative bearing, and a lower floor contact point produces a shorter distance estimate. Keep the camera upright and facing forward.
-4. The confirmed mount is already set to **195 mm high, 10 degrees below horizontal, 248 mm forward and 0 mm right**, with mount status measured. Update it only if the installed mount changes; the earlier 180-mm/zero-forward example is superseded.
+4. The confirmed mount is already set to **195 mm high, 15 degrees below horizontal, 248 mm forward and 0 mm right**, with mount status measured. Update it only if the installed mount changes; the earlier 180-mm/zero-forward example is superseded.
 5. Check **Pollen Intrinsics** telemetry. The code uses valid SDK camera calibration when available. Otherwise it uses an explicitly approximate 60-degree horizontal field of view with square pixels. Calibrate the C270 at the selected resolution and provide its calibration through the SDK, or tune the fallback FOV against measured floor distances. The fallback is not a measured C270 specification.
 6. Run **Test: Pedro Drive** to verify axes, paths and holds, measure Pedro tuning, and verify final pickup distances at low speed in a cleared area. Java's initial dynamics and the editor's robot dimensions are unmeasured examples.
 
-Distance is estimated by intersecting a ray through the blob's lowest contour point with the floor, using lens intrinsics and the confirmed 195-mm height / 10-degree downward pitch, then adding the 248-mm lens offset to report distance from robot center. This assumes flat ground and estimates floor contact rather than the pollen center. Clipped blobs and rays at/above the horizon are rejected. Range accuracy depends on calibration, lens distortion, shadows, and the visible contour.
+Distance is estimated by intersecting a ray through the blob's lowest contour point with the floor, using lens intrinsics and the confirmed 195-mm height / 15-degree downward pitch, then adding the 248-mm lens offset to report distance from robot center. This assumes flat ground and estimates floor contact rather than the pollen center. Clipped blobs and rays at/above the horizon are rejected. Range accuracy depends on calibration, lens distortion, shadows, and the visible contour.
 
 ## Autonomous behavior and tuning
 
@@ -48,7 +48,7 @@ Distance is estimated by intersecting a ray through the blob's lowest contour po
 
 `PollenConfiguration.pickupStartMm`, `pickupTravelMm`, and `PollenNavigator.PICKUP_TIME_LIMIT_SECONDS` must match the camera's near blind spot, the intake's leading edge, and measured robot speed. A bounded blind pickup begins only after visual confirmation. Target loss during the approach stops movement; stale camera frames or unavailable Pinpoint data stop the routine, including during pickup.
 
-With the current approximate 60-degree horizontal FOV and square-pixel model at 320x240, an unclipped bottom contact at pixel y=237 projects to about **550 mm from robot center**. The old 350-mm transition has been replaced by an explicitly **uncalibrated 650-mm transition / 450-mm blind-travel example**. `PollenCameraModel` computes the near/far visible floor boundary using the active intrinsics, optional distortion and contour clipping margin. An enabled pickup outside that region is rejected (including a 20-mm margin); SDK intrinsics are checked when the camera starts. Configuration, color and pickup calibration remain ineligible by default.
+With the current approximate 60-degree horizontal FOV and square-pixel model at 320x240, an unclipped bottom contact at pixel y=237 projects to about **500 mm from robot center** (498.6 mm in the model). The team updated the downward pitch from 10 to **15 degrees on November 5, 2026**, bringing this boundary closer than the earlier 550-mm estimate. The old 350-mm transition remains invisible. The explicitly **uncalibrated 650-mm transition / 450-mm blind-travel example** remains visible with the new mount, but still requires measured pickup calibration. `PollenCameraModel` computes the near/far visible floor boundary using the active intrinsics, optional distortion and contour clipping margin. An enabled pickup outside that region is rejected (including a 20-mm margin); SDK intrinsics are checked when the camera starts. Configuration, color and pickup calibration remain ineligible by default.
 
 Stage 1 of the transfer loads during active collection. Stage 2 stays off while stage 1 loads, and the gate stays closed. The existing full sensor must stay HIGH for 0.5 seconds to confirm a full queue. This routine collects pollen; it does not perform a shooting sequence. All movement is additionally bounded by **28 seconds** and **2400 mm of accumulated translation**. Use a cleared collection area: field routes and obstacle avoidance require a separate autonomous strategy.
 
@@ -72,3 +72,5 @@ From the repository root:
 ```
 
 The unit tests cover floor geometry, steering signs, startup calibration, acquisition, target loss and reacquisition, duplicate-frame rejection, bounded blind pickup, heading wrap, full-queue stopping, hardware faults, and time/travel limits. Robot motion, color thresholds, and camera calibration still require physical testing.
+
+November 5, 2026 pitch update: the shared C270 pitch is now 15 degrees down. All 27 focused pollen tests passed and `:TeamCode:assembleDebug` packaged successfully using JDK 25 and offline dependencies; log: `build/webcam-pitch-verification.log`. The visibility regression checks the approximately 498.6-mm near boundary and retained pickup visibility with the active mount. Full unit tests, lint and simulation were omitted for this mounting-value adjustment; the current simulator does not model USB webcam processing. No physical camera/pickup validation or robot deployment was performed, and calibration eligibility remains unchanged.

@@ -48,7 +48,12 @@ Automatic shooting still requires verified calibration, homing, field pose, hood
 
 ## Architecture and verification
 
-`PedroDrive` owns the existing mecanum and Pinpoint subsystems. It selects open-loop motor power for Pedro during INIT, preserving existing aliases, cloned bare-motor specs, directions and BRAKE. TeleOp keeps its existing mode. Its Pinpoint adapter converts cached meters to inches without changing field axes or rotating global velocity twice. Start-pose writes wait until Pinpoint is READY so IMU calibration cannot overwrite them. Each loop clears REV caches, reads Pinpoint once, updates the turret, updates Pedro once, runs Ivy, applies mechanism outputs, and flushes telemetry once.
+`PedroDrive` owns the existing mecanum and Pinpoint subsystems. The shared [drivetrain](Drivetrain.md) uses goBILDA 5000 bare motors, 20:80 gears and coaxial 30:91 belt drive (12.133333 motor rev/wheel rev). It selects open-loop motor power for Pedro during INIT, preserving existing aliases, cloned motor-shaft specs (28 ticks/rev, 5800 RPM catalog-tested no-load at 12 V, internal gearing 1:1), directions and BRAKE. TeleOp keeps its existing mode. Pinpoint pod resolution is independent of the drive transmission; loaded velocity/braking in Java and the editor still require measurement on this hardware. Its Pinpoint adapter converts cached meters to inches without changing field axes or rotating global velocity twice. Start-pose writes wait until Pinpoint is READY so IMU calibration cannot overwrite them. Each loop clears REV caches, reads Pinpoint once, updates the turret, updates Pedro once, runs Ivy, applies mechanism outputs, and flushes telemetry once.
+
+November 5 drive correction: the shared hardware directions are left FORWARD and
+right REVERSE, reversing all four motor outputs for Pedro diagnostics, Red/Blue
+competition autonomous, Pollen navigation and generated Zenith routines. Path
+coordinates, Pinpoint pod directions and Pedro's left/CCW convention stay consistent.
 
 Tests cover unit conversion, mecanum signs and saturation, actual Pedro hold/path-speed behavior, the pollen planner and replanning, the packaged pollen asset, and Zenith curves, markers (including endpoint and interrupted markers), parallel timeouts, branches, deferred starts, cancellation, and invalid files. These are JVM checks, not evidence of physical robot tuning.
 

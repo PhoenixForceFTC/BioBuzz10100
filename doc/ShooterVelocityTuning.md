@@ -4,7 +4,9 @@ The shooter is a [goBILDA 5203 Yellow Jacket 6000 RPM motor](https://www.gobilda
 with 1:1 motor-to-flywheel drive. `ShooterSpeed` configures 6000 RPM at 12 V and
 28 encoder counts/revolution. Motor RPM and flywheel output RPM are equal. The
 6000 RPM catalog no-load speed is a configuration estimate, not a loaded measurement.
-`BareMotorSpecifications` retains the separate drivetrain baseline of 5550 RPM.
+`BareMotorSpecifications` holds the separate goBILDA 5000 drivetrain baseline of
+5800 RPM; its [20:80 gear and 30:91 belt reduction](Drivetrain.md) applies only to
+the wheels. Shooter speed and encoder conversion use their own 1:1 configuration.
 
 Shooter commands, profiles and calibration allow up to 6000 flywheel RPM, with no
 software headroom reserve. The combined bench test keeps its 2800 flywheel RPM

@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
 /** Metric tag pose in optical camera axes: right, down, forward. No field map is involved.
- * Existing robot convention treats tag +Z as the outward normal. Validate this with a saved
- * physical Limelight frame before changing it; SimLoop alpha.2 uses the opposite target normal.
+ * Robot convention: tag +Z is the outward normal (toward a camera that can read the tag).
+ * The physical Limelight reports +Z into the print; LimelightObservation converts it once.
  */
 public final class TagObservation {
     public static final double MIN_FORWARD_METERS = .1, MIN_RANGE_METERS = .25, MAX_RANGE_METERS = 6;
@@ -23,11 +23,22 @@ public final class TagObservation {
                 Math.sin(yaw) * x2 + Math.cos(yaw) * y1, z2};
     }
     public boolean usable() {
+        return rejectionReason() == null;
+    }
+    /** Null means accepted; exposes the existing checks without changing their thresholds or axes. */
+    public String rejectionReason() {
         double range = Math.sqrt(x*x + y*y + z*z);
-        if (!RobotMath.finite(x, y, z, roll, pitch, yaw, area) || z <= MIN_FORWARD_METERS || range < MIN_RANGE_METERS || range > MAX_RANGE_METERS || area < MIN_AREA_PERCENT) return false;
-        double[] n = rotate(0, 0, 1);
+        if (!RobotMath.finite(x, y, z, roll, pitch, yaw, area)) return "Non-finite translation / rotation / area";
+        if (z <= MIN_FORWARD_METERS) return "Zero / behind / too-close forward pose";
+        if (range < MIN_RANGE_METERS || range > MAX_RANGE_METERS) return "Range outside limits";
+        if (area < MIN_AREA_PERCENT) return "Tag area below minimum";
         // Reject edge-on / back-facing detections. The printed normal must face the lens.
-        return -(n[0]*x + n[1]*y + n[2]*z) / range > MIN_FACING_COSINE;
+        return facingCosine() > MIN_FACING_COSINE ? null : "Facing check failed (outward tag +Z normal)";
+    }
+    /** +1 faces the camera, -1 faces away under the outward +Z normal convention. */
+    public double facingCosine() {
+        double[] n = rotate(0, 0, 1);
+        return -(n[0]*x + n[1]*y + n[2]*z) / Math.sqrt(x*x + y*y + z*z);
     }
     /** Level camera-yaw frame: forward, left, up, after removing the measured mount pitch. */
     public static double[] level(double x, double y, double z, double cameraPitch) {

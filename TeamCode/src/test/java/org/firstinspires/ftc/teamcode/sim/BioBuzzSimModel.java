@@ -4,16 +4,23 @@ import org.horizon36596.simloop.config.DrivetrainSimConfig;
 import org.horizon36596.simloop.plant.MecanumDrivePlant;
 
 /**
- * First-milestone model: independent wheel response and chassis motion only.
- * Geometry, effective ticks/in, strafe ratio and lag are synthetic estimates, NOT robot tuning.
+ * Independent motor response and chassis motion with the reported two-stage drive reduction.
+ * Nominal wheel diameter is reported hardware; chassis geometry, strafe ratio and lag
+ * are synthetic estimates, NOT robot tuning.
  * Assertions check signs/relative motion, never measured speed, stopping distance, or shot success.
  */
 final class BioBuzzSimModel implements DrivetrainSimConfig {
-    static final double FREE_SPEED_TICKS_PER_SECOND = 28 * 5550.0 / 60;
+    // Independent hardware specification, deliberately not copied from the production constants.
+    static final double MOTOR_TICKS_PER_REV = 28;
+    static final double FREE_SPEED_TICKS_PER_SECOND = MOTOR_TICKS_PER_REV * 5800.0 / 60;
+    static final double MOTOR_REVS_PER_WHEEL_REV = (80.0 / 20) * (91.0 / 30);
+    static final double WHEEL_RADIUS_IN = 104.0 / 2 / 25.4; // Team-reported 104-mm goBILDA 30A wheel.
     static final double RESPONSE_RATE_PER_SECOND = 10;
-    static final String PARAMETERS = "seed=none; drive motor=28 ticks/rev,5550 RPM configured baseline; "
-            + "SYNTHETIC: track=14 in,wheelbase=14 in,radius=2 in,effective ticks/in=64,"
-            + "strafe ratio=0.85,lag=0.1 s; mounting signs=-1,+1,-1,+1; "
+    static final String PARAMETERS = "seed=none; drive motor=goBILDA 5000-0002-4008,28 ticks/rev,5800 RPM catalog-tested @12V; "
+            + "drive transmission=20:80 gears,coaxial 30:91 belt,364/30 motor rev/wheel rev; "
+            + "wheel=goBILDA 30A mecanum,104 mm diameter; motor ticks/in=28*(80/20)*(91/30)/(pi*104/25.4); "
+            + "SYNTHETIC: track=14 in,wheelbase=14 in,"
+            + "strafe ratio=0.85,lag=0.1 s; mounting signs=+1,-1,+1,-1 (team reversal report 2026-11-05); "
             + "flywheel=5203 Yellow Jacket,observed 5400 RPM at 14 V,28 ticks/rev,1:1 output; "
             + "turret=355 deg/servo span,8192 CPR*108/40,synthetic slew=180 deg/s; "
             + "Pinpoint=32,-74 mm,reversed pods,2000/(32pi) ticks/mm; "
@@ -48,13 +55,16 @@ final class BioBuzzSimModel implements DrivetrainSimConfig {
 
     @Override public double trackWidth() { return 14; }
     @Override public double wheelBase() { return 14; }
-    @Override public double wheelRadius() { return 2; }
-    @Override public double ticksPerInch() { return 64; }
+    @Override public double wheelRadius() { return WHEEL_RADIUS_IN; }
+    @Override public double ticksPerInch() {
+        return MOTOR_TICKS_PER_REV * MOTOR_REVS_PER_WHEEL_REV / (2 * Math.PI * WHEEL_RADIUS_IN);
+    }
     @Override public double maxVelocityTicksPerSecond() { return FREE_SPEED_TICKS_PER_SECOND; }
     @Override public double maxLateralVelocityTicksPerSecond() { return FREE_SPEED_TICKS_PER_SECOND * .85; }
     @Override public double maxAccel() { return RESPONSE_RATE_PER_SECOND; }
-    // Installed left/right mounting convention, deliberately independent of motor.getDirection().
-    @Override public double[] wheelMountingSigns() { return new double[] {-1, 1, -1, 1}; }
+    // Team reported all six drive directions reversed on 2026-11-05. This replaces the old
+    // assumed mount; keep physical shaft-to-wheel signs independent of motor.getDirection().
+    @Override public double[] wheelMountingSigns() { return new double[] {1, -1, 1, -1}; }
     @Override public double fieldHalfWidth() { return 72; }
     @Override public double fieldHalfHeight() { return 72; }
 }

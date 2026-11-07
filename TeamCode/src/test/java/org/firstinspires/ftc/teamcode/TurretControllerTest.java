@@ -262,4 +262,21 @@ public class TurretControllerTest {
         double desired = ShotCoordinator.visualTrackingYawDegrees(170, -12, 0);
         assertEquals(175, TurretSubsystem.clampYawAngle(desired), 1e-8);
     }
+
+    @Test public void automaticYawHoldsDeadZoneSideAndUnwindsPastHysteresis() {
+        double max = TurretSubsystem.ROTATION_MAX_ANGLE_DEG, hyst = TurretSubsystem.ROTATION_WRAP_HYSTERESIS_DEG;
+        assertEquals(120, TurretSubsystem.reachableYawDegrees(120, 100), 1e-9);
+        assertEquals(170, TurretSubsystem.reachableYawDegrees(530, 100), 1e-9); // Any wrap normalizes.
+        // Inside the rear dead zone: hold the limit on the side the turret is already on.
+        assertEquals(max, TurretSubsystem.reachableYawDegrees(178, 170), 1e-9);
+        assertEquals(max, TurretSubsystem.reachableYawDegrees(-178, 170), 1e-9);
+        assertEquals(-max, TurretSubsystem.reachableYawDegrees(178, -170), 1e-9);
+        // Just past the zone on the other side: keep holding until the hysteresis margin is cleared.
+        assertEquals(max, TurretSubsystem.reachableYawDegrees(-(max - hyst + .5), 174), 1e-9);
+        assertEquals(-(max - hyst - .5), TurretSubsystem.reachableYawDegrees(-(max - hyst - .5), 174), 1e-9);
+        assertEquals(-max, TurretSubsystem.reachableYawDegrees(max - hyst + .5, -174), 1e-9);
+        // Mid-unwind (turret near home) the far-side target stays committed even near the zone.
+        assertEquals(-(max - 1), TurretSubsystem.reachableYawDegrees(-(max - 1), 30), 1e-9);
+        assertTrue(Double.isNaN(TurretSubsystem.reachableYawDegrees(Double.NaN, 0)));
+    }
 }

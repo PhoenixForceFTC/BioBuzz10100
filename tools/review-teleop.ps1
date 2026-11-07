@@ -6,7 +6,7 @@ param(
         'GoalStateTestOpMode','PedroDriveTestOpMode')]
     [string]$OpMode = 'RedMecanumTeleOp',
     [ValidateRange(1,300)][int]$Seconds = 120,
-    [ValidateSet('no-tags','raised-audience','raised-audience-normalized')][string]$Profile = 'no-tags',
+    [ValidateSet('no-tags','raised-audience','raised-audience-inverted')][string]$Profile = 'no-tags',
     [string]$Replay,
     [switch]$Smoke
 )

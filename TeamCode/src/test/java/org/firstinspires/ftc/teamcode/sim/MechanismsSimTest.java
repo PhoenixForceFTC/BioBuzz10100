@@ -5,6 +5,41 @@ import org.horizon36596.simloop.opmode.OpModePhase;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MechanismsSimTest {
+    @Test void independentLightsUseSpecifiedPulsesAndTurnOffAtStop() throws Exception {
+        BioBuzzSimHardware h = new BioBuzzSimHardware().withLights();
+        TeleOpScenario s = new TeleOpScenario("lights", "LightsTestOpMode", h, .02, 3, 60, (p,t,a,b) -> {
+            boolean active = p == OpModePhase.ACTIVE;
+            a.a = active && t < 10;
+            a.dpad_right = active && ((t >= 10 && t < 20) || (t >= 30 && t < 40));
+            a.b = active && t >= 10 && t < 20;
+            a.x = active && t >= 30 && t < 40;
+        });
+        s.observer = v -> {
+            if (v.phase == OpModePhase.ACTIVE && v.tick == 45) {
+                assertEquals(1500, h.ledIntake.getPulseWidth(), 1);
+                assertEquals(1100, h.ledShooter.getPulseWidth(), 1);
+                assertEquals(1700, h.ledStatus.getPulseWidth(), 1);
+            }
+        };
+        s.run();
+        assertEquals(600, h.ledIntake.getPulseWidth(), 1);
+        assertEquals(600, h.ledShooter.getPulseWidth(), 1);
+        assertEquals(600, h.ledStatus.getPulseWidth(), 1);
+    }
+    @Test void isolatedIntakeRecoversFromStallAndReleaseCancelsRecovery() throws Exception {
+        BioBuzzSimHardware h = new BioBuzzSimHardware().withIntake();
+        // Explicit disconnected/stalled encoder fault, independent of commanded motor power.
+        h.intake.setEncoderMeasuringAnotherMechanism(0, 0);
+        TeleOpScenario s = new TeleOpScenario("intake-stall", "IntakeTestOpMode", h, .02, 3, 60, (p,t,a,b) -> {
+            a.right_bumper = p == OpModePhase.ACTIVE && t < 30;
+        });
+        s.run();
+        assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 5).intakePower);
+        assertEquals(-1, s.trace.at(OpModePhase.ACTIVE, 12).intakePower);
+        assertEquals(1, s.trace.at(OpModePhase.ACTIVE, 20).intakePower);
+        for (int tick : new int[]{30, 35, 55}) assertEquals(0, s.trace.at(OpModePhase.ACTIVE, tick).intakePower);
+        assertEquals(0, h.intake.getPower());
+    }
     @Test void intakePrioritiesAndStop() throws Exception {
         TeleOpScenario s = new TeleOpScenario("intake", "IntakeTestOpMode",
                 new BioBuzzSimHardware().withIntake(), .02, 5, 80, (p,t,a,b) -> {

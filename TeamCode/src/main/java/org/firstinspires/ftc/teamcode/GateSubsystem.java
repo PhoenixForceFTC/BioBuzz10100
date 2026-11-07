@@ -7,7 +7,7 @@ import java.util.function.DoubleSupplier;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-/** Shooter gate servo configured as gate_servo on Expansion Hub servo port 3. */
+/** Gate wired directly to Expansion Hub servo port 3, without the 6 V injector. */
 public class GateSubsystem {
 
     public static final String HW_GATE_SERVO = "gate_servo";
@@ -23,6 +23,7 @@ public class GateSubsystem {
     // REVERSE maps logical 0.5 -> 0.2 to physical 0.5 -> 0.8: 1500 -> 2100 us, 90 deg CW.
     public static final double OPEN_ANGLE_DEG = CLOSED_ANGLE_DEG - GATE_OPEN_TRAVEL_DEG;
     public static final double TRIGGER_DEADBAND = 0.1;
+    // Catalog reference only; direct-hub loaded speed has not been measured.
     public static final double SECONDS_PER_60_DEG_AT_6V = 0.043;
     public static final double RATED_OPEN_TRAVEL_SECONDS = GATE_OPEN_TRAVEL_DEG
             / 60.0 * SECONDS_PER_60_DEG_AT_6V;
@@ -67,6 +68,7 @@ public class GateSubsystem {
         boolean opening = open && !this.open;
         this.open = open;
         double angleDeg = open ? OPEN_ANGLE_DEG : CLOSED_ANGLE_DEG;
+        // Immediate full target for maximum available servo speed; no software ramp.
         servo.setPosition(angleDeg / SERVO_TRAVEL_DEG);
         if (opening) openedAt = clock.getAsDouble();
     }
@@ -84,6 +86,7 @@ public class GateSubsystem {
 
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Gate Servo", SERVO_MODEL);
+        telemetry.addData("Gate Power", "Direct Expansion Hub port 3 (no 6 V injector)");
         telemetry.addData("Gate PWM Range (us)", "%d - %d | %s",
                 MIN_PULSE_US, MAX_PULSE_US, SERVO_DIRECTION);
         telemetry.addData("Gate Open Travel (deg)", GATE_OPEN_TRAVEL_DEG);

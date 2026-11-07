@@ -79,6 +79,9 @@ public class TurretSubsystem {
     public static final double ROTATION_DEADZONE_HALF_DEG = 5.0; // +/- 5 deg deadzone on the left
     public static final double ROTATION_MIN_ANGLE_DEG = -180.0 + ROTATION_DEADZONE_HALF_DEG; // -175.0 deg
     public static final double ROTATION_MAX_ANGLE_DEG =  180.0 - ROTATION_DEADZONE_HALF_DEG; // +175.0 deg
+    // While the turret sits near the back on one side, a target just past the dead zone on the other side
+    // must clear this margin before the turret unwinds the long way, so edge noise cannot cause repeat spins.
+    public static final double ROTATION_WRAP_HYSTERESIS_DEG = 3.0;
 
     // Set to -1.0 if positive angle commands move the turret in the opposite direction of encoder ticks
     public static final double ROTATION_SERVO_DIRECTION_SIGN = -1.0;
@@ -201,7 +204,7 @@ public class TurretSubsystem {
         AUDIENCE  // Audience side (-Y): Tags 34-37 (Red) or 38-41 (Blue)
     }
 
-    public static final long LIMELIGHT_MAX_STALENESS_MS = 150;
+    public static final long LIMELIGHT_MAX_STALENESS_MS = LimelightTagSubsystem.MAX_STALENESS_MS;
     public static final double HOME_TRAVEL_SECONDS = 1.5, HOME_STABLE_SECONDS = .35;
     public static final double HOME_TIMEOUT_SECONDS = 5, HOME_STABLE_WINDOW_DEG = .3;
 
@@ -234,6 +237,8 @@ public class TurretSubsystem {
     private Alliance activeAlliance = Alliance.RED;
     private HiveSide activeHiveSide = HiveSide.FAR;
     private LLResult cachedResult;
+    private final LimelightObservation.FrameRate visionFrameRate = new LimelightObservation.FrameRate();
+    private LimelightObservation cachedObservation;
     private LLResultTypes.FiducialResult cachedTag;
     private String trackingStatus = "Automatic aiming requires ShotCoordinator";
     private final java.util.function.DoubleSupplier clock;
@@ -406,6 +411,8 @@ public class TurretSubsystem {
             setRawRotationServoPosition(ROTATION_HOME_SERVO_POS);
         } // UNHOMED / FAULT retain the last bounded command; only explicit home moves home.
         cachedResult = limelight == null ? null : limelight.getLatestResult();
+        cachedObservation = visionEnabled ? new LimelightObservation(now,System.currentTimeMillis(),cachedResult,
+                visionFrameRate.update(cachedResult,now)) : null;
         cachedTag = null;
         if (cachedResult != null && cachedResult.isValid() && cachedResult.getStaleness() >= 0
                 && cachedResult.getStaleness() <= LIMELIGHT_MAX_STALENESS_MS) {
@@ -431,6 +438,7 @@ public class TurretSubsystem {
     public boolean isEncoderCorrectionEnabled() { return control.isEncoderCorrectionEnabled(); }
     public String getHomingStatus() { return homing.state() + ": " + homing.reason(); }
     public LLResult getVisionResult() { return cachedResult; }
+    public LimelightObservation getVisionObservation() { return cachedObservation; }
     public LLResultTypes.FiducialResult getVisionTag() { return cachedTag; }
     public void setTrackingStatus(String status) { trackingStatus = status; }
     public void resetTrackingTrim() { /* Corrections reset on target changes, never on button release. */ }
@@ -467,6 +475,23 @@ public class TurretSubsystem {
         double a = angleDegreesToRotationServoPos(ROTATION_MIN_ANGLE_DEG);
         double b = angleDegreesToRotationServoPos(ROTATION_MAX_ANGLE_DEG);
         return Range.clip(pos, Math.min(a, b), Math.max(a, b));
+    }
+    /**
+     * Shared automatic-aim yaw rule. Any desired bearing (any wrap) becomes a reachable target:
+     * inside the rear +/-5-deg dead zone the turret holds the limit on the side it is already on;
+     * once the bearing leaves the zone on the other side by the hysteresis margin, the target moves
+     * there and the turret unwinds the long way through home instead of crossing the dead zone.
+     */
+    public static double reachableYawDegrees(double desiredDeg, double currentDeg) {
+        if (!Double.isFinite(desiredDeg)) return Double.NaN;
+        double desired = normalizeAngleDegrees(desiredDeg);
+        double side = Double.isFinite(currentDeg) && currentDeg < 0 ? -1 : 1;
+        if (Math.abs(desired) > ROTATION_MAX_ANGLE_DEG) return side * ROTATION_MAX_ANGLE_DEG;
+        boolean nearBackOnOtherSide = Double.isFinite(currentDeg) && Math.abs(currentDeg) > 90
+                && Math.signum(desired) != side;
+        if (nearBackOnOtherSide && Math.abs(desired) > ROTATION_MAX_ANGLE_DEG - ROTATION_WRAP_HYSTERESIS_DEG)
+            return side * ROTATION_MAX_ANGLE_DEG;
+        return desired;
     }
     public static double clampYawAngle(double deg) { return Range.clip(deg, ROTATION_MIN_ANGLE_DEG, ROTATION_MAX_ANGLE_DEG); }
     public static double angleDegreesToRotationServoPos(double deg) {
@@ -558,17 +583,27 @@ public class TurretSubsystem {
     public static double normalizeAngleDegrees(double deg) { return Math.toDegrees(RobotMath.wrap(Math.toRadians(deg))); }
     public void setLimelightPipeline(int pipeline) {
         if (limelight != null) limelight.pipelineSwitch(pipeline);
-        cachedResult = null; cachedTag = null;
+        cachedResult = null; cachedTag = null; cachedObservation = null;
     }
     public void setAllServosToZeroPosition() {
         homeTurretAndZeroEncoder(); setPitchAngleDegrees(PITCH_HOME_DEG);
     }
     public void stop() { homing.invalidate(); control.reset(); RobotShutdown.stopAll(this::stopShooter, limelight == null ? null : limelight::stop); }
+    /** Compact match view: homing, flywheel readiness, launch elevation and battery. */
+    public void addDriverTelemetry(Telemetry telemetry) {
+        telemetry.addData("Turret", isHomed() ? "HOMED | heading %.1f deg" : "%2$s", getRobotHeadingDegrees(), getHomingStatus());
+        telemetry.addData("Flywheel (RPM)", "%.0f / %.0f | %s", currentRpm, targetShooterRpm,
+                targetShooterRpm <= 0 ? "OFF" : isShooterAtSpeed() ? "READY" : "SPINNING UP");
+        telemetry.addData("Launch elevation (deg)", "%.1f", hoodTravelToLaunchAngleDegrees(targetPitchDeg));
+        telemetry.addData("Battery (V)", "%.1f", batteryVolts);
+    }
+
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Turret home", getHomingStatus());
         if (visionEnabled) {
             telemetry.addData("Limelight", limelight == null ? "NOT CONFIGURED" : "ENABLED");
             telemetry.addData("Selected goal", "%s / %s | tag %d", activeAlliance, activeHiveSide, cachedTag == null ? -1 : cachedTag.getFiducialId());
+            LimelightDiagnostics.addTelemetry(telemetry,cachedObservation,clock.getAsDouble());
         }
         telemetry.addData("Turret robot heading (deg CW)", "%.2f / %.2f | rate %.1f deg/s", getRobotHeadingDegrees(), getTargetRobotHeadingDegrees(), -encoderVelocity);
         telemetry.addData("Turret encoder verification", !isHomed() ? "WAITING FOR HOME"

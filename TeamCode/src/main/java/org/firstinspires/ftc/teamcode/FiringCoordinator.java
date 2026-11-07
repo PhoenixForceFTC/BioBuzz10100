@@ -5,7 +5,7 @@ public final class FiringCoordinator {
     public enum State { IDLE, PREPARING, GATE_OPENING, FEEDING, RECOVERY, INHIBITED, FAULT }
     public final double gateTravelSeconds, feedToExitSeconds;
     public double feedWindowSeconds, recoverySeconds, stableSeconds;
-    private boolean continuous;
+    private boolean continuous, timedManual, immediateContinuousFeed, timedRecovery;
     private State state = State.IDLE;
     private double entered, stableSince = Double.NaN;
     private boolean gateOpen, feeding, committed;
@@ -49,11 +49,12 @@ public final class FiringCoordinator {
         }
         if (state == State.GATE_OPENING) {
             gateOpen = true;
-            if (now - entered >= gateTravelSeconds) { enter(State.FEEDING, now, continuous ? "Continuous feed" : "Timed feed attempt"); attempts++; }
+            if ((continuous && immediateContinuousFeed) || now - entered >= gateTravelSeconds) { enter(State.FEEDING, now, continuous ? "Continuous feed" : "Timed feed attempt"); attempts++; }
         }
         if (state == State.FEEDING) {
             gateOpen = feeding = committed = true;
-            if (!manual && !continuous && now - entered >= feedWindowSeconds) {
+            if ((!manual || timedManual) && !continuous && now - entered >= feedWindowSeconds) {
+                timedRecovery = true;
                 enter(State.RECOVERY, now, "Timed recovery"); gateOpen = feeding = false;
             }
         }
@@ -61,12 +62,18 @@ public final class FiringCoordinator {
     /** Opt-in automatic feed tuning; continuous feeding still obeys every readiness interlock. */
     public boolean configureAutomaticFeed(double now, boolean continuous, double feedSeconds,
                                           double pauseSeconds, double readySeconds) {
+        return configureFeedMode(now, continuous, feedSeconds, pauseSeconds, readySeconds, false);
+    }
+    /** Select feed timing without changing manual readiness bypass or automatic interlocks. */
+    public boolean configureFeedMode(double now, boolean continuous, double feedSeconds,
+                                     double pauseSeconds, double readySeconds, boolean timedManual) {
         if (!RobotMath.finite(feedSeconds, pauseSeconds, readySeconds)
                 || feedSeconds <= 0 || pauseSeconds < 0 || readySeconds < 0)
             throw new IllegalArgumentException("Invalid automatic feed timing");
-        if (this.continuous == continuous && feedWindowSeconds == feedSeconds
+        if (this.continuous == continuous && this.timedManual == timedManual && feedWindowSeconds == feedSeconds
                 && recoverySeconds == pauseSeconds && stableSeconds == readySeconds) return false;
         this.continuous = continuous;
+        this.timedManual = timedManual;
         feedWindowSeconds = feedSeconds;
         recoverySeconds = pauseSeconds;
         stableSeconds = readySeconds;
@@ -86,7 +93,13 @@ public final class FiringCoordinator {
         }
         gateOpen = feeding = committed = true;
     }
+    public void setImmediateContinuousFeed(boolean enabled) { immediateContinuousFeed = enabled; }
+    /** Completed timed feed only; tracking-loss recovery must not run closed-gate transfers. */
+    public boolean recoveringBetweenTimedFeeds() {
+        return timedRecovery && (state == State.RECOVERY || state == State.PREPARING);
+    }
     private void enter(State next, double now, String reason) {
+        if (next != State.RECOVERY && next != State.PREPARING) timedRecovery = false;
         if (state != next) { state = next; entered = now; stableSince = Double.NaN; }
         this.reason = reason;
     }

@@ -67,13 +67,12 @@ public class HardwareReviewRegressionTest {
     @Test public void metricFusionRespectsJumpLimitAndDoesNotRewriteMeasuredVelocity() {
         PoseHistory h=new PoseHistory(); ShooterMount m=mount(); GoalTarget g=goal(2,0);
         for(int i=0;i<20;i++) h.add(pose(1+i*.01,.1,0,0,.2,0,0),0);
-        double up=1-m.cameraHeight;
-        TagObservation t=new TagObservation(30,0,2*Math.sin(m.cameraPitch)-up*Math.cos(m.cameraPitch),
-                2*Math.cos(m.cameraPitch)+up*Math.sin(m.cameraPitch),Math.PI,0,0,1);
-        assertTrue(h.reason(),h.observe3d(1.19,1,1.1,t,g,m));
+        TagObservation t=TagFixtures.seen(g,30,pose(1.1,0,0,0,0,0,0),0,m);
+        boolean accepted=h.observe3d(1.19,1,1.1,t,g,m);
+        assertTrue(h.reason(),accepted);
         assertTrue(h.current(1.19).x<.1); assertEquals(.2,h.current(1.19).vx,0);
         assertTrue(h.current(1.19).uncertainty>=.025);
-        TagObservation jump=new TagObservation(30,0,t.y,t.z+2,Math.PI,0,0,1);
+        TagObservation jump=new TagObservation(30,t.x,t.y,t.z+2,t.roll,t.pitch,t.yaw,1);
         assertFalse(h.observe3d(1.19,2,1.1,jump,g,m));
     }
     @Test public void localTargetCanAimWithoutInventingFieldReference() {

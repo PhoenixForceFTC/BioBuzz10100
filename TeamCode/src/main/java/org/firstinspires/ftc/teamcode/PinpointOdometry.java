@@ -184,6 +184,16 @@ public class PinpointOdometry {
                 pinpoint.getXOffset(DistanceUnit.MM), pinpoint.getYOffset(DistanceUnit.MM));
     }
 
+    /** Compact match view: field pose in inches plus a warning only when the Pinpoint is not READY. */
+    public void addDriverTelemetry(Telemetry telemetry) {
+        Pose2D pose = cachedPose;
+        if (cachedStatus != GoBildaPinpointDriver.DeviceStatus.READY)
+            telemetry.addData("Pinpoint", "%s (keep robot still)", cachedStatus);
+        telemetry.addData("Pose (in, deg)", "X %.1f | Y %.1f | H %.1f | %s",
+                pose.getX(DistanceUnit.INCH), pose.getY(DistanceUnit.INCH),
+                pose.getHeading(AngleUnit.DEGREES), fieldReferenced ? "EXPLICIT FIELD" : "LOCAL");
+    }
+
     /**
      * Adds live pose, velocity, and raw 4-bar pod counts to telemetry.
      * Does not call telemetry.update() so the caller OpMode can flush telemetry once per loop.
@@ -200,7 +210,9 @@ public class PinpointOdometry {
                 pose.getX(DistanceUnit.INCH),
                 pose.getY(DistanceUnit.INCH),
                 pose.getHeading(AngleUnit.DEGREES));
-        telemetry.addData("Field reference", fieldReferenced ? "EXPLICIT FIELD" : "LOCAL ODOMETRY: no absolute field reference");
+        telemetry.addData("Field reference", fieldReferenced ? "EXPLICIT FIELD"
+                : "LOCAL PINPOINT: see aiming field localization for any vision reference");
+        telemetry.addData("Pinpoint reference ID", referenceId);
         telemetry.addData("Pinpoint Vel", "Vx: %.1f mm/s | Vy: %.1f mm/s | Vh: %.1f deg/s",
                 sample.vx * 1000, sample.vy * 1000, Math.toDegrees(sample.omega));
         telemetry.addData("4-Bar Pods (raw)", "X (fwd) enc: %d | Y (strafe) enc: %d",

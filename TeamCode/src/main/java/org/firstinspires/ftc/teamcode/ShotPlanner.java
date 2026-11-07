@@ -19,6 +19,18 @@ public final class ShotPlanner {
         public static Solution invalid(String reason) {
             return new Solution(false, false, reason, 0, 0, 0, 0);
         }
+        /** Preserve calibration validity and reject trims outside the physical operating envelope. */
+        public Solution withOffsets(double yawDeg, double hoodOffsetDeg, double rpmOffset) {
+            if (!aimable) return this;
+            double adjustedYaw = yaw + Math.toRadians(yawDeg);
+            double adjustedHood = hoodDeg + hoodOffsetDeg, adjustedRpm = rpm + rpmOffset;
+            if (!RobotMath.finite(adjustedYaw, adjustedHood, adjustedRpm)
+                    || Math.abs(adjustedYaw) > MAX_YAW_RAD
+                    || adjustedHood < TurretSubsystem.PITCH_MIN_DEG || adjustedHood > TurretSubsystem.PITCH_MAX_DEG
+                    || adjustedRpm <= 0 || adjustedRpm > TurretSubsystem.SHOOTER_MAX_RPM)
+                return invalid("Auto aim offsets exceed mechanism limits");
+            return new Solution(valid, true, reason, adjustedYaw, adjustedHood, adjustedRpm, effectiveRange);
+        }
         public Solution inhibit(String rejection) {
             return new Solution(false, aimable, rejection, yaw, hoodDeg, rpm, effectiveRange);
         }

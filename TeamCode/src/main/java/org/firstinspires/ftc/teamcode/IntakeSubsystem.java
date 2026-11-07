@@ -19,6 +19,7 @@ public class IntakeSubsystem {
     public static final DcMotor.Direction MOTOR_DIRECTION = DcMotor.Direction.FORWARD;
 
     private final DcMotorEx motor;
+    private final IntakeJamRecovery jamRecovery = new IntakeJamRecovery();
     private double currentAmps = Double.NaN, lastCurrentSample = Double.NEGATIVE_INFINITY;
     private double commandedPower = 0.0;
 
@@ -41,14 +42,22 @@ public class IntakeSubsystem {
         }
     }
 
+    /** Process a requested direction exactly once, using the intake's own encoder. */
+    public void setIntakePowerWithJamRecovery(double now, double requestedPower) {
+        setIntakePower(jamRecovery.update(now, Range.clip(requestedPower, -1, 1), getVelocityTicksPerSecond()));
+    }
+    public boolean isClearingJam() { return jamRecovery.isClearing(); }
+    public double getCommandedPower() { return commandedPower; }
+
     /** Right bumper intakes; left bumper reverses. Both held stops the intake. */
     public void setBumperInputs(boolean rightBumper, boolean leftBumper) {
         double forward = rightBumper ? 1.0 : 0.0;
         double reverse = leftBumper ? 1.0 : 0.0;
-        setIntakePower(forward - reverse);
+        setIntakePowerWithJamRecovery(System.nanoTime() * 1e-9, forward - reverse);
     }
 
     public void stop() {
+        jamRecovery.reset();
         commandedPower = 0; motor.setPower(0);
     }
 

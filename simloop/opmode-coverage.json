@@ -57,18 +57,21 @@
     "opMode": "AutoAimTestOpMode",
     "coverage": "lifecycle",
     "scenario": "Sensors",
+    "reason": "Lifecycle plus shared raw-camera rejection telemetry; no complete automatic-aim behavior or physical convention validation.",
     "humanReview": true
   },
   {
     "opMode": "LimelightTagTestOpMode",
     "coverage": "lifecycle",
     "scenario": "Sensors",
+    "reason": "Lifecycle plus shared metric-pose rejection telemetry; no simulated button-to-detection timing acceptance.",
     "humanReview": true
   },
   {
     "opMode": "GoalStateTestOpMode",
     "coverage": "lifecycle",
     "scenario": "Sensors",
+    "reason": "Lifecycle plus preservation of raw-camera pose rejection; no physical raised/lowered detector acceptance.",
     "humanReview": true
   },
   {
@@ -79,8 +82,9 @@
   },
   {
     "opMode": "PedroDriveTestOpMode",
-    "coverage": "lifecycle",
-    "scenario": "Sensors",
+    "coverage": "behavior",
+    "scenario": "Drivetrain",
+    "reason": "All six manual stick directions, motor-feedback/transmission conversion and STOP; Sensors retains idle lifecycle coverage. No autonomous path-accuracy coverage.",
     "humanReview": true
   },
   {
@@ -100,5 +104,12 @@
     "coverage": "unsupported",
     "reason": "Upstream FakeServo refuses ServoController metadata; use physically disconnected servo procedure.",
     "humanReview": false
+  },
+  {
+    "opMode": "LightsTestOpMode",
+    "coverage": "behavior",
+    "scenario": "Mechanisms",
+    "reason": "Independent channel selection, pulse colors and STOP output; optical color/physical wiring are not simulated.",
+    "humanReview": true
   }
 ]

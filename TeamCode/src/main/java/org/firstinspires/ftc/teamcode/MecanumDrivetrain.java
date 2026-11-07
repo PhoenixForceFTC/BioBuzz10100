@@ -8,18 +8,38 @@ import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigu
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 /**
- * Layer 1 Subsystem: Mecanum Drivetrain using four goBILDA 5202/5203 Series Bare Motors
- * (no planetary gearbox, 1:1 ratio, 6000 RPM, 28 quadrature encoder counts per revolution).
+ * Layer 1 Subsystem: four goBILDA 5000-0002-4008 bare motors driving 20T:80T gears,
+ * then coaxial 30T:91T belt pulleys to 104-mm goBILDA 30A mecanum wheels
+ * (12.1333:1 total reduction).
+ * Encoders measure the motor shafts: 28 quadrature ticks per motor revolution.
  *
  * Plain Java class (not an OpMode) so it can be reused across standalone Test OpModes,
  * TeleOp, and Autonomous.
  */
 public class MecanumDrivetrain {
 
-    // goBILDA 5202/5203 Series Bare Motor Specifications (1:1 Ratio, no gearbox)
+    // Bare shaft specs stay in motor units; the external transmission is applied only at the wheel.
     public static final double BARE_MOTOR_TICKS_PER_REV = BareMotorSpecifications.ENCODER_TICKS_PER_REV;
     public static final double BARE_MOTOR_MAX_RPM = BareMotorSpecifications.CONFIGURED_FREE_SPEED_RPM;
+    public static final int MOTOR_GEAR_TEETH = 20;
+    public static final int INTERMEDIATE_GEAR_TEETH = 80;
+    public static final int INTERMEDIATE_PULLEY_TEETH = 30;
+    public static final int WHEEL_PULLEY_TEETH = 91;
+    public static final double GEAR_REDUCTION = (double) INTERMEDIATE_GEAR_TEETH / MOTOR_GEAR_TEETH;
+    public static final double BELT_REDUCTION = (double) WHEEL_PULLEY_TEETH / INTERMEDIATE_PULLEY_TEETH;
+    public static final double MOTOR_REVS_PER_WHEEL_REV = GEAR_REDUCTION * BELT_REDUCTION;
+    public static final double WHEEL_TICKS_PER_REV = BARE_MOTOR_TICKS_PER_REV * MOTOR_REVS_PER_WHEEL_REV;
+    public static final double WHEEL_MAX_RPM = BARE_MOTOR_MAX_RPM / MOTOR_REVS_PER_WHEEL_REV;
+    public static final double WHEEL_DIAMETER_MM = 104.0;
+    public static final double WHEEL_CIRCUMFERENCE_MM = WHEEL_DIAMETER_MM * Math.PI;
+    // Nominal rolling distance only; loaded roller compression and mecanum slip require measurement.
+    public static final double MOTOR_TICKS_PER_MM = WHEEL_TICKS_PER_REV / WHEEL_CIRCUMFERENCE_MM;
+    public static final double WHEEL_NO_LOAD_SPEED_MM_PER_SEC = WHEEL_MAX_RPM / 60 * WHEEL_CIRCUMFERENCE_MM;
     public static final double LATERAL_STRAFE_MULTIPLIER = 1.1;
+    // Installed drivetrain: all six motions were reversed with left REVERSE/right FORWARD.
+    // Correct the hardware boundary once for TeleOp, direct wheel tests and Pedro/autonomous.
+    public static final DcMotor.Direction LEFT_MOTOR_DIRECTION = DcMotor.Direction.FORWARD;
+    public static final DcMotor.Direction RIGHT_MOTOR_DIRECTION = DcMotor.Direction.REVERSE;
 
     private final DcMotorEx frontLeft;
     private final DcMotorEx frontRight;
@@ -37,10 +57,10 @@ public class MecanumDrivetrain {
         backLeft = getDriveMotor(hardwareMap, "leftback", "back_left_drive", "backLeft");
         backRight = getDriveMotor(hardwareMap, "rightback", "back_right_drive", "backRight");
 
-        configureBareMotor(frontLeft, DcMotor.Direction.REVERSE);
-        configureBareMotor(backLeft, DcMotor.Direction.REVERSE);
-        configureBareMotor(frontRight, DcMotor.Direction.FORWARD);
-        configureBareMotor(backRight, DcMotor.Direction.FORWARD);
+        configureBareMotor(frontLeft, LEFT_MOTOR_DIRECTION);
+        configureBareMotor(backLeft, LEFT_MOTOR_DIRECTION);
+        configureBareMotor(frontRight, RIGHT_MOTOR_DIRECTION);
+        configureBareMotor(backRight, RIGHT_MOTOR_DIRECTION);
     }
 
     /**
@@ -102,27 +122,47 @@ public class MecanumDrivetrain {
         backRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 
+    /** Converts direction-adjusted SDK motor encoder velocity to wheel RPM, preserving its sign. */
+    public static double motorTicksPerSecondToWheelRpm(double motorTicksPerSecond) {
+        return motorTicksPerSecond * 60 / WHEEL_TICKS_PER_REV;
+    }
+
+    /** Adds the shared transmission specification without flushing telemetry. */
+    public void addConfigurationTelemetry(Telemetry telemetry) {
+        telemetry.addData("Drive motor (ticks/rev, RPM)", "%.0f | %.0f no-load @ 12 V",
+                BARE_MOTOR_TICKS_PER_REV, BARE_MOTOR_MAX_RPM);
+        telemetry.addData("Drive reduction (motor rev/wheel rev)", "%d:%d gears x %d:%d belt = %.5f:1",
+                MOTOR_GEAR_TEETH, INTERMEDIATE_GEAR_TEETH, INTERMEDIATE_PULLEY_TEETH,
+                WHEEL_PULLEY_TEETH, MOTOR_REVS_PER_WHEEL_REV);
+        telemetry.addData("Drive wheel (mm diameter, ticks/rev, RPM)", "%.0f | %.3f | %.1f no-load estimate",
+                WHEEL_DIAMETER_MM, WHEEL_TICKS_PER_REV, WHEEL_MAX_RPM);
+    }
+
     /**
      * Adds drivetrain power, encoder position, and velocity data to telemetry.
      * Does not call telemetry.update() so the caller OpMode can flush telemetry once per loop.
      */
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addData("FL", "pwr %+.2f | pos %d | vel %.0f ticks/s",
-                lastFrontLeftPower, frontLeft.getCurrentPosition(), frontLeft.getVelocity());
-        telemetry.addData("FR", "pwr %+.2f | pos %d | vel %.0f ticks/s",
-                lastFrontRightPower, frontRight.getCurrentPosition(), frontRight.getVelocity());
-        telemetry.addData("BL", "pwr %+.2f | pos %d | vel %.0f ticks/s",
-                lastBackLeftPower, backLeft.getCurrentPosition(), backLeft.getVelocity());
-        telemetry.addData("BR", "pwr %+.2f | pos %d | vel %.0f ticks/s",
-                lastBackRightPower, backRight.getCurrentPosition(), backRight.getVelocity());
+        addMotorTelemetry(telemetry, "FL", frontLeft, lastFrontLeftPower);
+        addMotorTelemetry(telemetry, "FR", frontRight, lastFrontRightPower);
+        addMotorTelemetry(telemetry, "BL", backLeft, lastBackLeftPower);
+        addMotorTelemetry(telemetry, "BR", backRight, lastBackRightPower);
+    }
+
+    private void addMotorTelemetry(Telemetry telemetry, String label, DcMotorEx motor, double power) {
+        double motorTicksPerSecond = motor.getVelocity();
+        telemetry.addData(label, "pwr %+.2f | motor pos %d ticks | motor vel %.0f ticks/s | wheel %.1f RPM",
+                power, motor.getCurrentPosition(), motorTicksPerSecond,
+                motorTicksPerSecondToWheelRpm(motorTicksPerSecond));
     }
 
     private void configureBareMotor(DcMotorEx motor, DcMotor.Direction direction) {
         motor.setPower(0);
         motor.setDirection(direction);
 
-        // Clone the SDK motor configuration so we set 28 ticks/rev and the shared 5550 RPM baseline
-        // without mutating the shared motor type singleton.
+        // The SDK describes the bare motor shaft (28 ticks/rev, 5800 RPM, internal gearing 1:1).
+        // Applying external reduction here would count it twice in wheel conversions.
+        // Clone to avoid mutating the shared motor type singleton.
         MotorConfigurationType motorType = motor.getMotorType().clone();
         motorType.setTicksPerRev(BARE_MOTOR_TICKS_PER_REV);
         motorType.setMaxRPM(BARE_MOTOR_MAX_RPM);

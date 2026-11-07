@@ -12,11 +12,11 @@ public class HiveTagGeometryTest {
                 for (GoalTarget.Tag known : target.tags.values()) {
                     PoseHistory history = new PoseHistory();
                     double actualX = known.x - 2, actualY = known.y;
-                    history.add(ControllerFixtures.pose(1, actualX + .1, actualY, 0, 0, 0, 0), 0);
-                    double up = known.height - mount.cameraHeight;
-                    TagObservation observed = new TagObservation(known.id, 0,
-                            2 * Math.sin(mount.cameraPitch) - up * Math.cos(mount.cameraPitch),
-                            2 * Math.cos(mount.cameraPitch) + up * Math.sin(mount.cameraPitch), Math.PI, 0, 0, 1);
+                    // Settled history: fusion rejects frames captured while the turret/chassis turns.
+                    for (double t = .88; t < 1.001; t += .02)
+                        history.add(ControllerFixtures.pose(Math.min(t,1), actualX + .1, actualY, 0, 0, 0, 0), 0);
+                    TagObservation observed = TagFixtures.seen(target, known.id,
+                            ControllerFixtures.pose(1, actualX, actualY, 0, 0, 0, 0), 0, mount);
                     assertTrue(history.reason(), history.observe3d(1, 1, 1, observed, target, mount));
                     assertEquals(actualX + .065, history.current(1).x, 1e-9);
                     assertEquals(actualY, history.current(1).y, 1e-9);
@@ -35,8 +35,9 @@ public class HiveTagGeometryTest {
     }
     @Test public void allSixteenTagsHaveCorrectAllianceRowAndLeftRightOrdering() {
         double[][] expectedX = {
-                {-.15875,-.254,-.3937,-.48895}, {-.48895,-.3937,-.254,-.15875},
-                {.15875,.254,.3937,.48895}, {.48895,.3937,.254,.15875}};
+                // Physical red far frame 2026-11-05: tag 30 is camera-right, so far IDs increase with X.
+                {-.48895,-.3937,-.254,-.15875}, {-.15875,-.254,-.3937,-.48895},
+                {.48895,.3937,.254,.15875}, {.15875,.254,.3937,.48895}};
         for (int row = 0; row < 4; row++) {
             TurretSubsystem.Alliance alliance = row < 2 ? TurretSubsystem.Alliance.RED : TurretSubsystem.Alliance.BLUE;
             TurretSubsystem.HiveSide side = row == 0 || row == 3 ? TurretSubsystem.HiveSide.FAR : TurretSubsystem.HiveSide.AUDIENCE;

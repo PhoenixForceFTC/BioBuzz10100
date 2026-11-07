@@ -19,7 +19,7 @@ public class GeometryAndPoseTest {
         assertEquals(.09953073974, right.y, 1e-12);
         assertEquals(0, m.muzzle.norm(), 0);
         assertEquals(0, m.cameraYaw, 0);
-        assertEquals(Math.toRadians(30), m.cameraPitch, 0);
+        assertEquals(Math.toRadians(55), m.cameraPitch, 0);
     }
     @Test public void bothAlliancesSidesAndStatesStayExplicit() {
         for (TurretSubsystem.Alliance a : TurretSubsystem.Alliance.values()) {

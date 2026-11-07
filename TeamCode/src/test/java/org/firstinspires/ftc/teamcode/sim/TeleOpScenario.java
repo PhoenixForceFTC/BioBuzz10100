@@ -20,8 +20,9 @@ final class TeleOpScenario {
         model = new BioBuzzSimModel(hardware);
         trace = new TeleOpTrace(name, opMode, tickSeconds);
         java.nio.file.Files.write(trace.directory.resolve("camera-convention.txt"),
-                (hardware.cameraAdapter == null ? "RAW SimLoop alpha.2 target +Z into print\n"
-                        : "TEST-ONLY Rx(pi) target basis normalization; physical convention UNVALIDATED\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                (hardware.cameraAdapter == null || !hardware.cameraAdapter.invertedNormal
+                        ? "Physical convention: target +Z into print, upside-down underside stickers (Rz(pi) on SimLoop)\n"
+                        : "TEST-ONLY inverted target normal (Rz(pi) then Rx(pi)); robot must reject\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
         runner = OpModeRunner.forTeamClass("org.firstinspires.ftc.teamcode." + opMode, hardware.map)
                 .teamPackages("org.firstinspires.ftc.teamcode.", "com.seattlesolvers.solverslib.", "com.pedropathing.")
                 .tickSeconds(tickSeconds).initLoopTicks(initTicks).activeTicks(activeTicks)

@@ -71,6 +71,6 @@ public final class AutonomousOutputCoordinator {
         gate.setOpen(!inhibited && (gateOnlyRequested() || firing.gateOpen()));
         boolean feeding = firing.feeding() && gate.isOpenForFeeding() && !inhibited;
         transfer.updateCached(now, feeding, !loading || feedRequested() || gateOnlyRequested());
-        intake.setIntakePower(intakePower(transfer.isFull()));
+        intake.setIntakePowerWithJamRecovery(now, intakePower(transfer.isFull()));
     }
 }

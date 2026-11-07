@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -8,7 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
  * Tests the competition aiming coordinator with Limelight, Pinpoint, and turret hardware.
  * Push the chassis by hand; drivetrain, gate, transfer, and intake are not initialized.
  * GP1: hold RT to aim, hold RB with RT to spin the flywheel, A to rehome the turret,
- * B/X to select Red/Blue, and D-pad Left/Right to select Audience/Far.
+ * B/X to select Red/Blue; the nearest cell is selected as in competition.
  * Uses measured ShootingConfiguration values and preserves all calibration checks.
  */
 @TeleOp(name = "Test: Auto Aim", group = "Test")
@@ -22,20 +21,14 @@ public class AutoAimTestOpMode extends LinearOpMode {
         PinpointOdometry odometry = new PinpointOdometry(hardwareMap);
         TurretSubsystem turret = new TurretSubsystem(hardwareMap);
         try {
+            turret.setEncoderCorrectionEnabled(true);
             ShotCoordinator shots = new ShotCoordinator(turret,
-                    ShootingConfiguration.target(TurretSubsystem.Alliance.RED, TurretSubsystem.HiveSide.FAR));
-            boolean startingPoseApplied = false;
+                    TeleOpFieldReference.target(TurretSubsystem.Alliance.RED, TurretSubsystem.HiveSide.FAR),
+                    ShotCoordinator.AimMode.TELEOP_ODOMETRY);
             boolean previousHome = false;
             while (opModeInInit()) {
                 loop.begin();
                 odometry.update();
-                if (!startingPoseApplied && ShootingConfiguration.STARTING_FIELD_POSE_CONFIGURED
-                        && odometry.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
-                    odometry.setPoseInches(ShootingConfiguration.START_X_METERS / 0.0254,
-                            ShootingConfiguration.START_Y_METERS / 0.0254,
-                            Math.toDegrees(ShootingConfiguration.START_HEADING_RAD));
-                    startingPoseApplied = true;
-                }
                 selectTarget(turret, shots);
                 if (gamepad1.a && !previousHome) turret.homeTurretAndZeroEncoder();
                 previousHome = gamepad1.a;
@@ -49,6 +42,7 @@ public class AutoAimTestOpMode extends LinearOpMode {
             waitForStart();
             if (isStopRequested()) return;
 
+            double previousTime = System.nanoTime() * 1e-9;
             while (opModeIsActive()) {
                 loop.begin();
                 odometry.update();
@@ -63,6 +57,8 @@ public class AutoAimTestOpMode extends LinearOpMode {
                 boolean aimHeld = gamepad1.right_trigger > TRIGGER_DEADBAND;
                 boolean spinFlywheel = aimHeld && gamepad1.right_bumper;
                 double now = System.nanoTime() * 1e-9;
+                turret.updateCompetitionManualYaw(gamepad1.right_stick_x, Math.min(.1, now - previousTime), aimHeld);
+                previousTime = now;
                 // Exercise automatic aim, but inhibit feeding and require an explicit flywheel hold.
                 shots.update(now, odometry.getSample(), aimHeld, false, true, !spinFlywheel);
                 if (!spinFlywheel || !shots.solution().aimable) turret.stopShooter();
@@ -78,18 +74,16 @@ public class AutoAimTestOpMode extends LinearOpMode {
     private void selectTarget(TurretSubsystem turret, ShotCoordinator shots) {
         TurretSubsystem.Alliance alliance = gamepad1.b ? TurretSubsystem.Alliance.RED
                 : gamepad1.x ? TurretSubsystem.Alliance.BLUE : turret.getActiveAlliance();
-        TurretSubsystem.HiveSide side = gamepad1.dpad_left ? TurretSubsystem.HiveSide.AUDIENCE
-                : gamepad1.dpad_right ? TurretSubsystem.HiveSide.FAR : turret.getActiveHiveSide();
-        if (alliance != turret.getActiveAlliance() || side != turret.getActiveHiveSide()) {
-            shots.select(ShootingConfiguration.target(alliance, side));
+        if (alliance != turret.getActiveAlliance()) {
+            shots.select(TeleOpFieldReference.target(alliance, turret.getActiveHiveSide()));
         }
     }
 
     private void addTelemetry(PinpointOdometry odometry, TurretSubsystem turret,
                               ShotCoordinator shots, double now, boolean aiming) {
         telemetry.addLine("RT = Auto Aim | RT + RB = Aim + Flywheel | A = Rehome Turret");
-        telemetry.addLine("B/X = Red/Blue | Dpad L/R = Audience/Far | Push chassis by hand");
-        telemetry.addLine("Uses ShootingConfiguration measured mount, target, profile, timing, and field pose.");
+        telemetry.addLine("B/X = Red/Blue | Nearest cell automatically | RS-X = Manual yaw with RT released");
+        telemetry.addLine("Competition localization/aim mode; acquire a mapped raised tag. Push chassis by hand.");
         telemetry.addData("Auto Aim", aiming ? "REQUESTED" : "RELEASED");
         turret.addTelemetry(telemetry);
         odometry.addTelemetry(telemetry);

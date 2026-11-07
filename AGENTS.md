@@ -173,6 +173,7 @@ Do not run another Gradle build while the live reviewer holds its jars open.
 
 Read the [integration audit](doc/SimLoopIntegrationAudit.md), [implementation plan](doc/SimLoopTeleOpImplementationPlan.md),
 [verification matrix](doc/TeleOpVerificationMatrix.md), [model provenance](doc/SimLoopRobotModel.md)
-and [local usage](simloop/README.md). In particular, raw SimLoop camera target-normal convention differs
-from the existing robot assumption. Keep the explicit raw/normalized distinction until a physical frame
-resolves it; never silently change robot calibration or tag axes to get a green simulation result.
+and [local usage](simloop/README.md). In particular, the physical Limelight (frame recorded 2026-11-05) and raw
+SimLoop both report tag +Z into the print; `LimelightObservation` converts it once to the robot's outward +Z.
+Keep that single conversion point and the inverted-camera rejection regression; never silently change robot
+calibration or tag axes to get a green simulation result.

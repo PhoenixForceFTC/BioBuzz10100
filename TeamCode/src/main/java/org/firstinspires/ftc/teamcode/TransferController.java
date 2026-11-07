@@ -28,10 +28,16 @@ public final class TransferController {
     }
     /** A shot may delay stage 1 while stage 2 launches the top ball. Loading behavior is unchanged. */
     public void update(double now, boolean sensorHigh, boolean feed, boolean pause, boolean feedStage1) {
+        update(now, sensorHigh, feed, pause, feedStage1, false);
+    }
+    /** Forward intake override bypasses full for stage 1 only; feed and loading pauses retain priority. */
+    public void update(double now, boolean sensorHigh, boolean feed, boolean pause, boolean feedStage1,
+                       boolean forceStage1Loading) {
         observe(now, sensorHigh);
         if (feed || pause) runOnUntil = Double.NEGATIVE_INFINITY;
-        stage1 = feed ? (feedStage1 ? power : 0) : (!pause && (!full() || now < runOnUntil)) ? power : 0;
-        // Stage 2 touches the top ball: keep it stopped until gate-open shot feeding.
+        stage1 = feed ? (feedStage1 ? power : 0)
+                : (!pause && (forceStage1Loading || !full() || now < runOnUntil)) ? power : 0;
+        // Caller owns shot policy, including competition gate-closed recovery feeding.
         stage2 = feed ? power : 0;
     }
     public void stop() { stage1 = stage2 = 0; highSince = Double.NaN; full = false; runOnUntil = Double.NEGATIVE_INFINITY; }

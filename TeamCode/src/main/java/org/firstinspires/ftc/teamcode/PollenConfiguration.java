@@ -2,9 +2,9 @@ package org.firstinspires.ftc.teamcode;
 
 /** Camera/pickup model and provenance; zero offsets are valid measurements when marked measured. */
 public final class PollenConfiguration {
-    // Team-confirmed C270 mount: upright, straight forward, optical axis below horizontal.
+    // Team-confirmed C270 mount: upright, straight forward; pitch updated November 5, 2026.
     public static final double CAMERA_HEIGHT_MM = 195;
-    public static final double CAMERA_PITCH_DOWN_DEG = 10;
+    public static final double CAMERA_PITCH_DOWN_DEG = 15;
     public static final double CAMERA_FORWARD_MM = 248;
     public static final double CAMERA_RIGHT_MM = 0;
     public final double heightMm, pitchDeg, forwardMm, rightMm, horizontalFovDeg;
