@@ -83,7 +83,7 @@ final class BioBuzzSimHardware {
         if (cameraAdapter != null) map.remove(null, "limelight", cameraAdapter);
         // Camera lives on the rotating turret. Model supplies the pivot pose, not the chassis pose.
         camera = FakeLimelight3A.builder(layout,
-                new CameraMount(-99.53073974 / 25.4, 0, 335 / 25.4, 0,
+                new CameraMount(-99.53073974 / 25.4, 0, org.firstinspires.ftc.teamcode.ShootingConfiguration.CAMERA_HEIGHT_MM / 25.4, 0,
                         -Math.toRadians(org.firstinspires.ftc.teamcode.ShootingConfiguration.CAMERA_PITCH_UP_DEG)), 54, 41)
                 .rangeInches(2, 200).frameRateHz(30).latencyMs(15, 20).build();
         cameraAdapter = new TargetNormalCameraAdapter(camera, !physicalTagConvention);

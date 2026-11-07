@@ -20,7 +20,7 @@ real mechanisms from simulated speed, current, distances or shot outcomes.
 | Flywheel | turret_motor; goBILDA 5203 Yellow Jacket, 28 ticks/rev, 5400 observed motor RPM at 14 V; 1:1 output ratio | Team observation November 1 at 14 V in PIDF/bang-bang; upstream response rate remains synthetic, no ball impulse or calibrated drag |
 | Battery | Control Hub FakeVoltageSensor =14 V | Synthetic constant; not a battery-sag/electrical/thermal model |
 | Pinpoint | pinpoint; physical offsets +32,-74 mm, both pod directions REVERSED, 2000/(32*pi) ticks/mm | Chassis motion drives fake SDK I2C device; production config/reset/calibration/fault handling executes |
-| Camera | limelight; pivot forward50.68184865mm; camera forward from pivot -99.53073974mm, height335mm, pitch up55deg (from `CAMERA_PITCH_UP_DEG`), yaw0 | Matches documented team mount; fixture translates/rotates the camera with physical turret yaw |
+| Camera | limelight; pivot forward50.68184865mm; camera forward from pivot -99.53073974mm, height337mm (from `CAMERA_HEIGHT_MM`), pitch up55deg (from `CAMERA_PITCH_UP_DEG`), yaw0 | Matches documented team mount; fixture translates/rotates the camera with physical turret yaw |
 | Camera optics/timing | 54x41-deg FOV, 2–200-in range, 30Hz, 15+20ms latency | Synthetic settings; real pipeline, exposure, intrinsics and latency need verification |
 | Raised tags | nominal TU06 audience tags34–41, 3.25in, hive centers +/-12.75in, production-derived row/height, face tilted30deg | Nominal drawing map; not surveyed field coordinates; far/lowered states absent from this layout |
 

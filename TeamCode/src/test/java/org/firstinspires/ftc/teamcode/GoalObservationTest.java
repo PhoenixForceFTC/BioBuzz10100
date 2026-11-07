@@ -9,7 +9,7 @@ public class GoalObservationTest {
     private final ShooterMount mount=ShootingConfiguration.MOUNT;
     /** Independently project a raised underside: normal points toward viewer and down, tag X right. */
     private TagObservation tag(int id,double height,double planeDeg,double cameraPitch) {
-        double forward=2, up=height-.335;
+        double forward=2, up=height-mount.cameraHeight;
         double y=forward*Math.sin(cameraPitch)-up*Math.cos(cameraPitch);
         double z=forward*Math.cos(cameraPitch)+up*Math.sin(cameraPitch);
         // Camera optical +Y down; Rx rotates the +Z normal to down/toward viewer.
@@ -80,7 +80,7 @@ public class GoalObservationTest {
     }
     @Test public void cameraPitchChangesProjectionButNotRecoveredHeightOrPlane() {
         for(double pitch:new double[]{0,Math.toRadians(30),Math.toRadians(45)}) {
-            ShooterMount m=new ShooterMount(mount.pivot,mount.camera,mount.muzzle,mount.zeroYaw,0,pitch,.335,true);
+            ShooterMount m=new ShooterMount(mount.pivot,mount.camera,mount.muzzle,mount.zeroYaw,0,pitch,mount.cameraHeight,true);
             TagObservation t=tag(30,1.25,30,pitch);
             assertTrue(t.usable()); assertEquals(1.25,m.cameraHeight+t.levelPosition(m)[2],1e-9);
             assertEquals(30,t.planeDegrees(m),1e-8);

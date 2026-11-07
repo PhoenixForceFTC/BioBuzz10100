@@ -657,3 +657,15 @@ turret swings back through home after reaching a limit, and ends within 2 deg of
 New unit cases cover deadband, blended drift correction (per-loop step under 1.2 cm / 0.25 deg) and ignored
 large disagreement, plus the wrap rule. Limits: the turret servo and Limelight latency are modeled, not measured;
 thresholds are starting values for field tuning.
+
+## Lens height 337 mm and field-guide confirmation (2026-11-06)
+
+Change: `ShootingConfiguration.CAMERA_HEIGHT_MM` 335 -> 337 (team re-measure). `TurretSubsystem.LIMELIGHT_LENS_HEIGHT_MM`,
+`ShotCalibrationExport`, the SimLoop camera mount and `GoalObservationTest` now read that one constant instead of
+their own 335 copies. Lens axis stays 55 deg up: the team's "35 deg from horizontal" is the front glass/face angle (team-confirmed), and the
+2026-11-05 photo tags compute to 1.26 m with 55 deg (0.99 m with 35 deg) against the TU06 nominal 1.268 m.
+TU06 Section 9 nominal values (tag 3.25 in, opening 53.5-65.6 in, face 30 deg from vertical, tag underside 30 deg
+from horizontal) were checked against `FieldGeometry`/`HiveTagGeometry`; they already matched, so no map change.
+
+Simulation decision: minor calibration value change; ran unit tests, packaging and the Sensors scenario because
+the sim camera now reads the shared height. No assertion or tolerance changed.

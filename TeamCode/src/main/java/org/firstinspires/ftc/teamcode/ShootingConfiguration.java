@@ -15,11 +15,12 @@ public final class ShootingConfiguration {
     public static final double CAMERA_FORWARD_FROM_PIVOT_MM = -99.53073974;
     public static final double CAMERA_LEFT_FROM_PIVOT_MM = 0;
     public static final double CAMERA_YAW_FROM_MUZZLE_DEG = 0;
-    // Limelight lens axis above horizontal. Team-measured 2026-11-05: front glass 55 deg from
-    // vertical (35 deg from horizontal), so the lens axis is 55 deg up. Was 30.
+    // Limelight lens axis above horizontal. Team-measured 2026-11-05/06: front glass/face 35 deg from
+    // horizontal (55 deg from vertical), so the lens axis is 55 deg up. Was 30. The 2026-11-05 photo
+    // frame (tags 1.12 m along the axis) reads the field-guide tag height only with 55 deg.
     public static final double CAMERA_PITCH_UP_DEG = 55;
-    // Lens height and camera/pivot planar geometry confirmed by the team.
-    public static final double CAMERA_HEIGHT_MM = 335;
+    // Lens height above the tiles, team-measured 2026-11-06 (was 335). Camera/pivot planar geometry confirmed by the team.
+    public static final double CAMERA_HEIGHT_MM = 337;
     // Camera/muzzle offsets use turret-local +X along the muzzle and +Y left.
     // Ball exit is centered on the pivot in plan view and does not move significantly with hood.
     public static final ShooterMount MOUNT = new ShooterMount(

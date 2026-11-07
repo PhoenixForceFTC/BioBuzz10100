@@ -41,7 +41,13 @@ competition TeleOps share it. Thresholds and downstream axes are unchanged.
 Follow-up measurements (team, 2026-11-05, robot and turret flat on the floor):
 - Limelight front glass 55 deg from vertical (35 deg from horizontal), so the lens axis is
   **55 deg above horizontal**. `CAMERA_PITCH_UP_DEG = 55` (previously 30).
-- Lens about 12 in +/- 2 in (code keeps 335 mm, within that range); lens 33.5 in from the wall.
+- Lens about 12 in +/- 2 in (code kept 335 mm, within that range); lens 33.5 in from the wall.
+- 2026-11-06 re-measure: lens 337 mm above the tiles (code now uses 337); front glass/face 35 deg from horizontal (confirmed),
+  so the lens axis stays 55 deg up; goal face (opening) 30 deg from vertical, so the tag underside is 30 deg
+  from horizontal; goal center about 5 ft, so the field is treated as nominal. Nominal TU06 Section 9 values
+  in use: tag 3.25 in, raised opening 53.5-65.6 in (aim height 59.55 in), cluster row 9.938 - 2.75 in from
+  the cell front, tag center height 49.91 in (1.268 m). The 2026-11-05 photo tags (1.12 m along the lens
+  axis) compute to 1.26 m with a 55 deg axis and 0.99 m with 35 deg, so 55 deg is the lens-axis value.
 - Tag centers about 49-50 in (map: 1.268 m = 49.9 in); printed tag size 3.25 in (= 82.55 mm).
 - Tag stickers 60 deg from vertical, i.e. **30 deg from horizontal** on the raised cell's
   underside, facing down toward the robot. This matches the field map and the goal-state

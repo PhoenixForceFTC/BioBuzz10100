@@ -148,7 +148,7 @@ public class TurretSubsystem {
     // LIMELIGHT 3A MOUNTING & BIOBUZZ HIVE / APRILTAG FIELD CONSTANTS
     // =========================================================================
     public static final double LIMELIGHT_MOUNT_ANGLE_DEG = 30.0;     // Angled 30 deg above horizontal toward goal
-    public static final double LIMELIGHT_LENS_HEIGHT_MM = 335.0;
+    public static final double LIMELIGHT_LENS_HEIGHT_MM = ShootingConfiguration.CAMERA_HEIGHT_MM;
     public static final double LIMELIGHT_LENS_HEIGHT_INCHES = LIMELIGHT_LENS_HEIGHT_MM / 25.4;
     public static final int LIMELIGHT_DEFAULT_PIPELINE = 0;
 

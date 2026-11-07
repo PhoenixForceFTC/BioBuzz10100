@@ -108,7 +108,7 @@ An open gate during the deliberate pre-feed opening interval is necessary for th
 1. **C270 intrinsics:** an existing lens calibration at 320×240, if available. No further camera mounting dimensions are requested.
 2. **High-goal field geometry:** a CAD-derived raised-cell transform from the hive pivot to the opening/tag-cluster center. The supplied TU06 PDF now resolves individual tag offsets and ordering, so separate dimensions for each tag are unnecessary. The 17.73-in. opening Y example remains unverified. See [FieldReference.md](FieldReference.md) for the dimensions already resolved. The mount, center-height and plane-angle questions are resolved.
 
-Already recorded and not being re-requested: all four drive motor ports and encoder cables; four-bar pod offsets (+32/-74 mm); turret pivot forward offset 50.68184865 mm; camera 99.53073974 mm behind the pivot, 335 mm high, 30 degrees up, zero yaw offset; muzzle centered on the pivot in plan view; 1:1 turret gearing, 108:40 encoder gearing and 2:1 hood linkage; the clarified transfer sequence and lack of depollinator interference.
+Already recorded and not being re-requested: all four drive motor ports and encoder cables; four-bar pod offsets (+32/-74 mm); turret pivot forward offset 50.68184865 mm; camera 99.53073974 mm behind the pivot, 337 mm high (re-measured 2026-11-06), lens axis 55 degrees up (re-measured 2026-11-05; originally 30), zero yaw offset; muzzle centered on the pivot in plan view; 1:1 turret gearing, 108:40 encoder gearing and 2:1 hood linkage; the clarified transfer sequence and lack of depollinator interference.
 
 **Calibration dependencies remain deferred**
 
