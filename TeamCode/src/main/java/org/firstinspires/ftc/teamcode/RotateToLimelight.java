@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 // add the returned power to the drive's turn input. pass null when no tag is seen and it returns 0.
 // it doesn't touch any motors itself, so the driver can still drive/strafe while it aims,
 // and the same class can drive a turret motor later.
+// it can also take a plain angle error in degrees, which is how odometry aiming uses the same PID.
 
 public class RotateToLimelight {
 
@@ -41,7 +42,11 @@ public class RotateToLimelight {
         }
 
         // Limelight tx (angleX) is positive when the tag is right of center, so turning right shrinks it.
-        double error = d.getAngleX() - targetAngle;
+        return getTurnPower(d.getAngleX() - targetAngle);
+    }
+
+    // Same PID, for any aiming source. error is in degrees: positive = target is to the right.
+    public double getTurnPower(double error) {
 
         // fresh start: lastError = error makes the first derivative 0, so the first loop doesn't jerk the robot.
         if (!active) {

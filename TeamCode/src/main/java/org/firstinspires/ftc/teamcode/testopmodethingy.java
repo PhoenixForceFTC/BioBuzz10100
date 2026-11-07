@@ -34,6 +34,7 @@ public class testopmodethingy extends LinearOpMode {
     Intake intake;
     Limelight limelight;
     RotateToLimelight aim;
+    OdometryAim odometryAim;
 
     // picked during init with dpad left/right; decides which scoring cluster auto-aim faces.
     boolean redAlliance = true;
@@ -66,6 +67,7 @@ public class testopmodethingy extends LinearOpMode {
         intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
         limelight = new Limelight(hardwareMap, telemetry);
         aim = new RotateToLimelight();
+        odometryAim = new OdometryAim(hardwareMap, telemetry);
 
         telemetry.setMsTransmissionInterval(100);
 
@@ -78,12 +80,18 @@ public class testopmodethingy extends LinearOpMode {
             telemetry.addLine("Left bumper: toggle 60%/full speed, also sets intake direction");
             telemetry.addLine("Right bumper: other intake direction | Y: intake on/off");
             telemetry.addLine("A/B: shooter power up/down | X: shooter on/off");
-            telemetry.addLine("Hold right trigger: auto-aim at scoring AprilTags");
+            telemetry.addLine("Hold right trigger: auto-aim at the goal");
             telemetry.addData("Alliance (dpad L=blue, R=red)", redAlliance ? "RED" : "BLUE");
             telemetry.update();
         }
 
+        // the alliance can't change after this, so now we know which start pose and goal to use.
+        odometryAim.start(redAlliance);
+
         while (opModeIsActive()) {
+            odometryAim.update();
+            odometryAim.showTelemetry();
+
             // FTC gamepads report forward stick movement as negative Y.
             double drive = Math.abs(gamepad1.left_stick_y) <= 0.05 ? 0 : -gamepad1.left_stick_y;
             double strafe = Math.abs(gamepad1.left_stick_x) <= 0.05 ? 0 : gamepad1.left_stick_x;
@@ -97,8 +105,15 @@ public class testopmodethingy extends LinearOpMode {
                             BioBuzzTags.clusterName(tag.getId()), tag.getAngleX(), tag.getDistance());
                 }
                 LimelightData target = BioBuzzTags.selectAimTarget(tags, redAlliance);
+
+                // TODO(human): choose between the tag and odometry, set turn, and name the source.
+                // Tag: aim.getTurnPower(target) | Odometry: aim.getTurnPower(odometryAim.getHeadingErrorDeg())
+                // Only use odometry when odometryAim.isReady() is true.
+                String aimSource = target != null ? "tag" : "none";
                 turn = aim.getTurnPower(target);
-                telemetry.addData("Aim", target == null ? "no scoring tag" : (aim.isAtTarget() ? "LOCKED" : "turning"));
+
+                telemetry.addData("Aim", aimSource.equals("none") ? "no target"
+                        : aimSource + (aim.isAtTarget() ? " LOCKED" : " turning"));
             } else {
                 aim.reset();
             }
