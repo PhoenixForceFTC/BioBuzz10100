@@ -44,7 +44,7 @@ public class Mecanum {
 
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD); // we will have to change the set directions on the real robot. 
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
-        rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         telemetry.addLine("Verify directions/encoder pairing with Mecanum Wheel Test first");
@@ -66,17 +66,12 @@ public class Mecanum {
             fast = !fast;
         }
 
-        try{
-            LFpower = (drive + strafe + turn)/total;
-            RFpower = (drive - strafe - turn)/total;
-            LBpower = (drive - strafe + turn)/total;
-            RBpower = (drive + strafe - turn)/total;
-        } catch (Exception e) {
-            LFpower = 0;
-            RFpower = 0;
-            LBpower = 0;
-            RBpower = 0;
-        }
+        double denom = Math.max(total, 1.0); // scales power
+        LFpower = (drive + strafe + turn) / denom;
+        RFpower = (drive - strafe - turn) / denom;
+        LBpower = (drive - strafe + turn) / denom;
+        RBpower = (drive + strafe - turn) / denom;
+
 
         if(fast){
             leftFront.setPower(LFpower);

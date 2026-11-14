@@ -69,7 +69,7 @@ public class Constants {
         //  see the exact names in your version.)
         cfg.frontLeftDirection.set(DcMotorSimple.Direction.FORWARD);
         cfg.backLeftDirection.set(DcMotorSimple.Direction.FORWARD);
-        cfg.frontRightDirection.set(DcMotorSimple.Direction.FORWARD);
+        cfg.frontRightDirection.set(DcMotorSimple.Direction.REVERSE);
         cfg.backRightDirection.set(DcMotorSimple.Direction.REVERSE);
     });
 
