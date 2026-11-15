@@ -7,7 +7,7 @@ import org.firstinspires.ftc.teamcode.ShooterMotor;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 
 // url for dashboard: http://192.168.43.1:8080/dash
-@TeleOp(name="Basic Turret Aim Test")
+@TeleOp(name="Basic Shooter Motor Test")
 public class ShooterMotorTest extends LinearOpMode{
     ShooterMotor turret;
     private final TelemetryPacket packet = new TelemetryPacket();

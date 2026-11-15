@@ -13,8 +13,8 @@ public class kicker {
     DcMotorEx kickerWheel;
     Telemetry telemetry;
     Gamepad gamepad;
-    double reverseSpeed = -0.3;
-    double forwardSpeed = 0.3;
+    double reverseSpeed = -1.0;
+    double forwardSpeed = 1.0;
     double zeroSpeed = 0;
 
     public kicker(String name, Telemetry t, HardwareMap h, Gamepad g){
@@ -44,11 +44,11 @@ public class kicker {
             forward();
         }
         else if(gamepad.rightBumperWasPressed()){
-            backward();
-        }
-        else if(gamepad.leftTriggerWasPressed()){
             stop();
         }
+//        else if(gamepad.yWasPressed()){
+//            stop();
+//        }
     }
 
 }

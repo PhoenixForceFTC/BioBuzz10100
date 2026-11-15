@@ -23,6 +23,7 @@ public class BasicNoDrivetrainTeleOp extends LinearOpMode {
 //        transfer = new Transfer("Prince Raj", telemetry, hardwareMap, gamepad2);
         shooter = new CombinedShooter("turret_servo_1", "turret_servo_2",
                 "gate_servo", "turret_motor", "transfer_motor_2",
+                "transfer",
                 telemetry, hardwareMap, gamepad2);
         intake = new Intake("intake_motor", telemetry, hardwareMap, gamepad1);
         transfer = new Transfer("transfer_motor_1", telemetry, hardwareMap, gamepad2);

@@ -24,6 +24,10 @@ public class basicTurretAim{
         gamepad = g;
     }
 
+    public void moveToPosition(double targetPosition){
+        position = targetPosition;
+    }
+
     public void run() {
         if(gamepad.left_stick_x > 0.08){
             position = Math.min(1, Math.max(0, position + speed));
@@ -37,9 +41,9 @@ public class basicTurretAim{
             speed = Math.max(0.001, speed-0.001);
         }
 
-        if(gamepad.xWasPressed()){
-            position = 0.75;
-        }
+//        if(gamepad.xWasPressed()){
+//            position = 0.75;
+//        }
 
         turretServo1.setPosition(position);
         turretServo2.setPosition(position);

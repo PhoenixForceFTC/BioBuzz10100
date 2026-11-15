@@ -16,7 +16,7 @@ public class Intake {
 
     private boolean direction = true;
 
-    private double power = 0.6;
+    private double power = 1.0;
 
     private Telemetry telemetry;
 

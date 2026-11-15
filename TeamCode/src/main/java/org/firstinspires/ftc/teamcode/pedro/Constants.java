@@ -17,7 +17,8 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-
+//todo: create a way so there is precise start position. also make a way so that the robot's odometry is consistent on the robot, also make a robot model, instead of arrow, robot measurements...
+// also, the flowers are centered along side barriers, but should be sticking into the filed.
 /**
  * Pedro Pathing 3.x constants (mecanum drive + goBILDA Pinpoint + Foresight).
  *
@@ -53,26 +54,16 @@ public class Constants {
     // =====================================================================
     // 1. DRIVETRAIN CONFIG (Mecanum)
     // =====================================================================
-    public static MecanumConfig drivetrainConfig = new MecanumConfig(cfg -> {
-
-        // [MEASURE] Motor names. Must match your Driver Station robot
-        // configuration exactly, including capitalization.
-        cfg.frontLeftName.set("leftfront");
-        cfg.frontRightName.set("rightfront");
-        cfg.backLeftName.set("leftback");
-        cfg.backRightName.set("rightback");
-
-        // [MEASURE] Motor directions. Typical mecanum: reverse the left side.
-        // If the robot drives the wrong way or spins when told to go forward,
-        // flip the wrong ones. The Mecanum tuner also checks this for you.
-        // (Field names below are my best guess. Use autocomplete on `cfg.` to
-        //  see the exact names in your version.)
-        cfg.frontLeftDirection.set(DcMotorSimple.Direction.FORWARD);
-        cfg.backLeftDirection.set(DcMotorSimple.Direction.FORWARD);
-        cfg.frontRightDirection.set(DcMotorSimple.Direction.REVERSE);
-        cfg.backRightDirection.set(DcMotorSimple.Direction.REVERSE);
+    public static MecanumConfig drivetrainConfig = new MecanumConfig(c -> {
+        c.frontLeftName.set("leftfront");
+        c.frontRightName.set("rightfront");
+        c.backLeftName.set("leftback");
+        c.backRightName.set("rightback");
+        c.frontLeftDirection.set(DcMotorSimple.Direction.FORWARD);
+        c.frontRightDirection.set(DcMotorSimple.Direction.REVERSE);
+        c.backLeftDirection.set(DcMotorSimple.Direction.FORWARD);
+        c.backRightDirection.set(DcMotorSimple.Direction.REVERSE);
     });
-
 
     // =====================================================================
     // 2. LOCALIZER CONFIG (goBILDA Pinpoint)
@@ -80,14 +71,13 @@ public class Constants {
     public static PinpointConfig localizerConfig = new PinpointConfig(c -> {
         c.name.set("pinpoint");
         c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-        c.xPodOffset.set(2.491578830508735);
-        c.yPodOffset.set(0.38921570214699575);
+        c.xPodOffset.set(1.8469447038305087);
+        c.yPodOffset.set(1.3003265200637457);
         c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
-        c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
         c.globalDistanceUnit.set(DistanceUnit.INCH);
         c.offsetUnits.set(DistanceUnit.INCH);
     });
-
 
     // =====================================================================
     // 3. ALGORITHM CONFIG (Foresight)
@@ -135,30 +125,29 @@ public class Constants {
 //    });
     public static ForesightConfig foresightConfig = new ForesightConfig(
             c -> {
-                Controller primaryTranslationalForward = Controller.proportional(0.17818800870799986);
-                Controller secondaryTranslationalForward = Controller.proportional(0.06583570794632368);
-                Controller primaryTranslationalLateral = Controller.proportional(0.2510363789129798);
-                Controller secondaryTranslationalLateral = Controller.proportional(0.09275123419276186);
+                Controller primaryTranslationalForward = Controller.proportional(0.3100178262135112);
+                Controller secondaryTranslationalForward = Controller.proportional(0.11454330295701048);
+                Controller primaryTranslationalLateral = Controller.proportional(0.4855766023499335);
+                Controller secondaryTranslationalLateral = Controller.proportional(0.17940757972252447);
 
                 c.forwardTranslational.set(Controller.piecewise(secondaryTranslationalForward).put(2.5, primaryTranslationalForward));
                 c.strafeTranslational.set(Controller.piecewise(secondaryTranslationalLateral).put(2.5, primaryTranslationalLateral));
 
-                c.coast.set(Controller.proportionalFeedforward(0.01088185300350903));
-                c.brake.set(Controller.proportionalFeedforward(0.009249575052982675));
+                c.coast.set(Controller.proportionalFeedforward(0.012715273265700046));
+                c.brake.set(Controller.proportionalFeedforward(0.010807982275845038));
 
-                c.headingFeedback.set(Controller.proportional(3.682961377965725));
-                c.headingBrakeCoefficients.set(Vector2D.cartesian(0.049407578969023064, 0.004762383128154276));
+                c.headingFeedback.set(Controller.proportional(5.363935529565826));
+                c.headingBrakeCoefficients.set(Vector2D.cartesian(0.050404207300238334, 0.00662826876091725));
 
-                c.linearBrakeCoefficients.set(Matrix.diag(0.062437470132476094, 0.07499558943245356));
-                c.quadraticBrakeCoefficients.set(Matrix.diag(0.0012681551265074729, 0.0010011574586482966));
+                c.linearBrakeCoefficients.set(Matrix.diag(0.10190028205033407, 0.04863765333157554));
+                c.quadraticBrakeCoefficients.set(Matrix.diag(0.0015098880451388642, 0.002147552414866776));
 
-                c.maxAchievableForwardVelocity.set(90.22233270342807);
-                c.maxAchievableStrafeVelocity.set(75.92182464502555);
-                c.naturalForwardDeceleration.set(32.09493774800579);
-                c.naturalStrafeDeceleration.set(58.581831817861016);
+                c.maxAchievableForwardVelocity.set(75.791216731181);
+                c.maxAchievableStrafeVelocity.set(60.54276069289256);
+                c.naturalForwardDeceleration.set(44.33338627123392);
+                c.naturalStrafeDeceleration.set(79.85589496541019);
             }
     );
-
     // =====================================================================
     // 4. BUILD THE FOLLOWER
     // =====================================================================
