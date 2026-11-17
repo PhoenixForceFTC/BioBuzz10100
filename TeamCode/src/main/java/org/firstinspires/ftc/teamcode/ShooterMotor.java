@@ -36,15 +36,16 @@ public class ShooterMotor {
 
     public void shoot(){
 
-        if(gamepad.dpad_up){
-            speedRPM = Math.min(6000, speedRPM+5);
-        }else if(gamepad.dpad_down){
-            speedRPM = Math.max(0, speedRPM-5);
+        if(gamepad.dpadUpWasPressed()){
+            speedRPM = Math.min(6000, speedRPM+10);
+        }else if(gamepad.dpadDownWasPressed()){
+            speedRPM = Math.max(0, speedRPM-10);
         }
 
         shooter.setVelocity(speedRPM*ticksPerRotation/60);
 
         telemetry.addData("Motor Velocity: ", shooter.getVelocity());
+        telemetry.addData("Target Vel: ", speedRPM);
         telemetry.addLine("Shooter PIDF Coefficients");
         telemetry.addData("kP\t", kP);
         telemetry.addData("kI\t", kI);

@@ -15,7 +15,7 @@ public class MecanumPedro {
 
     private Gamepad gamepad;
     private Telemetry telemetry;
-    private Follower follower;
+    Follower follower;
 
     public MecanumPedro(Telemetry t, HardwareMap h, Gamepad g, Pose start){
 

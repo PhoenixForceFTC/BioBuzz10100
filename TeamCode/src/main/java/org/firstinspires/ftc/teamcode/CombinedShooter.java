@@ -16,6 +16,7 @@ public class CombinedShooter {
     ShooterMotor shooter;
     kicker kickerWheel;
     Gamepad gamepad;
+    hoodAngle hood;
     //ElapsedTime openTimer = new ElapsedTime();
 
 
@@ -29,14 +30,25 @@ public class CombinedShooter {
         shooter = new ShooterMotor(shooterMotor, t, h, g);
         kickerWheel = new kicker(kickerMotor, t, h, g);
         transfer = new Transfer(transferMotor, t, h, g);
+        hood = new hoodAngle("hood", t, h, g);
     }
 
     public void run(){
         shooter.shoot();
         rotation.run();
         transfer.run();
-        pollenGate.run();
+        //pollenGate.run();
         kickerWheel.run();
+        hood.run();
+
+        if(gamepad.dpadLeftWasPressed()){
+            pollenGate.open();
+            kickerWheel.forward();
+            transfer.forward();
+        } else if (gamepad.dpadLeftWasReleased()) {
+            pollenGate.close();
+            kickerWheel.stop();
+        }
 
         if(gamepad.yWasPressed()){
             transfer.stop();
