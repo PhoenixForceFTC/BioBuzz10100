@@ -16,8 +16,7 @@ public class BasicNoDrivetrainTeleOp extends LinearOpMode {
     @Override
     public void runOpMode(){
         //Obviously, motor/servo names are placeholders
-//        shooter = new CombinedShooter("Emperor niranjan I", "LiAndy",
-//                "Kou", "Max", "Kirchstein",
+//        shooter = new CombinedShooter("Emperor niranjan I", "Max", "Kirchstein",
 //                telemetry, hardwareMap, gamepad2);
 //        intake = new Intake("lowly peasant prithvi", telemetry, hardwareMap, gamepad1);
 //        transfer = new Transfer("Prince Raj", telemetry, hardwareMap, gamepad2);
