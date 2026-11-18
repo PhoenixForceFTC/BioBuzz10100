@@ -2,10 +2,15 @@ package org.firstinspires.ftc.teamcode;
 
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.math.Pose;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.MecanumPedro;
 import org.firstinspires.ftc.teamcode.Relocalization;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 @TeleOp(name="Drivetrainwith TeleOp")
 public class BasicDrivetrainTeleOp extends LinearOpMode {
@@ -15,27 +20,32 @@ public class BasicDrivetrainTeleOp extends LinearOpMode {
     CombinedShooter shooter;
     Intake intake;
     MecanumPedro drivetrain;
-    Relocalization relocalization;
+    LimelightRelocalizer relocalization;
     final PoseFactory p = PoseFactory.degrees();
     Pose initialPose = p.of(72,72,0);
+    Limelight3A ll;
 
 
     @Override
     public void runOpMode(){
-        //Obviously, motor/servo names are placeholders
-//        shooter = new CombinedShooter("Emperor niranjan I", "LiAndy",
-//                "Kou", "Max", "Kirchstein",
-//                telemetry, hardwareMap, gamepad2);
-//        intake = new Intake("lowly peasant prithvi", telemetry, hardwareMap, gamepad1);
-//        transfer = new Transfer("Prince Raj", telemetry, hardwareMap, gamepad2);
         shooter = new CombinedShooter("turret_servo_1", "turret_servo_2",
                 "gate", "shooter", "kicker",
                 "transfer", telemetry, hardwareMap, gamepad2);
         intake = new Intake("intake", telemetry, hardwareMap, gamepad1);
         drivetrain = new MecanumPedro(telemetry, hardwareMap, gamepad1, initialPose);
-        relocalization = new Relocalization("We are the champagnes", telemetry, hardwareMap);
+        ll = hardwareMap.get(Limelight3A.class, "We are the champagnes");
+        ll.setPollRateHz(100);
+        ll.pipelineSwitch(SimpleLimelightRelocalizer.PIPELINE);
+        ll.start();
+        relocalization = new LimelightRelocalizer(ll, new HashSet<>(Arrays.asList(32, 36, 40, 44)));
+        shooter.rotation.moveToPosition(0.5);
+        shooter.rotation.turretServo1.setPosition(0.5);shooter.rotation.turretServo2.setPosition(0.5);
 
-        relocalization.relocalize(true, drivetrain.getPose(), -0.25, drivetrain.follower);
+        sleep(500); // for turret mvmt
+
+        while(opModeInInit()){
+            relocalization.update(drivetrain.follower, (-0.25) * 2 * Math.PI);
+        }
 
         waitForStart();
 
@@ -108,7 +118,7 @@ public class BasicDrivetrainTeleOp extends LinearOpMode {
             shooter.run();
 
             double turretoffset = (0.25 - shooter.rotation.position) * 2 * Math.PI;
-            relocalization.relocalize(false, drivetrain.getPose(), turretoffset, drivetrain.follower);
+            relocalization.update(drivetrain.follower, turretoffset);
 
             if(gamepad2.dpad_right || prevDist!=currentDist){
                 shooter.hood.moveToPosition(Math.max(-0.00309*currentDist + 0.652, 0.5));
@@ -116,10 +126,7 @@ public class BasicDrivetrainTeleOp extends LinearOpMode {
             }
 
             telemetry.addData("currentDist", currentDist);
-            telemetry.addData("dist to tag 36 (r):", relocalization.distanceToTag(36));
-            telemetry.addData("dist to tag 32 (r):", relocalization.distanceToTag(32));
-            telemetry.addData("dist to tag 40 (b):", relocalization.distanceToTag(40));
-            telemetry.addData("dist to tag 44 (b):", relocalization.distanceToTag(44));
+            telemetry.addData("Reloc", relocalization.status()); telemetry.update();
 
             telemetry.update();
         }

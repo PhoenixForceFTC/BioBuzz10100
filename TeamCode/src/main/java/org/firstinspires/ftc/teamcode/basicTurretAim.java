@@ -10,8 +10,8 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class basicTurretAim{
 
-    private Servo turretServo1;
-    private Servo turretServo2;
+    Servo turretServo1;
+    Servo turretServo2;
     private Telemetry telemetryInternal;
     private Gamepad gamepad;
     double position = 0.5;

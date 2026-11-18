@@ -17,6 +17,7 @@ public class CombinedShooter {
     kicker kickerWheel;
     Gamepad gamepad;
     hoodAngle hood;
+    ElapsedTime firingSequenceTimer = new ElapsedTime(2);
     //ElapsedTime openTimer = new ElapsedTime();
 
 
@@ -42,10 +43,25 @@ public class CombinedShooter {
         hood.run();
 
         if(gamepad.dpadLeftWasPressed()){
-            pollenGate.open();
+            firingSequenceTimer.reset();
+//            pollenGate.open();
+//            kickerWheel.forward();
+//            transfer.forward();
+        }
+//        else if (gamepad.dpadLeftWasReleased()) {
+//            pollenGate.close();
+//            kickerWheel.stop();
+//        }
+
+        double time = firingSequenceTimer.seconds();
+        if(time <= 0.2){
+            kickerWheel.stop();
+            transfer.stop();
+        } else if(time >= 0.2 && time <= 0.25) pollenGate.open();
+        else if(time >= 0.25 && time <= 0.3){
             kickerWheel.forward();
             transfer.forward();
-        } else if (gamepad.dpadLeftWasReleased()) {
+        } else if (time >= 0.5) {
             pollenGate.close();
             kickerWheel.stop();
         }
@@ -73,24 +89,4 @@ public class CombinedShooter {
 
     }
 
-//    @Override
-//    public void runOpMode(){
-//        //obviously, motor/servo names are placeholders
-//        rotation = new basicTurretAim("Emperor Niranjan I", "Liandy", telemetry, hardwareMap, gamepad2);
-//        pollenGate = new gate("Kou", telemetry, hardwareMap, gamepad2);
-//        shooter = new ShooterMotor("Max", telemetry, hardwareMap, gamepad2);
-//        kickerWheel = new kicker("Kirchstein", telemetry, hardwareMap, gamepad2);
-//
-//        waitForStart();
-//
-//        while(opModeIsActive()){
-//            run();
-//            //            if(openTimer.seconds() >= 5){
-////                if (!pollenGate.isClosed){
-////                    pollenGate.close();
-////                    kickerWheel.backward();
-////                }
-////            }
-//        }
-//    }
 }
