@@ -77,8 +77,10 @@ it moved the turret by the offset and the correction moved it back 0.25 s later.
 - *Nearer dead-zone limit from the front half* (see above).
 - *GP2 hood/RPM buttons while RT is held.* D-pad Up/Down and Y/A trim the automatic hood/RPM only when auto aim
   actually sets them (a calibrated shot solution, judged before trims so an out-of-range trim can still be
-  undone). When auto aim has no calibrated solution (for example the target is outside the 12-60 in shot table) they
-  keep stepping the manual hood/RPM the shot is using, instead of changing hidden trims. GP2 RS-X still trims
+  undone). When auto aim has no valid solution (for example before the robot has a field pose) they
+  keep stepping the manual hood/RPM the shot is using, instead of changing hidden trims. Outside the measured
+  12-60 in shot table the profile extrapolates (clamped to mechanism limits), so a solution still exists there but
+  comes from an unmeasured line. GP2 RS-X still trims
   yaw whenever RT is held.
 
 **Automatic aim while turning (2026-11-06).** Three changes keep the turret on the goal while the chassis turns:
