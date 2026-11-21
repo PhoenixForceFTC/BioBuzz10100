@@ -132,6 +132,7 @@ Goal: start on the wall, drive to a shooting spot while aiming, fire one volley,
    - `onTimeout`: `FIRE` in a match, `SKIP` while you are still testing aim
    - `after`: `IDLE` if you will shoot again soon, `OFF` at the end, `KEEP` to leave aim and spin running
    - `yawTrimDeg`, `hoodTrimDeg`, `rpmTrim` (optional, default 0): TeleOp's GP2 aim trims, see below
+   - `latestStartS` (optional): the match-clock second after which the gate will not open; leave it alone and a late volley is skipped instead of cut off mid-feed
    - set the step's `timeoutS` a little above `readyTimeoutSeconds + seconds` (for example 5.6 for 3 + 2.5)
 7. **Check it worked.** Add a **branch** on `commandFailed`: in the *then* arm, `stopAll`; in the *else* arm,
    carry on. (`commandFailed` is true when the volley timed out, skipped or was cancelled.)

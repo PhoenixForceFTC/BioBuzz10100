@@ -125,7 +125,7 @@ public final class AutonomousCommands {
         });
         command("shootPreset", "turretYaw,hood,flywheel,gate,transfer", "preset,seconds", (a,c) ->
                 feed(seconds(a), true, preset(a)));
-        command("volley", "turretYaw,hood,flywheel,gate,transfer", "side,frame,seconds,readyTimeoutSeconds,onTimeout,after,yawTrimDeg,hoodTrimDeg,rpmTrim", (a,c) -> {
+        command("volley", "turretYaw,hood,flywheel,gate,transfer", "side,frame,seconds,readyTimeoutSeconds,onTimeout,after,yawTrimDeg,hoodTrimDeg,rpmTrim,latestStartS", (a,c) -> {
             TurretSubsystem.HiveSide side = side(a,c);
             double feedSeconds = number(a,"seconds",VOLLEY_FEED_SECONDS,.001,28);
             double readyTimeout = number(a,"readyTimeoutSeconds",VOLLEY_READY_TIMEOUT_SECONDS,0,28);
@@ -135,7 +135,10 @@ public final class AutonomousCommands {
             double[] trims = {number(a,"yawTrimDeg",0.0,-AutoAimAdjustments.MAX_YAW_DEG,AutoAimAdjustments.MAX_YAW_DEG),
                     number(a,"hoodTrimDeg",0.0,-AutoAimAdjustments.MAX_HOOD_DEG,AutoAimAdjustments.MAX_HOOD_DEG),
                     number(a,"rpmTrim",0.0,-AutoAimAdjustments.MAX_RPM,AutoAimAdjustments.MAX_RPM)};
-            return volley(side,feedSeconds,readyTimeout,onTimeout,after,trims);
+            // 0 = automatic: the global deadline minus the feed time, so a late volley is skipped, not cut off mid-feed.
+            double latestStart = number(a,"latestStartS",0.0,0,PedroConfiguration.MAX_AUTONOMOUS_SECONDS);
+            if (latestStart == 0) latestStart = Math.max(0, PedroConfiguration.MAX_AUTONOMOUS_SECONDS - feedSeconds);
+            return volley(side,feedSeconds,readyTimeout,onTimeout,after,trims,latestStart);
         });
         command("driveHold", "drive", "xIn,yIn,headingRad,seconds", (a,c) -> {
             Pose pose = pose(a,c);
@@ -254,25 +257,31 @@ public final class AutonomousCommands {
      * with automatic yaw/hood/RPM, wait up to {@code readyTimeout} for the shared firing coordinator's readiness,
      * feed for {@code feedSeconds}, then apply {@code after}. Not ready in time: FIRE feeds anyway with readiness
      * bypassed (TeleOp GP1 A) but only with a homed turret; SKIP feeds nothing. Feed inhibit always wins. Counts
-     * time, never balls. A side already latched by {@code aim}/{@code selectTarget} is kept, so a pre-aim during
+     * time, never balls. Past {@code latestStart} on the match clock (default: the global deadline minus the feed time) it
+     * is skipped before the gate opens. A side already latched by {@code aim}/{@code selectTarget} is kept, so a pre-aim during
      * a path is not discarded and readiness is not requalified. The yaw/hood/RPM trims are TeleOp's GP2 auto-aim
      * trims; they apply from this volley until the next volley or {@code aimOff}.
      */
     private Command volley(TurretSubsystem.HiveSide side, double feedSeconds, double readyTimeout,
-                           PlannerVolley.TimeoutAction onTimeout, VolleyAfter after, double[] trims) {
+                           PlannerVolley.TimeoutAction onTimeout, VolleyAfter after, double[] trims, double latestStart) {
         String[] resources = split("turretYaw,hood,flywheel,gate,transfer");
         PlannerVolley sequence = new PlannerVolley();
-        boolean[] ended = {false}, manualRequested = {false};
+        boolean[] ended = {false}, manualRequested = {false}, tooLate = {false};
         @SuppressWarnings("unchecked") Map<String,Long>[] lease = new Map[1];
         return new CommandBuilder().requiring(requirements(resources))
                 .setStart(() -> {
-                    ended[0] = false; manualRequested[0] = false;
+                    ended[0] = false; manualRequested[0] = false; tooLate[0] = false;
                     lease[0] = out.claim(resources);
                     if (selectedSide != side) select(side); else stopFeed();
                     out.aim(true); out.trims(trims[0],trims[1],trims[2]); out.requestAutomaticFeed();
                     sequence.start(robot.now(), feedSeconds, readyTimeout, onTimeout, true);
                 })
                 .setExecute(() -> {
+                    // Time guard: the gate may not open once the feed could not finish before the global deadline.
+                    // Only while still aiming; a feed already under way runs on and the deadline stops it.
+                    if (sequence.phase() == PlannerVolley.Phase.AIMING && robot.elapsedSeconds() > latestStart) {
+                        tooLate[0] = true; sequence.cancel("too late");
+                    }
                     // Reads the firing state from the previous loop, before this loop's output coordinator apply().
                     sequence.update(robot.now(), robot.firing.feeding(), robot.turret.isHomed());
                     if (sequence.manualFeed() && !manualRequested[0]) { manualRequested[0] = true; out.requestManualFeed(); }
@@ -295,6 +304,9 @@ public final class AutonomousCommands {
                     }
                     if (!natural) robot.outcome("CANCELLED", "Interrupted volley");
                     else if (inhibited) robot.outcome("INHIBITED", "Feed inhibit");
+                    else if (tooLate[0]) robot.outcome("TIMEOUT", String.format(java.util.Locale.US,
+                            "SKIPPED: too late, past %.1f s on the match clock (the feed needs %.1f s before the %.0f s deadline)",
+                            latestStart, feedSeconds, PedroConfiguration.MAX_AUTONOMOUS_SECONDS));
                     else if (phase == PlannerVolley.Phase.SKIPPED) robot.outcome("TIMEOUT", note);
                     else if (forced) robot.outcome("TIMEOUT", "Fed before READY (ready timeout); readiness bypassed");
                     else robot.outcome("SUCCESS", "Volley fed " + feedSeconds + " s");

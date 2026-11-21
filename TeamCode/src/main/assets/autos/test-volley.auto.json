@@ -1,0 +1,71 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "test-volley",
+  "title": "TEST: Volley from the wall start (bench or live)",
+  "description": "Volley test from the real red audience-side start, about 49.6 in from the audience cell, inside the measured shot table: expect about 3200 RPM and 5.7 deg of hood travel. Pre-aim and spin up, one volley that is skipped (never fired unready) if readiness does not arrive, then read the outcome. With balls loaded and a ready shot it feeds for 2.5 s; with no balls nothing is launched. Robot on blocks for a bench run, or on the practice field for a live one. Cleared area, hand on STOP.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -9.2,
+      "yIn": -64.64,
+      "headingRad": 3.1416,
+      "provenance": "TEST ROUTINE: the real red audience-side start (robot facing -X, left side on the audience wall, back about 1.4 in from the centre line; 396 x 374 mm chassis). Bench runs can sit anywhere: the pose only decides where the turret thinks the hive is."
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "preAim",
+      "kind": "command",
+      "name": "aim",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "spin": true
+      },
+      "notes": "Latches the audience cell and starts yaw/hood tracking and the flywheel. Watch 'Targets yaw / hood / flywheel': about 3200 RPM and 5.7 deg hood."
+    },
+    {
+      "id": "spinUpWait",
+      "kind": "wait",
+      "seconds": 2.0,
+      "notes": "Let the flywheel come up and the turret settle before the volley."
+    },
+    {
+      "id": "volley1",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "seconds": 2.5,
+        "readyTimeoutSeconds": 3,
+        "onTimeout": "SKIP",
+        "after": "OFF"
+      },
+      "timeoutS": 6.6,
+      "notes": "SKIP: if turret, hood and RPM are not ready within 3 s nothing is fed. Expect SUCCESS 'Volley fed 2.5 s', or TIMEOUT 'SKIPPED: not ready in time'."
+    },
+    {
+      "id": "readOutcome",
+      "kind": "wait",
+      "seconds": 4.0,
+      "notes": "Read 'Last bounded action' now (step, outcome and reason)."
+    },
+    {
+      "id": "stopEnd",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}
