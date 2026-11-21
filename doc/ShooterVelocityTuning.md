@@ -125,10 +125,12 @@ loop's cached encoder sample; the hub PIDF loop is not active in that mode.
 - The command never opposes the spin direction. A zero target (spin released,
   STOP, controller switch) is zero power and a FLOAT coast.
 
-Initial values in `ShooterVelocityTuning`: `INITIAL_FUSION_KS` 0.05 (estimate),
-`INITIAL_FUSION_KV` `(14 / 12 - kS) / 2846.67`, about 0.000392 (so kS + kV reproduces
-full power at 6100 RPM and 14 V), and `INITIAL_FUSION_KP` 0.001 (estimate; 0.08
-power at the 80 ticks/s edge). None is validated on this flywheel. Suggested order:
+Default values in `ShooterVelocityTuning`, team-tuned on the robot in the bench test on
+November 20, 2026 at about 14 V: `INITIAL_FUSION_KS` 0.04, `INITIAL_FUSION_KV`
+0.00038404662763466 and `INITIAL_FUSION_KP` 0.0021 (about 0.17 power at the 80 ticks/s
+edge). Both competition TeleOps and the bench test start from these. The earlier
+starting estimates were kS 0.05, kV solved from 6100 RPM at 14 V (about 0.000392) and
+kP 0.001. To retune, the suggested order is:
 set kP to 0 and adjust kV until an unloaded mid-range target holds steady, check a
 low and a high target and move kS if the bias differs between them, then restore
 and raise kP in small steps for loaded recovery. If the zone alternates between
@@ -189,6 +191,9 @@ is consistent with the fusion controller holding about 150 RPM above operating t
 (inside the 80 ticks/s band, so it never coasted). The 6000 RPM command ceiling and
 100 RPM readiness tolerance are unchanged. These are still starting values: kV, kS and kP
 need the unloaded and loaded tuning passes on the robot.
+
+The same day the team tuned the fusion gains on the robot: kS 0.04, kV 0.00038404662763466,
+kP 0.0021. These are now the defaults; see the controller section above.
 
 Simulation decision: none run for this constant change. The sim flywheel fixture was moved to
 6100 RPM at 14 V to match the observation; focused unit tests cover the derived gains.

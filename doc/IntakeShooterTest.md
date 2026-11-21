@@ -56,14 +56,14 @@ B until GP1 B became a bench-only manual feed).
 
 **Bench-only differences (later November 19, 2026, by request; this test only).**
 There is no flywheel idle: the 3000 RPM idle is a competition-TeleOp-only change, so
-the bench flywheel is off unless RT is held, then runs at the selected RPM. Every
-feed (RT + LT or manual) commands the gate open first and starts transfer stage 1
-(both linked motors) 0.10 s later
-(`IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS`); competition still
-starts the gate and stage 1 in the same loop. During that 0.10 s the gate is open,
-stage 1 is off and automatic collection is paused; FEED STATUS shows GATE OPENING.
-The check runs once per loop, so the transfer starts 0.10 s after the gate command or
-up to one loop later.
+the bench flywheel is off unless RT is held, then runs at the selected RPM.
+
+**Firing matches competition (November 21, 2026).** The bench uses the competition
+firing coordinator (`CompetitionFeedController.firing()`): every feed, RT + LT or
+manual, opens the gate and starts transfer stage 1 (both linked motors) in the same
+loop. The earlier bench-only 0.10 s gate-to-stage-1 wait was removed, because it was
+added again on every restart after a ball pulled the flywheel out of the continuation
+band and made continuous fire feel staggered.
 
 | Control | Action |
 | --- | --- |
@@ -73,8 +73,8 @@ up to one loop later.
 | Both bumpers | Stop intake and loading |
 | Armed, RT released | Flywheel off (no bench idle; the 3000 RPM idle is competition-only) |
 | Hold RT | Run the flywheel at the selected RPM; release turns it off (coast). RT alone does not pause collection |
-| Hold RT + LT | Automatic shot: once readiness holds for 0.15 s, open the gate, then run the transfer (both motors) at full power 0.10 s after the gate command; keep feeding until either trigger is released or feed readiness is lost |
-| Hold GP1 B or GP2 RT | Manual feed (GP1 B is bench-only; competition uses GP1 A / GP2 RT): open the gate at once and run the transfer 0.10 s later, bypassing homing/RPM/aim readiness (works with the flywheel off) |
+| Hold RT + LT | Automatic shot: once readiness holds for 0.15 s, open the gate and run the transfer (both motors) at full power in the same loop; keep feeding until either trigger is released or feed readiness is lost |
+| Hold GP1 B or GP2 RT | Manual feed (GP1 B is bench-only; competition uses GP1 A / GP2 RT): open the gate and run the transfer at once, bypassing homing/RPM/aim readiness (works with the flywheel off) |
 | Hold GP2 LT | Inhibit: force the gate closed and stop the transfer; overrides every feed without disarming |
 | Tap Y / A | Increase / decrease flywheel output RPM by 100 |
 | Tap D-pad right / left | Increase / decrease flywheel output RPM by 10 (fine); all RPM steps clamp to 0..6000 RPM; starts at 3000 RPM |
@@ -89,12 +89,13 @@ up to 133 RPM does not interrupt a feed already running (see below), but a new s
 requalifies at the new target.
 
 **Automatic shot readiness.** RT + LT requires a homed turret, measured flywheel
-speed within 100 output RPM of the selected target, the bench yaw limits (up to 4
-degrees of error, the retained bench-specific tolerance, and 3 degrees/s of measured
-motion), hood travel complete, the yaw stick released and no RPM or hood change this
-loop, all holding for the shared 0.15-second ready delay. The gate is then commanded
-open and stage 1 starts 0.10 s later (bench-only). Feeding continues, with no timed window or recovery pause,
-while the competition's looser continuation check holds: yaw error within 4 degrees,
+speed within 100 output RPM of the selected target, the competition yaw check (up to
+3 degrees of error, `ShotReadiness.angleReady`, with no turret-rate requirement; until
+November 21, 2026 the bench used 4 degrees plus a 3 degrees/s motion limit), hood travel
+complete, the yaw stick released and no RPM or hood change this loop, all holding for
+the shared 0.15-second ready delay. The gate and stage 1 then start together, as in
+competition. Feeding continues, with no timed window or recovery pause,
+while the competition's looser continuation check holds: yaw error within 3 degrees,
 hood settled and flywheel within 133 output RPM of the target. If that is lost the
 gate closes, the coordinator records RECOVERY, and the shot requalifies the full
 0.15 s before reopening. Releasing either trigger, pressing B, losing home or GP2 LT
@@ -102,7 +103,7 @@ stops feeding. The competition auto-aim's odometry/camera solution is not availa
 on the bench, so bench readiness stands in for it. Software counts feed starts, not
 launched balls.
 
-**Manual feed (GP1 B or GP2 RT)** opens the gate and, 0.10 s later, runs the transfer at
+**Manual feed (GP1 B or GP2 RT)** opens the gate and runs the transfer at
 full forward power while held, with no readiness, feed window or recovery. GP2 LT, GP1 Back,
 STOP and controller switches retain priority; startup and controller switches still require
 releasing the motor controls to re-arm. A manual feed with RT released feeds with the
@@ -136,8 +137,19 @@ showed 0.10-0.12 s at the 0.02 s tick), and that the flywheel stays at rest with
 fusion OFF until RT and drops to OFF on release. `IntakeShooterTestControllerTest`
 (21) covers the delay for automatic, manual, post-inhibit and requalified feeds, plus
 a check that the competition coordinator still feeds in the same loop as the gate.
-`Competition` was not rerun: no shared competition class changed. Whether 0.10 s is
-enough for the physical gate to clear still needs robot testing.
+`Competition` was not rerun: no shared competition class changed. (Superseded November 21,
+2026: the 0.10 s delay was removed; see below.)
+
+Simulation decision for matching competition firing (November 21, 2026): ran
+`MechanismsSimTest`. The transfer-cycle and manual-feed scenarios now assert both
+transfer motors feed in the same tick the gate opens. With the current 6100 RPM / 14 V
+flywheel fixture, 9 of 11 pass; the transfer-cycle and fusion scenarios fail before
+any feed because the frictionless sim flywheel overshoots during spin-up and then
+coasts above the ready band indefinitely (a sim model limit: no drag). With the earlier
+5400 RPM fixture swapped in temporarily, all 11 pass, including the new firing
+assertions; the fixture was left at the measured 6100 RPM. `IntakeShooterTestControllerTest`
+(21), `CompetitionFeedControllerTest` and `FiringCoordinatorTest` pass. `Competition` was not
+rerun: no shared competition class changed. Physical ball spacing still needs robot testing.
 
 The flywheel starts with the bang-bang + feedforward fusion controller, the
 competition TeleOp's `MecanumTeleOp.FLYWHEEL_CONTROLLER` (it started with PIDF until
@@ -164,9 +176,9 @@ loop, including recovery, using one cached velocity sample per loop:
   `12 V / battery`. `kS` overcomes static friction, `kV` holds the target speed and
   `kP` is a small correction for the remaining error.
 
-Starting values are `kS` 0.05, `kV` about 0.000392 and `kP` 0.001 (motor power at
-12 V; `kV` and `kP` per motor tick/s). `kS` and `kP` are estimates and `kV` is
-solved from the 6100 RPM at 14 V observation (November 20, 2026); none is tuned on this flywheel. Edit
+Starting values are the team-tuned gains from November 20, 2026 (about 14 V): `kS` 0.04,
+`kV` 0.00038404662763466 and `kP` 0.0021 (motor power at 12 V; `kV` and `kP` per motor
+tick/s). The competition TeleOps use the same values. Edit
 `FUSION_KS`, `FUSION_KV` and `FUSION_KP` live in Dashboard. Releasing RT or stopping
 commands zero power and coasts in FLOAT. The command never opposes the spin
 direction, so lowering the target by 200 RPM or more simply coasts down to the

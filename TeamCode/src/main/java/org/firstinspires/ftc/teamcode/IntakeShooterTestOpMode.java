@@ -10,9 +10,9 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
  * Combined intake/index/shooter bench test with no drive, odometry, camera or depollinator.
  * Shooting follows the competition TeleOp (see {@link IntakeShooterTestController}): continuous feed, RT + LT
  * automatic shots once ready, GP2 RT manual feed, GP2 LT inhibit, fusion flywheel regulation, GP1 rumble and the
- * shooter/intake status lights. Bench-only: no flywheel idle (it runs only while RT is held), transfer stage 1
- * starts {@link IntakeShooterTestController#GATE_OPEN_TO_TRANSFER_SECONDS} after the gate-open command, GP1 B
- * also feeds manually and GP1 Back is the stop.
+ * shooter/intake status lights, with the competition firing coordinator (gate and transfer start together) and
+ * yaw readiness. Bench-only: no flywheel idle (it runs only while RT is held), GP1 B also feeds manually and GP1
+ * Back is the stop.
  */
 @TeleOp(name = "Test: Intake + Index + Shooter", group = "Test")
 @Config
@@ -26,7 +26,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
     public static volatile double TARGET_RPM = MecanumTeleOp.FLYWHEEL_IDLE_RPM;
     // Fusion controller (competition default; GP2 B toggles PIDF): beyond 80 ticks/s error, full power when slow
     // and coast when fast; inside that band, kS + kV * target + kP * error.
-    // Motor power at 12 V; kV and kP are per motor tick/s. Untuned starting estimates.
+    // Motor power at 12 V; kV and kP are per motor tick/s. Defaults are the team-tuned gains (2026-11-20).
     public static volatile double FUSION_KS = ShooterVelocityTuning.INITIAL_FUSION_KS;
     public static volatile double FUSION_KV = ShooterVelocityTuning.INITIAL_FUSION_KV;
     public static volatile double FUSION_KP = ShooterVelocityTuning.INITIAL_FUSION_KP;
@@ -48,7 +48,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
         RobotStatusLights lights = null;
         try {
             if (dashboard != null) dashboard.setTelemetryTransmissionInterval(DASHBOARD_INTERVAL_MS);
-            gate = new GateSubsystem(hardwareMap, IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS);
+            gate = new GateSubsystem(hardwareMap, CompetitionFeedController.GATE_TO_FEED_DELAY_SECONDS);
             intake = new IntakeSubsystem(hardwareMap);
             transfer = new TransferSubsystem(hardwareMap);
             turret = new TurretSubsystem(hardwareMap, false);
@@ -203,8 +203,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                     recoveryStarted = Double.NaN;
                 }
                 double yawErrorDeg = turret.getTargetYawDegrees() - turret.getEncoderAngleDegrees();
-                boolean yawSettled = IntakeShooterTestController.isYawSettled(yawErrorDeg,
-                        turret.getEncoderVelocityDegPerSec());
+                boolean yawSettled = IntakeShooterTestController.isYawReady(yawErrorDeg);
                 boolean hoodSettled = turret.isHoodTracking();
                 boolean ready = atSpeed && yawSettled
                         && hoodSettled && !yawInput && !rpmChanged && !hoodChanged;
@@ -236,9 +235,6 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                 else if (inhibit) feedStatus = "BLOCKED (GP2 LT): gate closed, transfer stopped";
                 else if (firing.feeding()) feedStatus = (manualFeed ? "MANUAL FEED (GP1 B / GP2 RT): readiness bypassed"
                         : "AUTO FEED: gate open, stage 1 running") + "; release to stop";
-                else if (firing.state() == FiringCoordinator.State.GATE_OPENING)
-                    feedStatus = String.format("GATE OPENING: stage 1 starts %.2f s after the gate command",
-                            IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS);
                 else if (manualFeed) feedStatus = firing.reason();
                 else if (!spin) feedStatus = (openLoopMax ? "Flywheel off: hold RT for OPEN-LOOP MAX (full voltage)"
                         : "Flywheel off: hold RT for selected RPM") + "; RT + LT = auto shot, B / GP2 RT = manual feed";
@@ -248,7 +244,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                 else if (firing.state() == FiringCoordinator.State.RECOVERY) feedStatus = firing.reason();
                 else if (!atSpeed) feedStatus = "Flywheel outside RPM tolerance: check actual/target and encoder cable";
                 else if (yawInput) feedStatus = "Release right stick to settle turret";
-                else if (!yawSettled) feedStatus = "Turret outside 4 deg / 3 deg/s bench limits";
+                else if (!yawSettled) feedStatus = String.format("Turret yaw error above %.0f deg", ShotReadiness.YAW_TOLERANCE_DEG);
                 else if (!hoodSettled || hoodChanged) feedStatus = "Waiting for hood travel";
                 else if (rpmChanged) feedStatus = "RPM target changed: requalifying readiness";
                 else if (firing.state() == FiringCoordinator.State.PREPARING)
@@ -256,8 +252,8 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                 else feedStatus = firing.reason();
                 transfer.addStatusTelemetry(telemetry);
                 telemetry.addData("FEED STATUS", feedStatus);
-                telemetry.addData("Shooting mode", "CONTINUOUS (competition policy) | ready delay %.2f s | gate-to-stage-1 %.2f s",
-                        firing.stableSeconds, firing.gateTravelSeconds);
+                telemetry.addData("Shooting mode", "CONTINUOUS (competition policy) | ready delay %.2f s | gate + stage 1 together",
+                        firing.stableSeconds);
                 telemetry.addData("GP1 triggers / bumpers", "RT %.2f | LT %.2f | RB %s | LB %s",
                         gamepad1.right_trigger, gamepad1.left_trigger, load, reverse);
                 telemetry.addData("GP2 manual feed / inhibit", "RT %.2f | LT %.2f",
@@ -361,8 +357,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
     private void addControlsTelemetry() {
         telemetry.addLine("Dashboard: 192.168.43.1:8080/dash | Config: IntakeShooterTestOpMode");
         telemetry.addLine("Live P/I/D/F_SCALE/TARGET_RPM and FUSION_KS/KV/KP; applied gains shown below; GP2 X resets all gains");
-        telemetry.addLine(String.format("Shooting = competition TeleOp: CONTINUOUS feed; bench-only: stage 1 starts %.2f s after the gate opens",
-                IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS));
+        telemetry.addLine("Shooting = competition TeleOp: CONTINUOUS feed, gate and stage 1 start together");
         telemetry.addLine("Automatic intake/index after arming: LOW forward, 0.5 s HIGH stop; paused while shooting");
         telemetry.addLine("GP1/GP2 RB forces intake + stage 1 forward / LB reverses intake / Both stop");
         telemetry.addLine("Flywheel off unless RT held (no idle) | Hold RT = Selected RPM | RT + LT = Auto Shot once ready (0.15 s)");

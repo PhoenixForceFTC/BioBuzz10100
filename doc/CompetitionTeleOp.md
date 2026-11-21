@@ -206,7 +206,7 @@ Both competition TeleOps show a short driver view by default, most important fir
 | Line | Meaning |
 |------|---------|
 | Shot | OFF, AIMING (hold LT to fire), WAITING FOR AIM / HOOD / RPM, READY, MANUAL FEED or BLOCKED (GP2 LT), plus the firing state; a FAULT or INHIBITED state also shows its reason |
-| Flywheel (RPM) | Measured / target output RPM and OFF, SPINNING UP or READY. With RT released the target is the manual RPM. Regulated by bang-bang + feedforward fusion with untuned initial gains (see ShooterVelocityTuning.md) |
+| Flywheel (RPM) | Measured / target output RPM and OFF, SPINNING UP or READY. With RT released the target is the manual RPM. Regulated by bang-bang + feedforward fusion with the team-tuned gains of 2026-11-20 (see ShooterVelocityTuning.md) |
 | Launch elevation (deg) | Commanded launch angle above horizontal |
 | Turret | HOMED with measured heading, or the homing state and reason |
 | Battery (V) | Shooter-hub battery voltage |

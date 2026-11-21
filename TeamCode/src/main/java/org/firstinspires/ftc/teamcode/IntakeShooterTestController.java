@@ -9,47 +9,39 @@ package org.firstinspires.ftc.teamcode;
  * wins over every feed, and automatic collection / stage-1 loading paused while shooting with the bumper overrides
  * retained.
  *
- * <p>Bench-only differences: every feed (automatic or manual) commands the gate open first and starts transfer
- * stage 1 {@link #GATE_OPEN_TO_TRANSFER_SECONDS} later (competition starts both together); motor controls arm only
- * after Back, B, bumpers and triggers are released; Back stops and disarms; the flywheel runs at the selected RPM
- * only while RT is held and is otherwise off (the competition TeleOp's {@link MecanumTeleOp#FLYWHEEL_IDLE_RPM}
- * idle is not used here). Without odometry or a camera the bench substitutes its own readiness (home, measured
- * RPM, bench yaw tolerance, hood) for the competition auto-aim solution.
+ * <p>Firing uses the competition coordinator ({@link CompetitionFeedController#firing()}, matched 2026-11-21): the
+ * gate-open command and transfer stage 1 start in the same loop, and readiness uses the competition
+ * {@link ShotReadiness#angleReady} yaw check with no turret-rate requirement. Bench-only differences: motor controls
+ * arm only after Back, B, bumpers and triggers are released; Back stops and disarms; the flywheel runs at the
+ * selected RPM only while RT is held and is otherwise off (the competition TeleOp's
+ * {@link MecanumTeleOp#FLYWHEEL_IDLE_RPM} idle is not used here). Without odometry or a camera the yaw target is
+ * the operator's manual turret command rather than the competition auto-aim solution.
  */
 public final class IntakeShooterTestController {
     public static final double READY_STABLE_SECONDS = CompetitionFeedController.READY_STABLE_SECONDS;
-    /** Bench-only (2026-11-19): transfer stage 1 starts this long after the gate-open command. */
-    public static final double GATE_OPEN_TO_TRANSFER_SECONDS = 0.10;
-    /** Preserve the independently requested bench readiness tolerance. */
-    public static final double BENCH_YAW_TOLERANCE_DEG = 4.0;
     public static final double RPM_COARSE_STEP = 100.0;
     public static final double RPM_FINE_STEP = 10.0;
 
-    // Competition continuous timing, except the gate-open-to-transfer delay is honored (competition's coordinator
-    // feeds immediately): GATE_OPENING holds the gate open with the transfer off, then FEEDING runs stage 1.
-    private final FiringCoordinator firing = new FiringCoordinator(GATE_OPEN_TO_TRANSFER_SECONDS,
-            ShootingConfiguration.FEED_TO_EXIT_SECONDS, CompetitionFeedController.FEED_WINDOW_SECONDS,
-            CompetitionFeedController.RECOVERY_SECONDS, READY_STABLE_SECONDS);
+    // The competition coordinator: continuous timing, gate and stage 1 together (no gate-to-transfer wait).
+    private final FiringCoordinator firing = CompetitionFeedController.firing();
     private final CompetitionFeedController feedControl = new CompetitionFeedController();
     private final IntakeQueueController intakeControl = new IntakeQueueController();
     private boolean armed, active, spinFlywheel, inhibited, forward, reverse;
     private boolean autoShotReady, shootingBusy, feedStage1, closedGateStage1, manualRequest;
 
-    /** Initial (tight) bench readiness: bench yaw error and turret rate limits. */
-    public static boolean isYawSettled(double errorDeg, double velocityDegPerSecond) {
-        return RobotMath.finite(errorDeg, velocityDegPerSecond)
-                && Math.abs(errorDeg) <= BENCH_YAW_TOLERANCE_DEG
-                && Math.abs(velocityDegPerSecond) <= TurretSubsystem.YAW_VERIFY_MAX_VELOCITY_DEG_PER_SECOND;
+    /** Competition yaw readiness ({@link ShotReadiness#angleReady}): error only, no turret-rate requirement. */
+    public static boolean isYawReady(double errorDeg) {
+        return ShotReadiness.angleReady(errorDeg);
     }
 
     /**
-     * Feed continuation, like the competition loose check: the yaw error and hood still hold and the flywheel is
+     * Feed continuation, the competition loose check: the yaw error and hood still hold and the flywheel is
      * within {@link TurretSubsystem#SHOOTER_LOOSE_READY_TOLERANCE_RPM} of its target, with no turret-rate limit.
      */
     public static boolean isLooseReady(double yawErrorDeg, boolean hoodSettled, double selectedRpm,
                                        double measuredRpm) {
         return RobotMath.finite(yawErrorDeg, selectedRpm, measuredRpm)
-                && Math.abs(yawErrorDeg) <= BENCH_YAW_TOLERANCE_DEG && hoodSettled && selectedRpm > 0
+                && ShotReadiness.angleReady(yawErrorDeg) && hoodSettled && selectedRpm > 0
                 && Math.abs(measuredRpm - selectedRpm) <= TurretSubsystem.SHOOTER_LOOSE_READY_TOLERANCE_RPM;
     }
 
@@ -101,10 +93,7 @@ public final class IntakeShooterTestController {
     public boolean autoShotReady() { return autoShotReady; }
     public boolean manualFeedRequested() { return manualRequest; }
     public boolean shootingBusy() { return shootingBusy; }
-    /**
-     * The transfer feeds once firing reaches FEEDING, {@link #GATE_OPEN_TO_TRANSFER_SECONDS} after the gate-open
-     * command; the coordinator owns that delay, so the gate's own readiness flag is not needed.
-     */
+    /** Competition continuous: the transfer feeds whenever firing is feeding, without waiting for the gate. */
     public boolean feedTransfer(boolean gateReady) { return feedControl.feedTransfers(firing, gateReady); }
     public boolean feedStage1() { return feedStage1; }
     /** Never true in continuous mode; kept so the transfer logic matches the competition loop. */

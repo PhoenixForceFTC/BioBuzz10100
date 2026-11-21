@@ -77,7 +77,7 @@ public abstract class MecanumTeleOp extends LinearOpMode {
     private static final double TRIGGER_DEADBAND = 0.1;
     /** Manual/idle flywheel speed from START (3000 since 2026-11-19, was 3500); GP2 Y/A adjusts it. */
     public static final double FLYWHEEL_IDLE_RPM = CompetitionShotPipeline.FLYWHEEL_IDLE_RPM;
-    /** Both competition TeleOps regulate the flywheel with bang-bang + feedforward fusion (untuned gains). */
+    /** Both competition TeleOps regulate the flywheel with bang-bang + feedforward fusion (team-tuned gains, 2026-11-20). */
     public static final TurretSubsystem.ShooterController FLYWHEEL_CONTROLLER =
             CompetitionShotPipeline.FLYWHEEL_CONTROLLER;
 

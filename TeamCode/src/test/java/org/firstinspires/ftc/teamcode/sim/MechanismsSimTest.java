@@ -202,31 +202,18 @@ class MechanismsSimTest {
         assertLoading(s.trace.at(OpModePhase.ACTIVE, 400), s.diagnostic());
         assertTrue(s.trace.samples.stream().anyMatch(v -> v.phase == OpModePhase.ACTIVE
                 && v.tick >= 420 && v.tick < 570 && v.feedingThroughOpenGate() && v.transfer2Power == 1), s.diagnostic());
-        // Bench-only gate delay: each time the gate opens, both linked transfer motors stay off for the
-        // 0.10 s gate-open-to-transfer delay (5 ticks), then feed at full power. The tick that lands exactly on
-        // the delay boundary may go either way.
-        double delay = org.firstinspires.ftc.teamcode.IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS;
-        double gateOpenedAt = Double.NaN;
-        int delayedTicks = 0, feedTicks = 0;
+        // Competition firing (matched 2026-11-21): whenever the gate is open, both linked transfer motors already
+        // feed at full power in the same tick, with no gate-open-to-transfer wait.
+        int feedTicks = 0;
         for (TeleOpTrace.Sample v : s.trace.samples) if (v.phase == OpModePhase.ACTIVE) {
-            if (!v.gateOpen()) gateOpenedAt = Double.NaN;
-            else {
-                if (Double.isNaN(gateOpenedAt)) gateOpenedAt = v.seconds;
-                double sinceOpen = v.seconds - gateOpenedAt;
+            if (v.gateOpen()) {
                 assertEquals(0, v.intakePower, s.diagnostic()); // Automatic collection pauses while shooting.
-                if (sinceOpen < delay - 1e-6) {
-                    assertEquals(0, v.transfer1Power, s.diagnostic());
-                    assertEquals(0, v.transfer2Power, s.diagnostic());
-                    delayedTicks++;
-                } else if (sinceOpen > delay + .02 - 1e-6) {
-                    assertEquals(1, v.transfer1Power, s.diagnostic());
-                    assertEquals(1, v.transfer2Power, s.diagnostic());
-                    feedTicks++;
-                }
+                assertEquals(1, v.transfer1Power, s.diagnostic());
+                assertEquals(1, v.transfer2Power, s.diagnostic());
+                feedTicks++;
             }
             if (v.tick < 420 || v.tick >= 570) assertFalse(v.feedingThroughOpenGate(), s.diagnostic());
         }
-        assertTrue(delayedTicks >= 5, s.diagnostic());
         assertTrue(feedTicks > 0, s.diagnostic());
         assertLoading(s.trace.at(OpModePhase.ACTIVE, 580), s.diagnostic());
         assertEquals(.5, s.trace.at(OpModePhase.ACTIVE, 580).gatePosition, s.diagnostic());
@@ -251,15 +238,9 @@ class MechanismsSimTest {
         assertFalse(s.result.endedBeforeStop(), s.diagnostic());
         assertTrue(s.result.warnings().isEmpty(), s.diagnostic());
         // RT is never held, so the bench flywheel stays off: manual feed bypasses readiness. The gate opens at
-        // ticks 20 (GP2 RT), 70 (inhibit released) and 110 (GP1 B); the transfer waits the bench-only 0.10 s.
-        for (int tick : new int[]{20, 21, 24, 70, 74, 110, 114}) {
-            TeleOpTrace.Sample v = s.trace.at(OpModePhase.ACTIVE, tick);
-            assertEquals(.2, v.gatePosition, 1e-9, s.diagnostic());
-            assertEquals(0, v.transfer1Power, s.diagnostic());
-            assertEquals(0, v.transfer2Power, s.diagnostic());
-            assertEquals(0, v.intakePower, s.diagnostic());
-        }
-        for (int tick : new int[]{26, 59, 76, 99, 116, 139}) {
+        // ticks 20 (GP2 RT), 70 (inhibit released) and 110 (GP1 B), and the transfer feeds in the same tick
+        // (competition firing, no gate-open-to-transfer wait).
+        for (int tick : new int[]{20, 21, 24, 26, 59, 70, 74, 76, 99, 110, 114, 116, 139}) {
             TeleOpTrace.Sample v = s.trace.at(OpModePhase.ACTIVE, tick);
             assertEquals(.2, v.gatePosition, 1e-9, s.diagnostic());
             assertEquals(1, v.transfer1Power, s.diagnostic());
