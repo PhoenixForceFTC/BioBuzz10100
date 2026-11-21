@@ -15,6 +15,7 @@ This work is kept separate from the team's own autos: `FallbackAutonomous`, the 
 | Blue Audience (Red Far mirrored) | Competition: `DRAFT Auto: Blue Audience (mirrors red-far)` (`BlueAudienceAutonomous`) | draft | same route |
 | **Red Far Cycle (5 s, far 4+4, audience 4+4)** | Generated: `DRAFT Auto: Red Far Cycle …` from [`red-far-cycle`](../autos/red-far-cycle.auto.json) | draft | 29.2 s nominal, **does not fit yet** ([timing](#timing-does-not-fit-yet)) |
 | Blue Audience Cycle (Red Far Cycle mirrored) | Competition: `DRAFT Auto: Blue Audience Cycle (mirrors red-far-cycle)` (`BlueAudienceCycleAutonomous`) | draft | same route |
+| **Blue Audience Delay + Volley + Park** (10 s, volley 4, park one corner in the loading zone) | Competition: `DRAFT Auto: Blue Audience Delay + Volley + Park` (`BlueAudienceVolleyParkAutonomous`), running [`red-far-volley-park`](../autos/red-far-volley-park.auto.json) mirrored; the red file also generates `DRAFT Auto: Red Far Delay + Volley + Park` | draft | 18.3 s nominal ([below](#blue-audience-delay--volley--park)) |
 | Autonomous tag relocalization | all Pedro/Zenith full-robot autos | implemented | JVM-tested; not tested on the robot |
 
 None of the Pedro/Zenith routes can START until `PedroConfiguration.TUNING_VERIFIED` is set, and none can feed automatically until the shot table is calibrated.
@@ -56,6 +57,23 @@ Blue Audience Cycle mirror: start (10, −63, 180°), left side on the audience 
 - Homing now happens in INIT, but that doesn't buy time here: the start delay became 4.5 s to keep the first feed at about 5 s.
 - The biggest remaining levers are measurements. `shoot` is timed at 2.5 s per volley, 10 s in total; if four balls clear in 1.5 s, that saves 4 s. Raising the 0.35 path-speed cap after Pedro tuning saves about 2–3 s over the drives (~8.7 s).
 - If it still runs long, the 29 s deadline stops the robot during volley 4, the volley that doesn't score solo. The deadline stops outputs safely; it is not a fault.
+
+## Blue Audience Delay + Volley + Park
+
+Requested 2026-11-21. Authored in the red frame like every route; `BlueAudienceVolleyParkAutonomous` runs it for blue.
+
+| # | Step | Blue pose (in, heading) | Red file pose |
+| --- | --- | --- | --- |
+| 0 | Start: left side on the audience wall, facing red, front at the centre line. Aim the blue audience cell (about 49.7 in) with spin | (9.2, −64.64, 180°) | (−9.2, 64.64, 0°) |
+| 1 | Wait 10 s | same | same |
+| 2 | `volley`: 3 s readiness bound, 2.5 s feed (empties the 4 preload), FIRE on timeout, flywheel OFF after | same | same |
+| 3 | Pull straight off the wall, then back toward the blue wall holding heading, at 0.35 speed | → (56.2, −52.36, 180°) | → (−56.2, 52.36, 0°) |
+| 4 | `stopAll`: only the rear-right corner, about 3 × 3 in, is inside the blue loading zone (x > 61, y > −48) | | |
+
+- **Scoring.** Blue's audience cell starts lowered, so solo this volley does not score. It scores if a partner tips blue's hive during the 10 s delay. The volley carries no ledger `expect` for the same reason as `red-far`.
+- **Start x.** On the audience side, left side on the wall means the front faces the centre line. Front touching the line would be x = 7.8; Zenith's centred 18 in `expandedIn` placeholder crosses the line there and blocks deploy, so the route is authored at 9.2 (real front 1.4 in off the line). INIT tag relocalization should take out the offset of a robot placed touching the line.
+- **Park zone.** The field model has no zone named parking; the alliance's loading zone is assumed.
+- `zenith estimate`: 18.3 s nominal (14.6–22.0 s) of 30.
 
 ## Autonomous tag relocalization
 

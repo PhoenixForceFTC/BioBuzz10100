@@ -1,0 +1,101 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "red-far-volley-park",
+  "title": "DRAFT Auto: Red Far Delay + Volley + Park (unmeasured)",
+  "description": "DRAFT, requested 2026-11-21 for BLUE AUDIENCE (BlueAudienceVolleyParkAutonomous runs this file point-mirrored). Red frame: left side on the far wall, facing +X (toward the centre line), front at the centre line. Wait 10 s, volley the 4 preload at the far cell, then back up to park with only the rear-right corner (about 3 x 3 in) inside the red loading zone. Solo, this alliance's far cell (blue: audience cell) is lowered at the start; it is raised only if a partner tips the hive during the 10 s delay. Blue mirror: audience wall on the left, facing red, volley at the blue audience cell, park with one corner in the blue loading zone.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -9.2,
+      "yIn": 64.638,
+      "headingRad": 0,
+      "provenance": "DERIVED from the measured 396 x 374 mm chassis (15.591 x 14.724 in, robot.json): facing +X, left side on the far wall (y = 72 - 14.724 / 2 = 64.638). On this side 'left side on the wall' puts the FRONT toward the centre line (the back cannot touch it). Front touching the line would be x = -7.796; Zenith checks every step against the centred 18 in expandedIn placeholder, which would cross the line by 1.2 in there (OPPONENT_SIDE, blocks deploy), so the authored x is -9.2 and the real front sits 1.4 in off the line. INIT tag relocalization (up to 0.15 m) should absorb a robot placed touching the line. Blue mirror (9.2, -64.638, 180 deg). Assumes the Pinpoint tracking point is the chassis centre (robot.json caveat)."
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "depollinatorStow",
+      "kind": "command",
+      "name": "depollinatorHome"
+    },
+    {
+      "id": "preAim",
+      "kind": "command",
+      "name": "aim",
+      "args": {
+        "side": "FAR",
+        "frame": "AUTHORED",
+        "spin": true
+      },
+      "notes": "Latch the target and spin up during the delay. AUTHORED: red aims the far cell, the blue wrapper aims the blue audience cell. About 49.7 in to the cell opening, inside the measured shot table."
+    },
+    {
+      "id": "startDelay",
+      "kind": "wait",
+      "seconds": 10,
+      "notes": "Requested 10 s delay before the volley (gives a partner time to tip the hive so this cell is up)."
+    },
+    {
+      "id": "volley4",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "FAR",
+        "frame": "AUTHORED",
+        "seconds": 2.5,
+        "readyTimeoutSeconds": 3,
+        "onTimeout": "FIRE",
+        "after": "OFF"
+      },
+      "timeoutS": 6.6,
+      "notes": "The TeleOp full volley (RT + LT). Timed, not counted: 2.5 s of feed empties the 4 preload. FIRE: if not ready within 3 s it feeds anyway (turret homed only). after OFF: flywheel stops. No ledger expect on purpose (same as red-far): Zenith's solo hive model has this cell lowered, so an expect raises LEGAL_APPROACH and blocks deploy."
+    },
+    {
+      "id": "toPark",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 0.35,
+      "segments": [
+        {
+          "kind": "bezier",
+          "from": "current",
+          "control": [
+            {
+              "xIn": -9.2,
+              "yIn": 50
+            },
+            {
+              "xIn": -40,
+              "yIn": 50
+            }
+          ],
+          "to": {
+            "xIn": -56.2,
+            "yIn": 52.36
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0
+      },
+      "notes": "Pull straight off the wall first (clears flower1's foot behind, x -27 to -21), then back toward the red wall holding heading. End pose (-56.2, 52.36, 0 deg): the rear-right corner sits at (-64.0, 45.0), 3 in inside the loading zone's corner (x < -61, y < 48); the other three corners are outside it. Blue mirror (56.2, -52.36, 180 deg), corner at (64.0, -45.0)."
+    },
+    {
+      "id": "park",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}
