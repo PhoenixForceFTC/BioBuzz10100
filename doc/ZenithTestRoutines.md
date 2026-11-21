@@ -33,7 +33,7 @@ Measure with tape marks and a ruler and write the numbers down per run. This rep
 
 ## Before you run
 
-1. **Pedro tuning must be verified.** Every Zenith routine refuses to START while `PedroConfiguration.TUNING_VERIFIED` is `false`, so until then use **Test: Pedro Drive** and the Pedro web tuner's Tests (see [Autonomous.md](Autonomous.md)). These routines are the next step after those checks pass, not a substitute for them.
+1. **Pedro tuning checks are not on record.** Every Zenith routine refuses to START while `PedroConfiguration.TUNING_VERIFIED` is `false`; it has been `true` since 2026-11-21, but the checks were not recorded. Run **Test: Pedro Drive** and the Pedro web tuner's Tests too (see [Autonomous.md](Autonomous.md)); these routines add to those checks, they do not replace them. Run them at low speed first.
 2. Clear about 8 ft by 8 ft (6 ft ahead for the line test), with someone holding STOP. Start at low speed: if the first run looks wrong, edit `speedFraction` in the editor, then redeploy.
 3. These wrappers run the **full robot**, so the turret, Limelight, camera and the rest must be connected. INIT still homes the turret and tries tag relocalization. If the hive tags are visible and disagree with the local start pose you may see **CHECK PLACEMENT** in telemetry; the refinement only applies a small correction, so for these tests it is a warning to read, not to fix (untested on the robot).
 4. Place the robot on the start mark, facing +X, before INIT, and keep it still until the Pinpoint finishes calibrating.

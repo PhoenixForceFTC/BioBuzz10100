@@ -208,10 +208,10 @@ Commit the `.auto.json` file **and** everything `zenith:deploy` changed. Never h
 
 Move up one rung at a time. If a rung fails, go back down.
 
-**Rung 0: one-time robot prerequisites.** The robot refuses to START any auto until Pedro is tuned:
-`PedroConfiguration.TUNING_VERIFIED` is `false` today on purpose. Tuning is done with Pedro's web tuner
-(see [Autonomous.md](Autonomous.md)) and the `Test: Pedro Drive` OpMode; only flip the flag after those numbers
-are measured and checked. Also confirm the start pose and shooting spots are measured on a real field; the draft
+**Rung 0: one-time robot prerequisites.** The robot refuses to START any auto while
+`PedroConfiguration.TUNING_VERIFIED` is `false`. It has been `true` since 2026-11-21, but the verification checks were
+not recorded (see [TuningVerificationChecklist.md](TuningVerificationChecklist.md)). Tuning is done with Pedro's web tuner
+(see [Autonomous.md](Autonomous.md)) and the `Test: Pedro Drive` OpMode; fill in the checklist as you run them. Also confirm the start pose and shooting spots are measured on a real field; the draft
 routines say "placeholder" for a reason.
 
 **Rung 1: desk checks.** `zenith:validate` and the unit tests pass. Read the editor's timeline: does the total fit

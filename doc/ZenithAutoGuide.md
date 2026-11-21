@@ -14,7 +14,7 @@ Updated 2026-11-21. **What is verified and what is not** is listed at the end. R
 | Editor | **Windows:** the desktop app from the [Zenith releases](https://github.com/Horizon-36596/zenith/releases) page (`Zenith-Setup-0.1.2.exe` or `Zenith-Portable-0.1.2.exe`). **Mac/Linux:** the web editor at <https://zenith.horizon36596.org> in **Chrome or Edge** (needed to open a local folder). The web editor has no deploy, high-fidelity sim or commit buttons; those steps below use the terminal instead. |
 | Version | Runtime `v0.1.2`, CLI `0.1.2`, Ivy `1.1.1`, Pedro `3.0.0-20260828.185437-17`. These are Zenith's own documented, tested set and the latest releases as of 2026-11-21. Do not bump one alone. |
 
-> **Hard gate: Pedro tuning.** `PedroConfiguration.TUNING_VERIFIED` is `false`. Every Zenith routine refuses to START on the robot with *"Measure and verify PedroConfiguration before running autonomous"* until the team verifies tuning with **Test: Pedro Drive** and the web tuner (see [Autonomous.md](Autonomous.md#before-robot-motion)). Everything in stages 1-4 below works without it; stage 5 does not. Until then the **Auto: Red/Blue Fallback (Shoot + Leave)** routines are the only autonomous that can run.
+> **Gate: Pedro tuning.** While `PedroConfiguration.TUNING_VERIFIED` is `false`, every Zenith routine refuses to START on the robot with *"Measure and verify PedroConfiguration before running autonomous"*. It has been `true` since 2026-11-21, set on the team's instruction; the checks in [TuningVerificationChecklist.md](TuningVerificationChecklist.md) were not recorded, so verify with **Test: Pedro Drive** and the web tuner (see [Autonomous.md](Autonomous.md#before-robot-motion)) and run new routines slowly. If the flag is set back to `false`, the **Auto: Red/Blue Fallback (Shoot + Leave)** routines are the only autonomous that can run.
 
 ---
 
@@ -201,7 +201,7 @@ npm run zenith:check                   # must report 0 writes, 0 removals
 
 | You see | Cause and fix |
 | --- | --- |
-| *Measure and verify PedroConfiguration before running autonomous* on START | `TUNING_VERIFIED` is false. Complete tuning verification (section 0). |
+| *Measure and verify PedroConfiguration before running autonomous* on START | `TUNING_VERIFIED` is false: the robot runs a build from before 2026-11-21, or the flag was set back (section 0). |
 | *Pinpoint has no READY, fresh autonomous start pose* on START | The Pinpoint was still calibrating or moved. Keep the robot still in INIT and wait. |
 | Outcome `FAULT`: *Pinpoint localization unavailable or stale* | Odometry dropped out mid-run; the routine stops. Check the Pinpoint cable and pod directions. |
 | Outcome `TIMEOUT`: *Global autonomous deadline* | The routine hit 29 s. Shorten waits and volley timeouts. |

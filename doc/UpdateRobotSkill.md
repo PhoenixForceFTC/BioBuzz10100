@@ -84,6 +84,6 @@ It finishes with a summary: the verdict, each check's result, the `TUNING_VERIFI
 | `adb connect` fails | The laptop is not on the Hub's Wi-Fi. Run `adb kill-server` and retry. Newer Hub firmware may need adb enabled or a first USB-C connection. |
 | `zenith:validate` fails with "registry names disagree" | A command exists in only one of `AutonomousCommands.java` and `autos/robot.json`. |
 | `zenith:check` says "Zenith outputs are stale" | Run `npm run zenith:deploy`. |
-| START throws "Measure and verify PedroConfiguration" | `TUNING_VERIFIED` is still `false`. See the checklist above. |
+| START throws "Measure and verify PedroConfiguration" | `TUNING_VERIFIED` is `false`. It has been `true` since 2026-11-21, so this means the robot runs an older build, or the flag was set back. See the checklist above. |
 
 See also [AutosAndCompetitionDay.md](AutosAndCompetitionDay.md) for the list of autos, how to push them, and competition-day tuning notes.

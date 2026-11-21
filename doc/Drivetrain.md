@@ -55,10 +55,10 @@ mesh reverses shaft rotation; the installed orientation determines each wheel's 
 ticks/mm and unloaded rolling-speed estimate. Actual chassis travel and loaded
 speed depend on roller compression and slip. Pinpoint uses its own
 odometry pods; their resolution and offsets do not change with drive gearing.
-Pedro's Java/editor velocities and braking remain explicit unmeasured examples,
-with `TUNING_VERIFIED = false`. Measure loaded forward/strafe speed and braking on
-this transmission with the [Pedro web tuner](Autonomous.md#pedro-web-tuner) before
-replacing those examples. Shooter and intake gearing
+Pedro's loaded forward/strafe speed and braking were measured on this transmission
+with the [Pedro web tuner](Autonomous.md#pedro-web-tuner) on 2026-11-19, and
+`TUNING_VERIFIED` has been `true` since 2026-11-21 without the verification checks
+being recorded (see [TuningVerificationChecklist.md](TuningVerificationChecklist.md)). Shooter and intake gearing
 are separate mechanisms.
 
 November 2 transmission simulation decision: use the isolated drive test, both actual competition wrappers
