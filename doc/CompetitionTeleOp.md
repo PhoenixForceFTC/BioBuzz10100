@@ -77,8 +77,10 @@ it moved the turret by the offset and the correction moved it back 0.25 s later.
 - *Nearer dead-zone limit from the front half* (see above).
 - *GP2 hood/RPM buttons while RT is held.* D-pad Up/Down and Y/A trim the automatic hood/RPM only when auto aim
   actually sets them (a calibrated shot solution, judged before trims so an out-of-range trim can still be
-  undone). With the current uncalibrated profile they keep stepping the manual hood/RPM the shot is using,
-  instead of changing hidden trims that would suddenly apply once a profile is installed. GP2 RS-X still trims
+  undone). When auto aim has no valid solution (for example before the robot has a field pose) they
+  keep stepping the manual hood/RPM the shot is using, instead of changing hidden trims. Outside the measured
+  12-60 in shot table the profile extrapolates (clamped to mechanism limits), so a solution still exists there but
+  comes from an unmeasured line. GP2 RS-X still trims
   yaw whenever RT is held.
 
 **Automatic aim while turning (2026-11-06).** Three changes keep the turret on the goal while the chassis turns:
@@ -179,9 +181,9 @@ Gate direction, depollinator direction and hood home retain the installed implem
 
 ## Remaining calibration and intentional differences
 
-The known competition behavior mismatches in this review are resolved, including the former time-based uncertainty cutoff. This is desktop verification, not a claim that the installed robot has no defects. Final staggered feeding timings/tuning are pending from the team.
+The known competition behavior mismatches in this review are resolved, including the former time-based uncertainty cutoff. This is desktop verification, not a claim that the installed robot has no defects. Staggered feeding was removed from competition on 2026-11-19; the timing values below remain the shared defaults for the bench test and the continuous mode's readiness window.
 
-- Supply at least two measured distances covering the intended range, with average flywheel-output RPM and labeled launch elevation or hood travel. The competition profile is still an uncalibrated example, so automatic calibrated feeding remains inhibited.
+- Supply at least two measured distances covering the intended range, with average flywheel-output RPM and labeled launch elevation or hood travel. The competition shot table is now team-measured (2026-11-19, final: 12-60 in, see `ShootingConfiguration.MEASURED_SHOT_TABLE_IN_RPM_HOOD_DEG`), so automatic feeding runs once the shot is ready. Re-measure it if the shooter, flywheel or hood changes.
 - Confirm loaded gate/feed/recovery timing. Current staggered settings (shared by every OpMode, tuned on the robot 2026-11-15) are 0.10 s after the gate command, 0.12 s feed-to-exit estimate, 0.20 s stage-1 feed (0.30 s total open), 0.00 s recovery and stage 1 running while the gate is closed. Continuous starts transfers immediately. These are still starting values, but they no longer block automatic firing (the `RELEASE_TIMING_MEASURED` gate was removed 2026-11-15).
 - Check that Limelight pipeline 0 uses 36h11, 3.25-in. individual tags and returns valid metric tag poses. Java uses the documented 337-mm-high, 55-degree-upward camera mount (lens axis; front glass team-measured 55 degrees from vertical on 2026-11-05); camera settings were not remotely changed. On the field, INIT each competition TeleOp at several known positions/headings, with the robot level and stationary during Pinpoint calibration. Confirm LOCALIZED and the reported aiming field pose, including heading; repeat with each visible hive and several turret angles. Cover the camera and move/turn the chassis, then uncover it and check that tracking and bounded corrections continue. Verify waiting behavior with no tag, and that lowered/moving cells cannot establish the nominal raised reference. The field map, tag orientation convention and capture timing still need this physical validation.
 - Opening/tag Y coordinates remain drawing-model approximations until the pivot-to-surface CAD transform or an installed-field reference is available. Relative tag spacing and the source drawing dimensions are already entered; no need to remeasure sixteen unrelated tags.

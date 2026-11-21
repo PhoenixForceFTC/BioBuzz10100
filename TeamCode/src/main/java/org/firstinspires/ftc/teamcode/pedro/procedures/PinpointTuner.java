@@ -11,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.PinpointOdometry;
+import java.util.Locale;
 
 /**
  * Pedro's Pinpoint procedure, ported from Pedro's revhub localizer to V1's PinpointOdometry
@@ -51,7 +52,7 @@ public class PinpointTuner extends Procedure {
         Pose2D spun = measure(spinStep);
         double spinDeg = spun.getHeading(AngleUnit.DEGREES);
         if (Math.abs(spinDeg) < MIN_OFFSET_SPIN_DEG)
-            abort(String.format("The robot turned %.1f degrees; spin it about 180 degrees counterclockwise in place and try again. [%s]",
+            abort(String.format(Locale.US, "The robot turned %.1f degrees; spin it about 180 degrees counterclockwise in place and try again. [%s]",
                     spinDeg, spinStep.diagnostics));
         // A half turn about the centre moves each zero-offset pod by twice its offset.
         double xOffsetMm = -spun.getY(DistanceUnit.MM) / 2.0;
