@@ -4,6 +4,7 @@ Open the repository folder containing `zenith.json` in Zenith. `autos/` is the a
 
 - `integration-example.auto.json`: cleared-area authoring example with a curve, markers, parallel actions, waits, a branch and mechanism commands. Coordinates and dynamics are unmeasured examples.
 - `pollen-navigation-test.auto.json`: separate camera-guided collection experiment. Team deployment retains its sole **Test: Pollen Navigation (Pedro + Ivy)** entry with the isolated `POLLEN_TEST` profile.
+- `test-corners`, `test-lap`, `test-line`, `test-turns`: drivetrain/odometry checks in a local frame on any clear floor (cleared-area field, titles start `TEST:`). `test-volley` and `test-volley-checks` test the shooting procedure from the real wall start on the competition field. See [the test routines guide](../doc/ZenithTestRoutines.md); they need Pedro tuning verified, like every Zenith routine.
 - New routines: full robot profile, one generated Driver Station entry in **Generated**. The legacy red/blue Route Required wrappers are disabled. `red-audience` and `red-far` are DRAFT match routes with placeholder coordinates, not yet deployed; see [the match autonomous plan](../doc/MatchAutonomousPlan.md).
 
 Use **UI edit/save → team deployment → APK build/install**:
@@ -20,4 +21,4 @@ npm run zenith:check
 
 The native editor Deploy button does not replace team deployment, which preserves the pollen profile and removes stale managed outputs after source renames/deletions. Source names must match lowercase kebab-case filenames. Saving source alone does not update the Control Hub.
 
-Read the [coder guide](../doc/ZenithAuthoringGuide.md), [audit against the plan and official sources](../doc/ZenithIntegrationAudit.md), and [verification record](../doc/ZenithVerification.md). Pedro tuning blocks START until verified. Camera/shooting calibration and maximum deployed envelope remain unverified; editor preview does not prove those properties.
+Start with the step-by-step [create and test guide](../doc/ZenithAutoGuide.md), then the [coder guide](../doc/ZenithAuthoringGuide.md), [audit against the plan and official sources](../doc/ZenithIntegrationAudit.md), and [verification record](../doc/ZenithVerification.md). Pedro tuning blocks START until verified. Camera/shooting calibration and maximum deployed envelope remain unverified; editor preview does not prove those properties.

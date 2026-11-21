@@ -10,19 +10,19 @@
   },
   "footprint": {
     "startIn": {
-      "lengthIn": 18,
-      "widthIn": 18,
-      "provenance": "UNMEASURED EXAMPLE: measure chassis"
+      "lengthIn": 15.591,
+      "widthIn": 14.724,
+      "provenance": "MEASURED (team, 2026-11-21): 396 mm long x 374 mm wide with the depollinator up. Length is along the robot's forward axis."
     },
     "expandedIn": {
       "lengthIn": 18,
-      "widthIn": 18,
-      "provenance": "UNMEASURED PLACEHOLDER: 18x18 is NOT a verified deployed envelope. Measure including depollinator; no posture-based clearance assurance."
+      "widthIn": 14.724,
+      "provenance": "WIDTH MEASURED (team, 2026-11-21: 374 mm, unchanged by the depollinator). LENGTH IS STILL THE 18 in PLACEHOLDER. The team measured 537 mm (21.142 in) long with the depollinator down, but it is not applied: the depollinator extends from one end only (which end is not recorded) and Zenith models only a box centred on the chassis, so 21.142 in overstates the clear end by about 2.8 in and makes the far-wall draft starts infeasible by 0.17 in. Apply the measured length once the end is confirmed; the 10 small draft nudges it needs are listed in doc/TuningVerificationChecklist.md."
     },
     "centreOfRotationIn": {
       "xIn": 0,
       "yIn": 0,
-      "provenance": "Existing Pinpoint robot-center frame; verify footprint alignment"
+      "provenance": "Existing Pinpoint robot-centre frame. Not yet confirmed that the Pinpoint tracking point is the chassis centre (pod offsets +32 / -74 mm); verify before trusting start poses."
     }
   },
   "heightIn": {
@@ -707,6 +707,101 @@
         }
       },
       "estimateS": "seconds",
+      "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
+      "name": "volley",
+      "summary": "TeleOp full auto-shoot (RT+LT): aim, wait up to readyTimeoutSeconds for readiness, feed for seconds, then apply after. Not ready in time: FIRE feeds with readiness bypassed (TeleOp GP1 A) only if the turret is homed; SKIP feeds nothing. Inhibit wins. Skipped if it would start too late to finish before the global deadline (latestStartS). Time-bounded, never a piece count.",
+      "params": {
+        "side": {
+          "type": "enum",
+          "values": [
+            "AUDIENCE",
+            "FAR"
+          ],
+          "default": "AUDIENCE",
+          "provenance": "Hive side; FIELD is compatible aim(side) default."
+        },
+        "frame": {
+          "type": "enum",
+          "values": [
+            "FIELD",
+            "AUTHORED"
+          ],
+          "default": "FIELD",
+          "provenance": "FIELD is literal; AUTHORED flips side under point symmetry."
+        },
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 2.5,
+          "provenance": "Feed seconds once feeding starts; duration bound, never a piece count. Default equals the path planner's FEED_SECONDS."
+        },
+        "readyTimeoutSeconds": {
+          "type": "number",
+          "min": 0,
+          "max": 28,
+          "default": 3,
+          "provenance": "Longest wait for turret/hood/RPM readiness. Default equals the path planner's READY_TIMEOUT_S."
+        },
+        "onTimeout": {
+          "type": "enum",
+          "values": [
+            "FIRE",
+            "SKIP"
+          ],
+          "default": "FIRE",
+          "provenance": "FIRE = TeleOp GP1 A manual feed with readiness bypassed, only with a homed turret; SKIP = feed nothing and report TIMEOUT."
+        },
+        "after": {
+          "type": "enum",
+          "values": [
+            "KEEP",
+            "IDLE",
+            "OFF"
+          ],
+          "default": "KEEP",
+          "provenance": "KEEP aim + spin; IDLE = TeleOp idle RPM (3000) with yaw held; OFF = stop flywheel and hold yaw."
+        },
+        "yawTrimDeg": {
+          "type": "number",
+          "min": -10,
+          "max": 10,
+          "default": 0,
+          "provenance": "TeleOp GP2 yaw trim (AutoAimAdjustments, +-10 deg); applies from this volley until the next volley or aimOff."
+        },
+        "hoodTrimDeg": {
+          "type": "number",
+          "min": -5,
+          "max": 5,
+          "default": 0,
+          "provenance": "TeleOp GP2 hood trim (AutoAimAdjustments, +-5 deg); applies from this volley until the next volley or aimOff."
+        },
+        "rpmTrim": {
+          "type": "number",
+          "min": -500,
+          "max": 500,
+          "default": 0,
+          "provenance": "TeleOp GP2 RPM trim (AutoAimAdjustments, +-500 RPM); applies from this volley until the next volley or aimOff."
+        },
+        "latestStartS": {
+          "type": "number",
+          "min": 0,
+          "max": 29,
+          "default": 0,
+          "provenance": "Match-clock second after which the gate will not open: a volley still aiming then is skipped (TIMEOUT, 'too late'). 0 = automatic: the 29 s global deadline minus `seconds`, so a late volley is skipped instead of cut off mid-feed. Ball timing on this robot is unmeasured; set it from measured first-ball and per-ball times."
+        }
+      },
+      "estimateS": "seconds + readyTimeoutSeconds",
       "requires": [
         "turretYaw",
         "hood",

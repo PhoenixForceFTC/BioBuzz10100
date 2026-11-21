@@ -2,7 +2,7 @@
 
 Every registered autonomous now extends Zenith's Ivy `AutoFromFile`. `BioBuzzRobot` connects the runtime to the existing hardware subsystems and `ShotCoordinator`. `WaypointFollower`, `CompetitionAutonomousController`, and `AutonomousStrategy` have been removed. The pollen navigator is an experiment in the **Test** group, separate from the real match routines.
 
-Use the [Zenith authoring guide](ZenithAuthoringGuide.md) for the complete command catalog and supported deployment workflow. The [integration audit](ZenithIntegrationAudit.md) compares the code with the plan, official resources and current robot configuration. The [coverage ledger](ZenithFunctionCoverage.md) and [verification record](ZenithVerification.md) distinguish implemented software from pending editor and robot evidence. The original [implementation plan](ZenithAutonomousImplementationPlan.md) remains the acceptance specification.
+Use the [create and test guide](ZenithAutoGuide.md) to build and try a routine step by step, and the [Zenith authoring guide](ZenithAuthoringGuide.md) for the complete command catalog and supported deployment workflow. The [integration audit](ZenithIntegrationAudit.md) compares the code with the plan, official resources and current robot configuration. The [coverage ledger](ZenithFunctionCoverage.md) and [verification record](ZenithVerification.md) distinguish implemented software from pending editor and robot evidence. The original [implementation plan](ZenithAutonomousImplementationPlan.md) remains the acceptance specification.
 
 ## Installed versions
 
@@ -22,7 +22,7 @@ These are the versions documented and tested together by [Zenith](https://github
 
 Use **Test: Pedro Drive**, which initializes only the drive subsystem (four motors and Pinpoint). Keep the chassis stationary through calibration. Sticks command at most 0.2 power, A requests 12 inches forward from the current pose, B requests a 90-degree CCW hold, and X cancels. Stick movement cancels a running test. A/B use Ivy commands, have a five-second timeout, and stop on completion. This diagnostic deliberately allows testing before TUNING_VERIFIED is set.
 
-Verify forward, left and CCW motion and the matching odometry signs, then measure Pedro's dynamics, braking and gains with the web tuner below. Update `PedroConfiguration` and the matching kinematics/follower values in autos/robot.json together. Measure robot footprint and height too; the editor currently has explicit 18-inch example dimensions. Set TUNING_VERIFIED only after low-speed path, hold, stop, and turn checks pass.
+Verify forward, left and CCW motion and the matching odometry signs, then measure Pedro's dynamics, braking and gains with the web tuner below. Update `PedroConfiguration` and the matching kinematics/follower values in autos/robot.json together. Robot footprint is measured (396 x 374 mm chassis; see [the checklist](TuningVerificationChecklist.md)), except the depollinator-down length and the height, which are still placeholders. Set TUNING_VERIFIED only after low-speed path, hold, stop, and turn checks pass.
 
 ### Pedro web tuner
 

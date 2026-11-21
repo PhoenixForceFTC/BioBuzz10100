@@ -52,7 +52,10 @@ public class AutonomousIntegrationTest {
         robot.gate=new GateSubsystem(map,()->now*1e-9);
         robot.depollinator=new DepollinatorSubsystem(map,()->now*1e-9);
         robot.turret=new TurretSubsystem(map,false,()->now*1e-9);
+        // Production feed policy (BioBuzzRobot.createShotCoordinator): the final TeleOp's continuous feed. Aim mode stays
+        // odometry-only here so the fixtures need no Limelight.
         robot.shots=new ShotCoordinator(robot.turret,TeleOpFieldReference.target(robot.alliance,TurretSubsystem.HiveSide.AUDIENCE),
+                ShootingConfiguration.MOUNT,ShootingConfiguration.PROFILE,CompetitionFeedController.firing(),
                 ShotCoordinator.AimMode.AUTONOMOUS_ODOMETRY);
         robot.firing=robot.shots.firing();
         context=new CompetitionAutonomousTest.World();
@@ -235,13 +238,11 @@ public class AutonomousIntegrationTest {
         assertThrows(IllegalArgumentException.class,()->command("hoodAdjust","deltaDeg",6).start());
         assertEquals(25,robot.turret.getTargetPitchDegrees(),0);
     }
-    @Test public void manualFeedWaitsForGateAndAlwaysStopsBothStages() {
+    @Test public void manualFeedStartsGateAndBothStagesTogetherAndAlwaysStopsThem() {
+        // Final TeleOp policy (CONTINUOUS only since 2026-11-19): once a feed is authorized, the gate-open command and
+        // the full-power transfer (both linked motors) start together, with no gate delay.
         Command feed=command("feedManual","seconds",1); feed.start(); tick(0);
-        assertTrue(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
-        tick(.099); assertFalse(robot.transfer.isFeeding());
-        assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,power("transfer_motor_2"),0);
-        tick(.002); assertTrue(robot.transfer.isFeeding());
-        // Both linked transfer motors start together once the gate delay has elapsed.
+        assertTrue(robot.gate.isOpenCommanded()); assertTrue(robot.transfer.isFeeding());
         assertEquals(1,power("transfer_motor_1"),0); assertEquals(1,power("transfer_motor_2"),0);
         tick(.05);
         assertEquals(1,power("transfer_motor_1"),0); assertEquals(1,power("transfer_motor_2"),0);
@@ -250,6 +251,17 @@ public class AutonomousIntegrationTest {
         assertFalse(robot.gate.isOpenCommanded()); assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,power("transfer_motor_2"),0);
         assertTrue(robot.commandFailed());
         assertEquals("CANCELLED",robot.lastOutcome());
+    }
+    @Test public void productionShotCoordinatorUsesTheFinalTeleOpContinuousFeed() {
+        ShotCoordinator production=BioBuzzRobot.createShotCoordinator(robot.turret,TurretSubsystem.Alliance.RED);
+        FiringCoordinator firing=production.firing();
+        new CompetitionFeedController().updateSelection(0,firing);
+        assertTrue("continuous, like both final TeleOps",firing.continuous());
+        // A manual feed reaches FEEDING on the first update: no gate delay, gate and transfer together.
+        firing.update(0.0,false,true,false,false,false,false,false,"");
+        assertEquals(FiringCoordinator.State.FEEDING,firing.state());
+        assertTrue(firing.gateOpen()); assertTrue(firing.feeding());
+        assertEquals(CompetitionFeedController.FEED_WINDOW_SECONDS,firing.feedWindowSeconds,0);
     }
     @Test public void disjointManualSetpointsDoNotCancelExplicitManualFeeding() {
         Command feed=command("feedManual","seconds",1); feed.start(); tick(0); tick(.201);
@@ -311,6 +323,123 @@ public class AutonomousIntegrationTest {
         assertEquals("INHIBITED",robot.lastOutcome());
         assertFalse(NamedCommands.condition("shotReady").getAsBoolean());
         assertFalse(robot.gate.isOpenCommanded());
+    }
+    /** Steps a volley like the scheduler (execute, then this loop's output apply). Returns true if it ever fed. */
+    private boolean runVolley(Command volley, int maxLoops) {
+        boolean fed = false;
+        for (int i = 0; i < maxLoops && !volley.done(); i++) {
+            volley.execute(); tick(.02); fed |= robot.transfer.isFeeding();
+        }
+        return fed;
+    }
+    @Test public void volleyHoldsFireUntilReadyTimeoutThenFiresWithHomedTurretAndStopsOutputs() {
+        home();
+        Command volley=command("volley","seconds",.5,"readyTimeoutSeconds",.3,"onTimeout","FIRE","after","OFF");
+        volley.start();
+        for (int i=0;i<10;i++) { volley.execute(); tick(.02); assertFalse("held until ready timeout",robot.transfer.isFeeding()); }
+        assertFalse(volley.done());
+        assertTrue("fed after the ready timeout (readiness bypassed, TeleOp GP1 A)",runVolley(volley,200));
+        assertTrue(volley.done()); volley.end(EndCondition.NATURALLY);
+        assertEquals("TIMEOUT",robot.lastOutcome()); assertTrue(robot.commandFailed());
+        tick(.02);
+        assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
+        assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,power("transfer_motor_2"),0);
+        assertEquals("after=OFF stops the flywheel",0,robot.turret.getTargetShooterRpm(),0);
+        assertFalse(robot.outputs.aiming());
+    }
+    @Test public void volleyNeverFiresWithoutAHomedTurretOrWhenToldToSkip() {
+        Command unhomed=command("volley","seconds",.5,"readyTimeoutSeconds",.2,"onTimeout","FIRE");
+        unhomed.start();
+        assertFalse("never fires in an unknown direction",runVolley(unhomed,100));
+        assertTrue(unhomed.done()); unhomed.end(EndCondition.NATURALLY);
+        assertEquals("TIMEOUT",robot.lastOutcome());
+        home();
+        Command skip=command("volley","seconds",.5,"readyTimeoutSeconds",.2,"onTimeout","SKIP");
+        skip.start();
+        assertFalse(runVolley(skip,100));
+        assertTrue(skip.done()); skip.end(EndCondition.NATURALLY);
+        assertEquals("TIMEOUT",robot.lastOutcome());
+        assertFalse(robot.gate.isOpenCommanded());
+    }
+    @Test public void volleyInhibitWinsAndCancelStopsFeedingAndReportsCancelled() {
+        home(); set("feedInhibit");
+        Command inhibited=command("volley","seconds",.4,"readyTimeoutSeconds",.1,"onTimeout","FIRE");
+        inhibited.start();
+        assertFalse("inhibit dominates even the FIRE fallback",runVolley(inhibited,100));
+        assertTrue(inhibited.done()); inhibited.end(EndCondition.NATURALLY);
+        assertEquals("INHIBITED",robot.lastOutcome());
+        set("feedResume");
+        Command cancelled=command("volley","seconds",2,"readyTimeoutSeconds",.1,"onTimeout","FIRE");
+        cancelled.start();
+        for (int i=0;i<12;i++) { cancelled.execute(); tick(.02); }
+        assertTrue(robot.transfer.isFeeding());
+        cancelled.end(EndCondition.INTERRUPTED);
+        assertFalse(robot.gate.isOpenCommanded()); assertEquals(0,power("transfer_motor_1"),0);
+        assertEquals("CANCELLED",robot.lastOutcome());
+    }
+    @Test public void volleyAfterKeepRetainsAimAndIdleDropsToTeleOpIdleRpm() {
+        home();
+        Command keep=command("volley","seconds",.2,"readyTimeoutSeconds",.1,"onTimeout","FIRE","after","KEEP");
+        keep.start(); runVolley(keep,100); keep.end(EndCondition.NATURALLY); tick(.02);
+        assertTrue("KEEP leaves automatic aim + spin running",robot.outputs.aiming());
+        assertEquals(AutonomousOutputCoordinator.Mode.AUTO,robot.outputs.flywheelMode());
+        Command idle=command("volley","seconds",.2,"readyTimeoutSeconds",.1,"onTimeout","FIRE","after","IDLE");
+        idle.start(); runVolley(idle,100); idle.end(EndCondition.NATURALLY); tick(.02);
+        assertFalse(robot.outputs.aiming());
+        assertEquals(CompetitionShotPipeline.FLYWHEEL_IDLE_RPM,robot.turret.getTargetShooterRpm(),0);
+    }
+    @Test public void volleyIsSkippedBeforeTheGateOpensWhenTooLateToFinishBeforeTheDeadline() {
+        home();
+        robot.hasStarted=true;
+        // Default latest start = 29 s - seconds: a 2.5 s volley may start until 26.5 s on the match clock.
+        robot.started=now-(long)(27.0e9);
+        Command late=command("volley","seconds",2.5,"readyTimeoutSeconds",.1,"onTimeout","FIRE");
+        late.start();
+        assertFalse("no feed once it is too late",runVolley(late,100));
+        assertTrue(late.done()); late.end(EndCondition.NATURALLY);
+        assertEquals("TIMEOUT",robot.lastOutcome());
+        assertFalse(robot.gate.isOpenCommanded());
+        // Explicit later limit: the same 27 s clock is allowed, so it feeds.
+        robot.started=now-(long)(27.0e9);
+        Command allowed=command("volley","seconds",.4,"readyTimeoutSeconds",.1,"onTimeout","FIRE","latestStartS",28);
+        allowed.start();
+        assertTrue("fed with an explicit latestStartS past the clock",runVolley(allowed,100));
+        allowed.end(EndCondition.NATURALLY);
+        // Before START the clock reads 0, so the guard never blocks a bench run.
+        robot.hasStarted=false;
+        Command bench=command("volley","seconds",.4,"readyTimeoutSeconds",.1,"onTimeout","FIRE");
+        bench.start();
+        assertTrue(runVolley(bench,100)); bench.end(EndCondition.NATURALLY);
+    }
+    @Test public void volleyLatestStartIsValidatedAndCannotBlockAnAlreadyFeedingVolley() {
+        assertThrows(IllegalArgumentException.class,()->command("volley","latestStartS",-1));
+        assertThrows(IllegalArgumentException.class,()->command("volley","latestStartS",30));
+        home();
+        robot.hasStarted=true; robot.started=now-(long)(10.0e9);
+        Command v=command("volley","seconds",1.0,"readyTimeoutSeconds",.1,"onTimeout","FIRE","latestStartS",10.5);
+        v.start();
+        boolean fed=false;
+        for (int i=0;i<200 && !v.done();i++) {
+            v.execute(); tick(.02); fed|=robot.transfer.isFeeding();
+            if (i==20) robot.started=now-(long)(20.0e9); // the clock jumps past latestStartS mid-feed
+        }
+        assertTrue("a feed already under way is not cancelled by the guard",fed);
+        v.end(EndCondition.NATURALLY);
+    }
+    @Test public void volleyArgumentsAreValidatedDuringInit() {
+        assertThrows(IllegalArgumentException.class,()->command("volley","seconds",0));
+        assertThrows(IllegalArgumentException.class,()->command("volley","seconds",29));
+        assertThrows(IllegalArgumentException.class,()->command("volley","readyTimeoutSeconds",-1));
+        assertThrows(IllegalArgumentException.class,()->command("volley","readyTimeoutSeconds",Double.NaN));
+        assertThrows(IllegalArgumentException.class,()->command("volley","onTimeout","MAYBE"));
+        assertThrows(IllegalArgumentException.class,()->command("volley","after","EXPLODE"));
+        assertThrows(IllegalArgumentException.class,()->command("volley","balls",3));
+        // TeleOp's GP2 trims are bounded by AutoAimAdjustments (+-10 deg yaw, +-5 deg hood, +-500 RPM).
+        assertThrows(IllegalArgumentException.class,()->command("volley","yawTrimDeg",10.5));
+        assertThrows(IllegalArgumentException.class,()->command("volley","hoodTrimDeg",-5.5));
+        assertThrows(IllegalArgumentException.class,()->command("volley","rpmTrim",501));
+        assertNotNull(command("volley","yawTrimDeg",-10,"hoodTrimDeg",5,"rpmTrim",-500));
+        assertNotNull(command("volley"));
     }
     @Test public void boundedHomeTimeoutInvalidatesIncompleteHomeAndStopAllPreservesValidHomeAndPosture() {
         Command home=command("turretHome","timeoutSeconds",.1); home.start(); tick(.11);
@@ -465,6 +594,126 @@ public class AutonomousIntegrationTest {
         assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
         assertEquals(0,power("intake_motor"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
     }
+    @Test public void actualVolleyRoutineRunsThroughNativeBuilderBranchesOnItsOutcomeAndStops() throws Exception {
+        home();
+        AutoFile file=AutoFile.load(AutoSource.directory(new File("src/test/resources/zenith")),"volley-check");
+        robot.observeSteps(file.steps);
+        context.pose=file.startPose;
+        AutoContext runtime=new AutoContext() {
+            @Override public com.pedropathing.follower.Follower follower() { return context.follower; }
+            @Override public com.pedropathing.paths.Path atSpeed(com.pedropathing.paths.Path path,double speed) { return context.atSpeed(path,speed); }
+            @Override public Object drive() { return robot.drive; }
+            @Override public Pose alliance(Pose p) { return p; }
+            @Override public long nanoTime() { return now; }
+            @Override public Command step(String id,Command body) { return robot.step(id,body); }
+        };
+        Command routine=AutoBuilder.build(file,runtime); Scheduler.schedule(routine);
+        boolean fed=false;
+        for (int i=0;i<800 && Scheduler.isScheduled(routine);i++) {
+            now+=20_000_000; map.updateAll(.02); robot.turret.update(now*1e-9); robot.transfer.readSensors(now*1e-9);
+            context.now=now; context.advance(); Scheduler.execute();
+            robot.outputs.apply(now*1e-9,ControllerFixtures.pose(now*1e-9,1,-1,0,0,0,0).withReference(1),
+                    robot.turret,robot.shots,robot.firing,robot.gate,robot.transfer,robot.intake);
+            fed |= robot.transfer.isFeeding();
+        }
+        assertFalse(Scheduler.isScheduled(routine));
+        assertTrue("the volley fed once its ready timeout elapsed",fed);
+        // The fake robot is never READY, so the volley timed out into the readiness-bypassed fire and reported TIMEOUT;
+        // the authored commandFailed branch ran and its stopAll left everything stopped.
+        assertEquals("TIMEOUT",robot.lastOutcome());
+        assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
+        assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
+    }
+    /** Runs a real autos/ file through the native builder with the fixture world; returns {paths followed, in-place holds}. */
+    private int[] runDeployedRoutine(String name) throws Exception {
+        AutoFile file=AutoFile.load(AutoSource.directory(new File("../autos")),name);
+        robot.observeSteps(file.steps);
+        context.pose=file.startPose;
+        AutoContext runtime=new AutoContext() {
+            @Override public com.pedropathing.follower.Follower follower() { return context.follower; }
+            @Override public com.pedropathing.paths.Path atSpeed(com.pedropathing.paths.Path path,double speed) { return context.atSpeed(path,speed); }
+            @Override public Object drive() { return robot.drive; }
+            @Override public Pose alliance(Pose p) { return p; }
+            @Override public long nanoTime() { return now; }
+            @Override public Command step(String id,Command body) { return robot.step(id,body); }
+        };
+        Command routine=AutoBuilder.build(file,runtime); Scheduler.schedule(routine);
+        for (int i=0;i<3000 && Scheduler.isScheduled(routine);i++) {
+            now+=20_000_000; map.updateAll(.02); robot.turret.update(now*1e-9); robot.transfer.readSensors(now*1e-9);
+            context.now=now; context.advance(); Scheduler.execute();
+            robot.outputs.apply(now*1e-9,ControllerFixtures.pose(now*1e-9,1,-1,0,0,0,0).withReference(1),
+                    robot.turret,robot.shots,robot.firing,robot.gate,robot.transfer,robot.intake);
+        }
+        assertFalse(name+" did not finish",Scheduler.isScheduled(routine));
+        assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
+        assertEquals(0,power("intake_motor"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
+        return new int[]{context.followed.size(),context.holds};
+    }
+    @Test public void deployedDrivetrainTestRoutinesRunToCompletionAndLeaveEverythingStopped() throws Exception {
+        // Followed paths: corners 4 legs; lap 2 x 4 legs; line 3 speeds x (out + back). Turns are in-place holds:
+        // 2 + 2 + 4 + 4 quarter turns, ending back on the start heading.
+        assertArrayEquals(new int[]{4,0},runDeployedRoutine("test-corners"));
+        setup2();
+        assertArrayEquals(new int[]{8,0},runDeployedRoutine("test-lap"));
+        setup2();
+        assertArrayEquals(new int[]{6,0},runDeployedRoutine("test-line"));
+        setup2();
+        assertArrayEquals(new int[]{0,12},runDeployedRoutine("test-turns"));
+        double finalHeading=context.pose.heading();
+        assertEquals("a full CW turn ends on the start heading",0,Math.atan2(Math.sin(finalHeading),Math.cos(finalHeading)),1e-6);
+    }
+    /** Runs a deployed routine and records every change of the last bounded action as {outcome, reason, feeding ticks so far}. */
+    private List<String[]> runDeployedWithEvents(String name) throws Exception {
+        AutoFile file=AutoFile.load(AutoSource.directory(new File("../autos")),name);
+        robot.observeSteps(file.steps);
+        context.pose=file.startPose;
+        AutoContext runtime=new AutoContext() {
+            @Override public com.pedropathing.follower.Follower follower() { return context.follower; }
+            @Override public com.pedropathing.paths.Path atSpeed(com.pedropathing.paths.Path path,double speed) { return context.atSpeed(path,speed); }
+            @Override public Object drive() { return robot.drive; }
+            @Override public Pose alliance(Pose p) { return p; }
+            @Override public long nanoTime() { return now; }
+            @Override public Command step(String id,Command body) { return robot.step(id,body); }
+        };
+        Command routine=AutoBuilder.build(file,runtime); Scheduler.schedule(routine);
+        List<String[]> events=new ArrayList<>(); String last=robot.lastOutcome()+"|"+robot.lastOutcomeReason(); int fedTicks=0;
+        for (int i=0;i<3000 && Scheduler.isScheduled(routine);i++) {
+            now+=20_000_000; map.updateAll(.02); robot.turret.update(now*1e-9); robot.transfer.readSensors(now*1e-9);
+            context.now=now; context.advance(); Scheduler.execute();
+            robot.outputs.apply(now*1e-9,ControllerFixtures.pose(now*1e-9,1,-1,0,0,0,0).withReference(1),
+                    robot.turret,robot.shots,robot.firing,robot.gate,robot.transfer,robot.intake);
+            if (robot.transfer.isFeeding()) fedTicks++;
+            String key=robot.lastOutcome()+"|"+robot.lastOutcomeReason();
+            if (!key.equals(last)) { events.add(new String[]{robot.lastOutcome(),robot.lastOutcomeReason(),String.valueOf(fedTicks)}); last=key; }
+        }
+        assertFalse(name+" did not finish",Scheduler.isScheduled(routine));
+        assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
+        assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
+        return events;
+    }
+    @Test public void deployedVolleyTestRoutinesBehaveAsTheirNotesSay() throws Exception {
+        home();
+        // test-volley: SKIP, and the fixture robot never becomes READY, so nothing is ever fed.
+        List<String[]> single=runDeployedWithEvents("test-volley");
+        assertEquals(1,single.size());
+        assertEquals("TIMEOUT",single.get(0)[0]);
+        assertTrue(single.get(0)[1],single.get(0)[1].contains("SKIPPED"));
+        assertEquals("never fed","0",single.get(0)[2]);
+        setup2(); home();
+        // test-volley-checks: INHIBITED with no feeding, then the FIRE fallback feeds, then the normal SKIP.
+        List<String[]> checks=runDeployedWithEvents("test-volley-checks");
+        assertEquals(3,checks.size());
+        assertEquals("INHIBITED",checks.get(0)[0]);
+        assertEquals("inhibit blocks every feed","0",checks.get(0)[2]);
+        assertEquals("TIMEOUT",checks.get(1)[0]);
+        assertTrue(checks.get(1)[1],checks.get(1)[1].contains("Fed before READY"));
+        assertTrue("the fallback fed",Integer.parseInt(checks.get(1)[2])>0);
+        assertEquals("TIMEOUT",checks.get(2)[0]);
+        assertTrue(checks.get(2)[1],checks.get(2)[1].contains("SKIPPED"));
+        assertEquals("the normal SKIP volley fed nothing more",checks.get(1)[2],checks.get(2)[2]);
+    }
+    /** Fresh fixture between routines (the scheduler and named-command registry are global). */
+    private void setup2() { reset(); setup(); }
     private static final class Harness extends BioBuzzAutoFromFile {
         Harness() {
             spec=AutoFile.parse(Json.parse("{\"formatVersion\":4,\"alliance\":\"RED\",\"start\":{\"pose\":{\"xIn\":0,\"yIn\":0}},\"steps\":[{\"kind\":\"wait\",\"seconds\":0.1}]}","fixture"),"fixture",Collections.emptyMap());

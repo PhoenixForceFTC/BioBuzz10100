@@ -1,0 +1,98 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "volley-check",
+  "title": "volley-check",
+  "description": "Regression fixture (not deployed): pre-aim, drive, one volley, branch on its outcome.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -13,
+      "yIn": -63,
+      "headingRad": 1.5708,
+      "provenance": "TEST FIXTURE: not a measured start"
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "preAim",
+      "kind": "command",
+      "name": "aim",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "spin": true
+      }
+    },
+    {
+      "id": "driveOut",
+      "kind": "path",
+      "timeoutS": 6,
+      "segments": [
+        {
+          "kind": "bezier",
+          "from": "current",
+          "control": [
+            {
+              "xIn": -6,
+              "yIn": -51
+            }
+          ],
+          "to": {
+            "xIn": -12,
+            "yIn": -39
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 1.5708,
+        "toRad": 1.5708
+      },
+      "speedFraction": 0.35
+    },
+    {
+      "id": "volley1",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "seconds": 1,
+        "readyTimeoutSeconds": 0.5,
+        "onTimeout": "FIRE",
+        "after": "IDLE"
+      },
+      "timeoutS": 2
+    },
+    {
+      "id": "volleyResult",
+      "kind": "branch",
+      "condition": "commandFailed",
+      "then": [
+        {
+          "id": "volleyFailedPark",
+          "kind": "command",
+          "name": "stopAll"
+        }
+      ],
+      "else": [
+        {
+          "id": "volleyOkPark",
+          "kind": "command",
+          "name": "stopAll"
+        }
+      ]
+    }
+  ]
+}

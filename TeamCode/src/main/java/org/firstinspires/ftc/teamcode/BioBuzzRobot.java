@@ -34,8 +34,8 @@ public final class BioBuzzRobot implements ZenithRobot {
     PollenVision vision;
     PollenVision.Snapshot pollenSnapshot;
     boolean running;
-    private boolean hasStarted;
-    private long started;
+    boolean hasStarted;   // package-private so tests can set the match clock
+    long started;
     String collectionStatus = "Idle";
     private String activeStep = "INIT", outcome = "NONE", outcomeReason = "No bounded action completed", outcomeStep = "INIT";
     private double outcomeAt;
@@ -57,6 +57,18 @@ public final class BioBuzzRobot implements ZenithRobot {
     BioBuzzRobot(TurretSubsystem.Alliance alliance, AutonomousProfile profile, java.util.function.LongSupplier clock) {
         selectedAlliance = alliance; this.profile = profile; this.clock = clock;
     }
+    /**
+     * The autonomous shot coordinator with the final TeleOp's feed policy (continuous, gate and transfer together),
+     * as PlannerRobot does: the AUTONOMOUS_* aim modes alone would give the older timed
+     * {@code ShootingConfiguration.firing()}. Shared with the tests so they run the production wiring.
+     */
+    static ShotCoordinator createShotCoordinator(TurretSubsystem turret, TurretSubsystem.Alliance alliance) {
+        return new ShotCoordinator(turret, TeleOpFieldReference.target(alliance, TurretSubsystem.HiveSide.AUDIENCE),
+                ShootingConfiguration.MOUNT, ShootingConfiguration.PROFILE, CompetitionFeedController.firing(),
+                TAG_RELOCALIZATION_ENABLED ? ShotCoordinator.AimMode.AUTONOMOUS_RELOCALIZING
+                        : ShotCoordinator.AimMode.AUTONOMOUS_ODOMETRY);
+    }
+
     public static BioBuzzRobot pollenTest() { return new BioBuzzRobot(null, AutonomousProfile.POLLEN_TEST); }
 
     @Override public void init(AutoFromFile opMode) {
@@ -72,11 +84,9 @@ public final class BioBuzzRobot implements ZenithRobot {
             if (profile == AutonomousProfile.FULL_ROBOT) {
                 depollinator = new DepollinatorSubsystem(opMode.hardwareMap, this::now);
                 turret = new TurretSubsystem(opMode.hardwareMap, true, this::now);
-                shots = new ShotCoordinator(turret, TeleOpFieldReference.target(alliance, TurretSubsystem.HiveSide.AUDIENCE),
-                        TAG_RELOCALIZATION_ENABLED ? ShotCoordinator.AimMode.AUTONOMOUS_RELOCALIZING
-                                : ShotCoordinator.AimMode.AUTONOMOUS_ODOMETRY);
+                shots = createShotCoordinator(turret, alliance);
             }
-            firing = shots == null ? ShootingConfiguration.firing() : shots.firing();
+            firing = shots == null ? CompetitionFeedController.firing() : shots.firing();
             // Camera is optional for planned paths; camera-dependent factories fail during INIT.
             try {
                 if (opMode.hardwareMap.tryGet(org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName.class,
@@ -92,6 +102,8 @@ public final class BioBuzzRobot implements ZenithRobot {
     @Override public void registerCommands(AutoFromFile opMode) { new AutonomousCommands(this).register(); }
     double now() { return nanoTime() * 1e-9; }
     @Override public long nanoTime() { return clock.getAsLong(); }
+    /** Seconds since START (0 before it): the match clock the time guards read. */
+    double elapsedSeconds() { return hasStarted ? (nanoTime() - started) * 1e-9 : 0; }
     double remainingSeconds() { return hasStarted ? Math.max(0, PedroConfiguration.MAX_AUTONOMOUS_SECONDS - (nanoTime() - started) * 1e-9) : PedroConfiguration.MAX_AUTONOMOUS_SECONDS; }
     void outcome(String result, String reason) {
         if (terminalOutcome) return;
@@ -115,6 +127,7 @@ public final class BioBuzzRobot implements ZenithRobot {
     }
     boolean commandFailed() { return !outcome.equals("NONE") && !outcome.equals("SUCCESS"); }
     String lastOutcome() { return outcome; }
+    String lastOutcomeReason() { return outcomeReason; }
     @Override public Command step(String id, Command command) {
         return new CommandBuilder().requiring(command.requirements()).setPriority(command.priority())
                 .setInterruptedBehavior(command.interruptedBehavior()).setBlockedBehavior(command.blockedBehavior())

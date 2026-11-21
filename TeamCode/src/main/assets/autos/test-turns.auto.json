@@ -1,0 +1,294 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "test-turns",
+  "title": "TEST: Turns in place (90 deg steps)",
+  "description": "Heading odometry test, no translation. Turn in place in 90-degree steps: 2 CCW then 2 CW, then 4 CCW and 4 CW, pausing 1 s between groups. After each group the robot should face the stated heading; put tape on the chassis front to see it. Cleared area only, hand on STOP. Local frame: the start mark is (0,0), +X is the robot's front at START, +Y is its left.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0,
+      "headingRad": 0.0,
+      "provenance": "TEST ROUTINE, local frame: put the robot on the start mark facing +X on any clear floor. Not a field position."
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "ccwHalf1",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 0.0,
+        "toRad": 1.5708
+      }
+    },
+    {
+      "id": "ccwHalf2",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 1.5708,
+        "toRad": 3.1416
+      }
+    },
+    {
+      "id": "markHalfCcw",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Robot should now face 180 degrees from its start heading."
+    },
+    {
+      "id": "cwHalf1",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 3.1416,
+        "toRad": 1.5708
+      }
+    },
+    {
+      "id": "cwHalf2",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 1.5708,
+        "toRad": 0.0
+      }
+    },
+    {
+      "id": "markBackToStart",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Robot should face its start heading again."
+    },
+    {
+      "id": "ccwFull1",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 0.0,
+        "toRad": 1.5708
+      }
+    },
+    {
+      "id": "ccwFull2",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 1.5708,
+        "toRad": 3.1416
+      }
+    },
+    {
+      "id": "ccwFull3",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 3.1416,
+        "toRad": 4.7124
+      }
+    },
+    {
+      "id": "ccwFull4",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 4.7124,
+        "toRad": 6.2832
+      }
+    },
+    {
+      "id": "markFullCcw",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "One full CCW turn: the robot should end exactly on its start heading."
+    },
+    {
+      "id": "cwFull1",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 6.2832,
+        "toRad": 4.7124
+      }
+    },
+    {
+      "id": "cwFull2",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 4.7124,
+        "toRad": 3.1416
+      }
+    },
+    {
+      "id": "cwFull3",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 3.1416,
+        "toRad": 1.5708
+      }
+    },
+    {
+      "id": "cwFull4",
+      "kind": "path",
+      "timeoutS": 3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "linear",
+        "fromRad": 1.5708,
+        "toRad": 0.0
+      }
+    },
+    {
+      "id": "markFullCw",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "One full CW turn: the robot should end exactly on its start heading."
+    },
+    {
+      "id": "stopEnd",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

@@ -24,3 +24,22 @@ Five audit regressions add parallel reseed/feed conflict rejection, native condi
 The pinned scanner emits 43 duplicate direct-map argument advisories and related repeated helper-discovery information. The validation wrapper condenses identical messages without discarding errors. Exact team contract checks and runtime-factory tests independently cover this limitation. Both cleared-area routine files intentionally use a field without a scoring season plugin, so the CLI also prints that notice. The example's literal poses are unmeasured editor examples. These are not competition route coordinates.
 
 No measured/verified flag was enabled, no dependency pin was upgraded by this Zenith audit, no APK was installed on a Control Hub, and no match strategy was fabricated. The final package was rebuilt after temporary routine cleanup and all eight assets match the manifest. Follow the [remaining acceptance boundaries](ZenithUiAcceptance.md) and [robot commissioning procedure](ZenithAuthoringGuide.md) before claiming the plan's full definition of done. [The audit](ZenithIntegrationAudit.md) records the phase comparison, current hardware configuration, fixes and upstream references.
+
+## Update 2026-11-21: volley command and final-TeleOp feed alignment
+
+**Currency check.** Zenith runtime `v0.1.2` and CLI `0.1.2` are the latest releases. The Pedro core snapshot and Ivy `1.1.1` pinned here are the stack Zenith v0.1.2 documents; Maven Central now also lists Pedro core 3.0.2 and `tuning` 1.0.3. Neither was bumped: Zenith's tested API is the pinned snapshot and the tuned values were measured on it.
+
+**Changes.**
+- New `volley` command (catalog now 44 commands): TeleOp's full auto-shoot, the same sequence as the path planner's volley, with ready timeout, `FIRE`/`SKIP`, `KEEP`/`IDLE`/`OFF` and the GP2 trims.
+- Zenith autonomous now uses the final TeleOp's continuous feed. Before, `BioBuzzRobot` built its `ShotCoordinator` from `ShootingConfiguration.firing()` (timed staggered feed: 0.10 s gate delay, 0.20 s feed window) and never entered continuous mode, so `shoot`, `feedManual` and the hand-built volley differed from TeleOp. `BioBuzzRobot.createShotCoordinator` now uses `CompetitionFeedController.firing()` as `PlannerRobot` already did, and `AutonomousOutputCoordinator` applies the same continuous policy as `CompetitionShotPipeline.feed`. **This changes on-robot autonomous feeding behavior** and is not yet run on the robot.
+- One test assertion was changed on purpose: `manualFeedWaitsForGateAndAlwaysStopsBothStages` asserted the old 0.10 s gate delay and is now `manualFeedStartsGateAndBothStagesTogetherAndAlwaysStopsThem`. `productionShotCoordinatorUsesTheFinalTeleOpContinuousFeed` pins the production wiring.
+
+| Check | Result |
+| --- | --- |
+| `npm run zenith:validate` | 0 errors; Java/catalog names, arguments and resources agree (44 commands). Also run on the `volley-check` fixture copied into `autos/` temporarily: 0 errors. |
+| `npm run zenith:test` | 13 passed. |
+| `npm run zenith:deploy`, `zenith:check` | Deployed; check reports 0 writes, 0 removals. |
+| `./gradlew :TeamCode:testDebugUnitTest` | 343 passed, 0 failed, 0 skipped (includes 7 new volley/continuous-feed tests and a native-builder volley routine). |
+| `./gradlew :TeamCode:assembleDebug` | Passed; the APK's `assets/autos/robot.json` contains `volley` and its trims. |
+| Simulation decision | Ran `:TeamCode:simTeleOpTest`: 46 of 49 pass, 3 fail (`bothAlliancesRegulateTheFlywheelWithBangBangFusion`, `benchLoadsHoldsFullFeedsAndReloadsThroughActualMotorOutputs`, `benchFusionControllerSpinsUpHoldsAndFeedsThroughActualOpMode`). The same 3 fail on the untouched commit (checked by stashing this work), so they predate it; they concern flywheel regulation (1281 vs 1400 RPM expected) and the bench transfer cycle, not autonomous. SimLoop has no autonomous scenario, so the new feed policy and `volley` are covered by the unit tests above only. |
+| Not run | Lint, `verify-teleop.ps1` (Windows PowerShell), `check-zenith-apk.ps1`, any robot run, and the Zenith editor round trip with the new command. |
