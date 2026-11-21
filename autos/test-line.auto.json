@@ -1,0 +1,186 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "test-line",
+  "title": "TEST: Line 48 in out-and-back (30/60/100%)",
+  "description": "Tuning and braking test. Drive 48 in straight ahead and back at 30%, 60% and 100% speed, pausing 1 s at each end to measure overshoot and the miss from the marks. Leave about 6 ft clear ahead of the robot. Cleared area only, hand on STOP. Local frame: the start mark is (0,0), +X is the robot's front at START, +Y is its left.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0,
+      "headingRad": 0.0,
+      "provenance": "TEST ROUTINE, local frame: put the robot on the start mark facing +X on any clear floor. Not a field position."
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "out_30",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 0.3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markOut_30",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure overshoot past the 48 in mark."
+    },
+    {
+      "id": "back_30",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 0.3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markBack_30",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure the miss from the start mark."
+    },
+    {
+      "id": "out_60",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markOut_60",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure overshoot past the 48 in mark."
+    },
+    {
+      "id": "back_60",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markBack_60",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure the miss from the start mark."
+    },
+    {
+      "id": "out_100",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 1.0,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markOut_100",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure overshoot past the 48 in mark."
+    },
+    {
+      "id": "back_100",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 1.0,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markBack_100",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure the miss from the start mark."
+    },
+    {
+      "id": "stopEnd",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

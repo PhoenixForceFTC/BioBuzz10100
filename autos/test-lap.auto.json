@@ -1,0 +1,202 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "test-lap",
+  "title": "TEST: Lap x2 of a 48 in square (drift)",
+  "description": "Odometry drift test. Drive a 48 in square 2 times at 60% speed, heading held at 0, pausing 1 s on the start mark after each lap. The miss after each lap, and its growth between laps, shows pod or IMU drift. Cleared area only, hand on STOP. Local frame: the start mark is (0,0), +X is the robot's front at START, +Y is its left.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0,
+      "headingRad": 0.0,
+      "provenance": "TEST ROUTINE, local frame: put the robot on the start mark facing +X on any clear floor. Not a field position."
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "lap1_forward",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "lap1_strafeLeft",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 48
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "lap1_backward",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 48
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "lap1_strafeRight",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markLap1",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure the miss from the start mark. Growth from lap to lap means odometry drift."
+    },
+    {
+      "id": "lap2_forward",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "lap2_strafeLeft",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 48,
+            "yIn": 48
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "lap2_backward",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 48
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "lap2_strafeRight",
+      "kind": "path",
+      "timeoutS": 8,
+      "speedFraction": 0.6,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "markLap2",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Measure the miss from the start mark. Growth from lap to lap means odometry drift."
+    },
+    {
+      "id": "stopEnd",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}
