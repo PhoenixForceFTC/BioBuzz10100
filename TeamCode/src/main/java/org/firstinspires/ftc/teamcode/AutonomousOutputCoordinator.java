@@ -10,7 +10,9 @@ public final class AutonomousOutputCoordinator {
     private Mode yaw = Mode.MANUAL, hood = Mode.MANUAL, flywheel = Mode.OFF;
     private boolean loading, automaticFeed, manualFeed, gateOnly, inhibited;
     private double intakePower, rpm;
-    private final StaggeredFeedTiming stage1Timing = new StaggeredFeedTiming();
+    // The final TeleOp's feed policy: CONTINUOUS, gate and transfer together (CompetitionFeedController).
+    private final CompetitionFeedController feedControl = new CompetitionFeedController();
+    private final AutoAimAdjustments trims = new AutoAimAdjustments();
     private AutonomousShotPresets.Preset preset;
 
     /** A timed command may clean up only channels it still owns. */
@@ -36,7 +38,9 @@ public final class AutonomousOutputCoordinator {
         preset = null; yaw = hood = Mode.AUTO; flywheel = spin ? Mode.AUTO : Mode.OFF;
         clearFeed();
     }
-    public void aimOff() { yaw = hood = Mode.MANUAL; flywheel = Mode.OFF; rpm = 0; preset = null; clearFeed(); }
+    public void aimOff() { yaw = hood = Mode.MANUAL; flywheel = Mode.OFF; rpm = 0; preset = null; trims.reset(); clearFeed(); }
+    /** TeleOp's GP2 auto-aim trims (yaw deg, hood deg, RPM), clipped to {@link AutoAimAdjustments}' bounds. */
+    public void trims(double yawDeg, double hoodDeg, double rpmTrim) { trims.set(yawDeg, hoodDeg, rpmTrim); }
     public void manualYaw() { yaw = Mode.MANUAL; preset = null; automaticFeed = false; }
     public void manualHood() { hood = Mode.MANUAL; preset = null; automaticFeed = false; }
     public void rpm(double value) { flywheel = value == 0 ? Mode.OFF : Mode.MANUAL; rpm = value; preset = null; automaticFeed = false; }
@@ -66,20 +70,25 @@ public final class AutonomousOutputCoordinator {
     /** Apply resolved mechanism requests once, after this loop's scheduler execution. */
     public void apply(double now, MotionSample sample, TurretSubsystem turret, ShotCoordinator shots,
                       FiringCoordinator firing, GateSubsystem gate, TransferSubsystem transfer, IntakeSubsystem intake) {
+        feedControl.updateSelection(now, firing); // keeps the shared firing coordinator in continuous mode
         if (shots != null) {
             if (preset != null) shots.updatePreset(now, sample, preset, automaticFeed(), manualFeed(), inhibited);
-            else shots.update(now, sample, aiming(), automaticFeed(), manualFeed(), inhibited,
+            else {
+                shots.setAutoAimAdjustments(now, trims);
+                shots.update(now, sample, aiming(), automaticFeed(), manualFeed(), inhibited,
                     flywheel == Mode.OFF, yaw == Mode.AUTO, hood == Mode.AUTO, flywheel == Mode.AUTO);
+            }
             if (flywheel == Mode.MANUAL) turret.setShooterRpm(rpm);
         } else firing.update(now, false, manualFeed(), inhibited, false, false, false, false, "No shooting hardware");
         // Same-loop servo write of the yaw target resolved above.
         if (turret != null) turret.applyYawCommand(now);
         gate.setOpen(!inhibited && (gateOnlyRequested() || firing.gateOpen()));
-        boolean feeding = firing.feeding() && gate.isOpenForFeeding() && !inhibited;
-        // Same stage-1 policy as TeleOp: stage 1 (both linked motors) runs for every feed and
-        // keeps running with the gate closed between timed feeds.
-        boolean feedStage1 = stage1Timing.feedStage1(now, firing);
-        boolean closedGateStage1 = !inhibited && firing.closedGateStage1();
+        // Same policy as TeleOp (CompetitionShotPipeline.feed): continuous, so the transfer feeds whenever the
+        // firing coordinator is feeding, together with the gate command and without a gate delay; stage 1 (both
+        // linked motors) runs for the whole feed.
+        boolean feeding = feedControl.feedTransfers(firing, gate.isOpenForFeeding()) && !inhibited;
+        boolean feedStage1 = feedControl.feedStage1(now, firing);
+        boolean closedGateStage1 = !inhibited && feedControl.closedGateStage1(firing);
         transfer.updateCached(now, feeding,
                 !closedGateStage1 && (!loading || feedRequested() || gateOnlyRequested()),
                 feedStage1, closedGateStage1);

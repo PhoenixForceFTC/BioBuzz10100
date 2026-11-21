@@ -17,6 +17,12 @@ import java.util.function.Consumer;
 /** Validated INIT factories. Units, resources, defaults and bounds also appear in autos/robot.json. */
 public final class AutonomousCommands {
     public enum TargetFrame { FIELD, AUTHORED }
+    /** What a finished volley leaves running: aim + spin, TeleOp's idle RPM, or everything stopped. */
+    public enum VolleyAfter { KEEP, IDLE, OFF }
+    /** Same defaults as the path planner's volley (T.FEED_SECONDS, T.READY_TIMEOUT_S). */
+    static final double VOLLEY_FEED_SECONDS = FallbackAutoController.FEED_SECONDS;
+    static final double VOLLEY_READY_TIMEOUT_SECONDS = FallbackAutoController.SPIN_UP_TIMEOUT_SECONDS;
+    private TurretSubsystem.HiveSide selectedSide; // last side latched by select(); null until the first selection
     private final BioBuzzRobot robot;
     private final AutonomousOutputCoordinator out;
     public AutonomousCommands(BioBuzzRobot robot) {
@@ -119,6 +125,18 @@ public final class AutonomousCommands {
         });
         command("shootPreset", "turretYaw,hood,flywheel,gate,transfer", "preset,seconds", (a,c) ->
                 feed(seconds(a), true, preset(a)));
+        command("volley", "turretYaw,hood,flywheel,gate,transfer", "side,frame,seconds,readyTimeoutSeconds,onTimeout,after,yawTrimDeg,hoodTrimDeg,rpmTrim", (a,c) -> {
+            TurretSubsystem.HiveSide side = side(a,c);
+            double feedSeconds = number(a,"seconds",VOLLEY_FEED_SECONDS,.001,28);
+            double readyTimeout = number(a,"readyTimeoutSeconds",VOLLEY_READY_TIMEOUT_SECONDS,0,28);
+            PlannerVolley.TimeoutAction onTimeout = NamedCommands.argEnum(a,"volley","onTimeout",
+                    PlannerVolley.TimeoutAction.class,PlannerVolley.TimeoutAction.FIRE);
+            VolleyAfter after = NamedCommands.argEnum(a,"volley","after",VolleyAfter.class,VolleyAfter.KEEP);
+            double[] trims = {number(a,"yawTrimDeg",0.0,-AutoAimAdjustments.MAX_YAW_DEG,AutoAimAdjustments.MAX_YAW_DEG),
+                    number(a,"hoodTrimDeg",0.0,-AutoAimAdjustments.MAX_HOOD_DEG,AutoAimAdjustments.MAX_HOOD_DEG),
+                    number(a,"rpmTrim",0.0,-AutoAimAdjustments.MAX_RPM,AutoAimAdjustments.MAX_RPM)};
+            return volley(side,feedSeconds,readyTimeout,onTimeout,after,trims);
+        });
         command("driveHold", "drive", "xIn,yIn,headingRad,seconds", (a,c) -> {
             Pose pose = pose(a,c);
             return timed(seconds(a), () -> { robot.drive.stop(); robot.follower().hold(pose); },
@@ -229,6 +247,64 @@ public final class AutonomousCommands {
     private void select(TurretSubsystem.HiveSide side) {
         stopFeed(); robot.shots.select(TeleOpFieldReference.target(robot.alliance,side));
         robot.shots.invalidateReference(robot.now());
+        selectedSide = side;
+    }
+    /**
+     * TeleOp's full auto-shoot (GP1 RT + LT), the same sequence as the path planner's volley: aim at the hive cell
+     * with automatic yaw/hood/RPM, wait up to {@code readyTimeout} for the shared firing coordinator's readiness,
+     * feed for {@code feedSeconds}, then apply {@code after}. Not ready in time: FIRE feeds anyway with readiness
+     * bypassed (TeleOp GP1 A) but only with a homed turret; SKIP feeds nothing. Feed inhibit always wins. Counts
+     * time, never balls. A side already latched by {@code aim}/{@code selectTarget} is kept, so a pre-aim during
+     * a path is not discarded and readiness is not requalified. The yaw/hood/RPM trims are TeleOp's GP2 auto-aim
+     * trims; they apply from this volley until the next volley or {@code aimOff}.
+     */
+    private Command volley(TurretSubsystem.HiveSide side, double feedSeconds, double readyTimeout,
+                           PlannerVolley.TimeoutAction onTimeout, VolleyAfter after, double[] trims) {
+        String[] resources = split("turretYaw,hood,flywheel,gate,transfer");
+        PlannerVolley sequence = new PlannerVolley();
+        boolean[] ended = {false}, manualRequested = {false};
+        @SuppressWarnings("unchecked") Map<String,Long>[] lease = new Map[1];
+        return new CommandBuilder().requiring(requirements(resources))
+                .setStart(() -> {
+                    ended[0] = false; manualRequested[0] = false;
+                    lease[0] = out.claim(resources);
+                    if (selectedSide != side) select(side); else stopFeed();
+                    out.aim(true); out.trims(trims[0],trims[1],trims[2]); out.requestAutomaticFeed();
+                    sequence.start(robot.now(), feedSeconds, readyTimeout, onTimeout, true);
+                })
+                .setExecute(() -> {
+                    // Reads the firing state from the previous loop, before this loop's output coordinator apply().
+                    sequence.update(robot.now(), robot.firing.feeding(), robot.turret.isHomed());
+                    if (sequence.manualFeed() && !manualRequested[0]) { manualRequested[0] = true; out.requestManualFeed(); }
+                })
+                .setDone(sequence::finished)
+                .setEnd(reason -> {
+                    if (ended[0]) return;
+                    ended[0] = true;
+                    boolean natural = reason == EndCondition.NATURALLY;
+                    boolean inhibited = out.inhibited();
+                    PlannerVolley.Phase phase = sequence.phase();
+                    String note = sequence.note();
+                    boolean forced = manualRequested[0];
+                    if (!natural) sequence.cancel("interrupted");
+                    try {
+                        cleanupFeed(lease[0]);
+                        if (natural && out.owns(lease[0],"flywheel")) applyVolleyAfter(after);
+                    } catch (RuntimeException failure) {
+                        robot.outcome("FAULT", "Cleanup failed: " + failure.getMessage()); throw failure;
+                    }
+                    if (!natural) robot.outcome("CANCELLED", "Interrupted volley");
+                    else if (inhibited) robot.outcome("INHIBITED", "Feed inhibit");
+                    else if (phase == PlannerVolley.Phase.SKIPPED) robot.outcome("TIMEOUT", note);
+                    else if (forced) robot.outcome("TIMEOUT", "Fed before READY (ready timeout); readiness bypassed");
+                    else robot.outcome("SUCCESS", "Volley fed " + feedSeconds + " s");
+                });
+    }
+    private void applyVolleyAfter(VolleyAfter after) {
+        if (after == VolleyAfter.KEEP) return;
+        out.aimOff(); robot.turret.holdYaw();
+        if (after == VolleyAfter.IDLE) out.rpm(CompetitionShotPipeline.FLYWHEEL_IDLE_RPM);
+        else robot.turret.stopShooter();
     }
     private void prepare(AutonomousShotPresets.Preset preset) {
         stopFeed(); out.prepare(preset);

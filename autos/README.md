@@ -20,4 +20,4 @@ npm run zenith:check
 
 The native editor Deploy button does not replace team deployment, which preserves the pollen profile and removes stale managed outputs after source renames/deletions. Source names must match lowercase kebab-case filenames. Saving source alone does not update the Control Hub.
 
-Read the [coder guide](../doc/ZenithAuthoringGuide.md), [audit against the plan and official sources](../doc/ZenithIntegrationAudit.md), and [verification record](../doc/ZenithVerification.md). Pedro tuning blocks START until verified. Camera/shooting calibration and maximum deployed envelope remain unverified; editor preview does not prove those properties.
+Start with the step-by-step [create and test guide](../doc/ZenithAutoGuide.md), then the [coder guide](../doc/ZenithAuthoringGuide.md), [audit against the plan and official sources](../doc/ZenithIntegrationAudit.md), and [verification record](../doc/ZenithVerification.md). Pedro tuning blocks START until verified. Camera/shooting calibration and maximum deployed envelope remain unverified; editor preview does not prove those properties.

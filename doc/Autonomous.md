@@ -2,7 +2,7 @@
 
 Every registered autonomous now extends Zenith's Ivy `AutoFromFile`. `BioBuzzRobot` connects the runtime to the existing hardware subsystems and `ShotCoordinator`. `WaypointFollower`, `CompetitionAutonomousController`, and `AutonomousStrategy` have been removed. The pollen navigator is an experiment in the **Test** group, separate from the real match routines.
 
-Use the [Zenith authoring guide](ZenithAuthoringGuide.md) for the complete command catalog and supported deployment workflow. The [integration audit](ZenithIntegrationAudit.md) compares the code with the plan, official resources and current robot configuration. The [coverage ledger](ZenithFunctionCoverage.md) and [verification record](ZenithVerification.md) distinguish implemented software from pending editor and robot evidence. The original [implementation plan](ZenithAutonomousImplementationPlan.md) remains the acceptance specification.
+Use the [create and test guide](ZenithAutoGuide.md) to build and try a routine step by step, and the [Zenith authoring guide](ZenithAuthoringGuide.md) for the complete command catalog and supported deployment workflow. The [integration audit](ZenithIntegrationAudit.md) compares the code with the plan, official resources and current robot configuration. The [coverage ledger](ZenithFunctionCoverage.md) and [verification record](ZenithVerification.md) distinguish implemented software from pending editor and robot evidence. The original [implementation plan](ZenithAutonomousImplementationPlan.md) remains the acceptance specification.
 
 ## Installed versions
 

@@ -718,6 +718,94 @@
       "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
     },
     {
+      "name": "volley",
+      "summary": "TeleOp full auto-shoot (RT+LT): aim, wait up to readyTimeoutSeconds for readiness, feed for seconds, then apply after. Not ready in time: FIRE feeds with readiness bypassed (TeleOp GP1 A) only if the turret is homed; SKIP feeds nothing. Inhibit wins. Time-bounded, never a piece count.",
+      "params": {
+        "side": {
+          "type": "enum",
+          "values": [
+            "AUDIENCE",
+            "FAR"
+          ],
+          "default": "AUDIENCE",
+          "provenance": "Hive side; FIELD is compatible aim(side) default."
+        },
+        "frame": {
+          "type": "enum",
+          "values": [
+            "FIELD",
+            "AUTHORED"
+          ],
+          "default": "FIELD",
+          "provenance": "FIELD is literal; AUTHORED flips side under point symmetry."
+        },
+        "seconds": {
+          "type": "number",
+          "min": 0.001,
+          "max": 28,
+          "default": 2.5,
+          "provenance": "Feed seconds once feeding starts; duration bound, never a piece count. Default equals the path planner's FEED_SECONDS."
+        },
+        "readyTimeoutSeconds": {
+          "type": "number",
+          "min": 0,
+          "max": 28,
+          "default": 3,
+          "provenance": "Longest wait for turret/hood/RPM readiness. Default equals the path planner's READY_TIMEOUT_S."
+        },
+        "onTimeout": {
+          "type": "enum",
+          "values": [
+            "FIRE",
+            "SKIP"
+          ],
+          "default": "FIRE",
+          "provenance": "FIRE = TeleOp GP1 A manual feed with readiness bypassed, only with a homed turret; SKIP = feed nothing and report TIMEOUT."
+        },
+        "after": {
+          "type": "enum",
+          "values": [
+            "KEEP",
+            "IDLE",
+            "OFF"
+          ],
+          "default": "KEEP",
+          "provenance": "KEEP aim + spin; IDLE = TeleOp idle RPM (3000) with yaw held; OFF = stop flywheel and hold yaw."
+        },
+        "yawTrimDeg": {
+          "type": "number",
+          "min": -10,
+          "max": 10,
+          "default": 0,
+          "provenance": "TeleOp GP2 yaw trim (AutoAimAdjustments, +-10 deg); applies from this volley until the next volley or aimOff."
+        },
+        "hoodTrimDeg": {
+          "type": "number",
+          "min": -5,
+          "max": 5,
+          "default": 0,
+          "provenance": "TeleOp GP2 hood trim (AutoAimAdjustments, +-5 deg); applies from this volley until the next volley or aimOff."
+        },
+        "rpmTrim": {
+          "type": "number",
+          "min": -500,
+          "max": 500,
+          "default": 0,
+          "provenance": "TeleOp GP2 RPM trim (AutoAimAdjustments, +-500 RPM); applies from this volley until the next volley or aimOff."
+        }
+      },
+      "estimateS": "seconds + readyTimeoutSeconds",
+      "requires": [
+        "turretYaw",
+        "hood",
+        "flywheel",
+        "gate",
+        "transfer"
+      ],
+      "stationary": false,
+      "provenance": "Team Java command contract; durations are bounds. Physical motion/calibration unverified."
+    },
+    {
       "name": "driveHold",
       "summary": "Pedro holds authored pose for bounded seconds; stop drive on end/cancel. Requires verified tuning.",
       "params": {

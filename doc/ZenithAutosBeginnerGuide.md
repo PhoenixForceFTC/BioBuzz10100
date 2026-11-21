@@ -37,7 +37,7 @@ the full volley procedure the drivers get from RT + LT:
 
 1. aim the turret at the target cell and set hood and flywheel speed from the shot table,
 2. wait until the turret is on target, the hood is settled and the flywheel is at speed (and stays that way briefly),
-3. open the gate and run the transfer together for `feedSeconds`,
+3. open the gate and run the transfer together for `seconds`,
 4. finish, then keep aiming, drop to idle speed, or spin down (your choice).
 
 If the robot is not ready in time, `volley` either fires anyway (only if the turret knows where it is pointing) or
@@ -45,7 +45,8 @@ skips the shot.
 
 ## 2. One-time laptop setup
 
-You need Windows (the team scripts are PowerShell), and about an hour for the downloads.
+You need Windows (the team scripts are PowerShell), and about an hour for the downloads. On a Mac, the web editor and
+terminal commands in the [create and test guide](ZenithAutoGuide.md#0-before-you-start) replace the Windows-only steps.
 
 1. **Git** and a GitHub account with access to `PhoenixForceFTC/BioBuzz10100`.
 2. **Android Studio** (Narwhal 3 Feature Drop or newer). Let it install the Android SDK it asks for.
@@ -122,15 +123,16 @@ Goal: start on the wall, drive to a shooting spot while aiming, fire one volley,
 5. **Pre-aim while driving.** Add a **parallel** step containing:
    - a **path** from the start to your shooting spot. Keep the speed low at first (30 to 50%) and give it a
      timeout a bit longer than the editor's estimate.
-   - a **command** `aimNearest` with `spin = true` (or `aim` with `side`, `frame = AUTHORED`). The turret starts
+   - a **command** `aim` with `side`, `frame = AUTHORED` and `spin = true`. The turret starts
      tracking and the flywheel spins up while you drive, so the volley is ready sooner.
 6. **Shoot.** Add a **command** `volley`:
-   - `target`: `NEAREST` (TeleOp's rule) or `AUDIENCE` / `FAR` with `frame = AUTHORED`
-   - `feedSeconds`: 2.5 to empty the robot (it counts time, not balls)
+   - `side`: `AUDIENCE` or `FAR`, with `frame = AUTHORED` (use the same `side` as your pre-aim, so it is kept)
+   - `seconds`: 2.5 to empty the robot (it counts time, not balls)
    - `readyTimeoutSeconds`: 1 to 3
    - `onTimeout`: `FIRE` in a match, `SKIP` while you are still testing aim
-   - `after`: `IDLE` if you will shoot again soon, `OFF` at the end
-   - set the step's `timeoutS` a little above `readyTimeoutSeconds + feedSeconds` (for example 5.6 for 3 + 2.5)
+   - `after`: `IDLE` if you will shoot again soon, `OFF` at the end, `KEEP` to leave aim and spin running
+   - `yawTrimDeg`, `hoodTrimDeg`, `rpmTrim` (optional, default 0): TeleOp's GP2 aim trims, see below
+   - set the step's `timeoutS` a little above `readyTimeoutSeconds + seconds` (for example 5.6 for 3 + 2.5)
 7. **Check it worked.** Add a **branch** on `commandFailed`: in the *then* arm, `stopAll`; in the *else* arm,
    carry on. (`commandFailed` is true when the volley timed out, skipped or was cancelled.)
 8. **Park.** Add a final **path** to your parking spot, then a last `stopAll`.
@@ -142,10 +144,11 @@ A minimal shooting fragment looks like this in the file:
 ```json
 { "id": "driveAndAim", "kind": "parallel", "mode": "all", "steps": [
     { "id": "toShot", "kind": "path", "...": "drawn in the editor" },
-    { "id": "preAim", "kind": "command", "name": "aimNearest", "args": { "spin": true } }
+    { "id": "preAim", "kind": "command", "name": "aim",
+      "args": { "side": "AUDIENCE", "frame": "AUTHORED", "spin": true } }
 ] },
 { "id": "volley1", "kind": "command", "name": "volley",
-  "args": { "target": "NEAREST", "feedSeconds": 2.5, "readyTimeoutSeconds": 3,
+  "args": { "side": "AUDIENCE", "frame": "AUTHORED", "seconds": 2.5, "readyTimeoutSeconds": 3,
             "onTimeout": "FIRE", "after": "IDLE" },
   "timeoutS": 5.6 }
 ```
@@ -155,13 +158,12 @@ A minimal shooting fragment looks like this in the file:
 | You want to... | Use |
 | --- | --- |
 | Shoot like TeleOp | `volley` |
-| Pre-aim and spin up while driving | `aimNearest` or `aim` (in parallel with a path) |
-| Nudge the aim if shots land consistently off | `aimTrim` (yaw ±10°, hood ±5°, RPM ±500), before the volley |
+| Pre-aim and spin up while driving | `aim` (in parallel with a path) |
+| Nudge the aim if shots land consistently off | the `yawTrimDeg` (±10°), `hoodTrimDeg` (±5°) and `rpmTrim` (±500) arguments of `volley` |
 | Collect | `intakeOn` + `loadOn` before a path (end the path on `queueFull` if you like), then `intakeOff` |
 | Collect until full, with a time limit | `loadUntilFull` |
 | Flower/depollinator | `depollinatorDeploy`, then wait on `depollinatorSettledEstimated`; `depollinatorHome` after |
-| Linear slide / shot blocker | `slideRaise`, `slideLower`, `waitSlide` |
-| Keep the flywheel warm between volleys | `flywheelIdle` |
+| Keep the flywheel warm between volleys | `volley` with `after = IDLE` (3000 RPM), or `flywheelSetRpm` |
 | Stop everything | `stopAll` |
 | Wait | a **wait** step: seconds, or a condition with a `timeoutS` |
 
@@ -223,12 +225,12 @@ aiming, flywheel spinning up, gate and transfer during the volley. Use `onTimeou
 balls flying.
 
 **Rung 4: on the floor, slow, cleared area.** Path speeds around 30%, one driver's hand on STOP. Check the robot
-drives the shape you drew and stops where you expect. Watch the **Volley** and **Last bounded action** telemetry
-lines: they tell you whether each volley fed after READY (SUCCESS), fed early or skipped (TIMEOUT), or was
-cancelled.
+drives the shape you drew and stops where you expect. Watch the **Last bounded action** telemetry
+line: it tells you whether each volley fed after READY (SUCCESS), fed early or skipped (TIMEOUT, with the reason),
+was inhibited, or was cancelled.
 
 **Rung 5: real speed, real game pieces.** Raise path speeds step by step. Check shots land; if they're
-consistently off, fix the start pose or odometry first, and only then consider a small `aimTrim`.
+consistently off, fix the start pose or odometry first, and only then consider a small trim on `volley`.
 
 **Rung 6: match rehearsal.** Run it from the real start position, with a timer, several times in a row. Test STOP
 in the middle of a run: everything should stop. Then run the matching TeleOp right after; it receives the
@@ -239,8 +241,7 @@ auto's final pose.
 | Line | Meaning |
 | --- | --- |
 | Autonomous step / remaining | Which step is running and how many seconds are left. |
-| Last bounded action | The last action that can succeed or fail, with SUCCESS / TIMEOUT / INHIBITED / FAULT / CANCELLED and why. |
-| Volley | The volley phase: AIMING, FEEDING, DONE or SKIPPED, with a note such as "fed before READY (timeout)". |
+| Last bounded action | The last action that can succeed or fail, with SUCCESS / TIMEOUT / INHIBITED / FAULT / CANCELLED and why. For `volley` the reason says "Volley fed N s", "Fed before READY (ready timeout); readiness bypassed", or "SKIPPED: ...". |
 | Output modes yaw / hood / flywheel | AUTO means aiming is in control; MANUAL means a fixed value you set. |
 | Targets yaw / hood / flywheel | What the turret, hood and flywheel are being told to do. |
 
@@ -252,14 +253,14 @@ auto's final pose.
 | START throws "Pinpoint has no READY, fresh autonomous start pose" | Pinpoint not ready: wait in INIT longer, check its wiring. |
 | `zenith:validate` says "condition waits require timeoutS" | Give every condition wait a `timeoutS`. |
 | My new auto isn't on the Driver Station | You didn't run `npm run zenith:deploy`, or you installed with hot reload instead of a full install. |
-| Volley always says "SKIPPED: turret not homed" | The turret never homed; check the turret encoder and look at INIT telemetry. |
-| Volley always says "fed before READY" | Readiness wasn't met in time: flywheel too slow to spin up, robot still moving, or the pose is off. Pre-aim in parallel with the drive and give it more `readyTimeoutSeconds`. |
+| Volley ends TIMEOUT with "SKIPPED: turret not homed" | The turret never homed; check the turret encoder and look at INIT telemetry. |
+| Volley ends TIMEOUT with "Fed before READY" | Readiness wasn't met in time: flywheel too slow to spin up, robot still moving, or the pose is off. Pre-aim in parallel with the drive and give it more `readyTimeoutSeconds`. |
 | The robot shoots at the wrong cell on Blue | Use `frame = AUTHORED` for named sides. |
 | Two steps fight over a mechanism or one gets cancelled | They require the same mechanism and are in the same parallel group. |
-| Slide actions do nothing | The slide isn't configured on this robot; telemetry says "SKIPPED: linear slide not configured". |
 
 ## 9. Where to go next
 
+- [Create and test guide](ZenithAutoGuide.md): the `volley` reference, the five-stage test ladder and Mac/web-editor steps.
 - [Zenith authoring guide](ZenithAuthoringGuide.md): every action and condition, with exact behavior.
 - [Autonomous.md](Autonomous.md): Pedro setup and tuning order.
 - [MatchAutonomousPlan.md](MatchAutonomousPlan.md) and [MatchAutonomousPlanCycle.md](MatchAutonomousPlanCycle.md):
