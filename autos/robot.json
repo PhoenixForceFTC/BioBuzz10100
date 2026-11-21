@@ -15,9 +15,9 @@
       "provenance": "MEASURED (team, 2026-11-21): 396 mm long x 374 mm wide with the depollinator up. Length is along the robot's forward axis."
     },
     "expandedIn": {
-      "lengthIn": 18,
+      "lengthIn": 15.591,
       "widthIn": 14.724,
-      "provenance": "WIDTH MEASURED (team, 2026-11-21: 374 mm, unchanged by the depollinator). LENGTH IS STILL THE 18 in PLACEHOLDER. The team measured 537 mm (21.142 in) long with the depollinator down, but it is not applied: the depollinator extends from one end only (which end is not recorded) and Zenith models only a box centred on the chassis, so 21.142 in overstates the clear end by about 2.8 in and makes the far-wall draft starts infeasible by 0.17 in. Apply the measured length once the end is confirmed; the 10 small draft nudges it needs are listed in doc/TuningVerificationChecklist.md."
+      "provenance": "CHANGED 2026-11-21 on the team's instruction: the LENGTH is now the chassis length (396 mm = 15.591 in), not the old 18 in placeholder, so the Blue Audience start with the front exactly on the centre line validates (the validator checks every step against this one box and has no per-routine override). The depollinator is not deployed in that routine. EFFECT: routes that DO deploy the depollinator (red-audience, red-far, red-far-cycle) are now checked against a box 2.4 in shorter than before; the measured depollinator-down length is 537 mm (21.142 in) and is still NOT applied (the end it extends from is unrecorded, and Zenith only models a centred box). WIDTH MEASURED (374 mm, unchanged by the depollinator). See doc/TuningVerificationChecklist.md section 5."
     },
     "centreOfRotationIn": {
       "xIn": 0,

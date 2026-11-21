@@ -9,10 +9,10 @@
   "alliance": "RED",
   "start": {
     "pose": {
-      "xIn": -9.2,
+      "xIn": -7.796,
       "yIn": 64.638,
       "headingRad": 0,
-      "provenance": "DERIVED from the measured 396 x 374 mm chassis (15.591 x 14.724 in, robot.json): facing +X, left side on the far wall (y = 72 - 14.724 / 2 = 64.638). On this side 'left side on the wall' puts the FRONT toward the centre line (the back cannot touch it). Front touching the line would be x = -7.796; Zenith checks every step against the centred 18 in expandedIn placeholder, which would cross the line by 1.2 in there (OPPONENT_SIDE, blocks deploy), so the authored x is -9.2 and the real front sits 1.4 in off the line. INIT tag relocalization (up to 0.15 m) should absorb a robot placed touching the line. Blue mirror (9.2, -64.638, 180 deg). Assumes the Pinpoint tracking point is the chassis centre (robot.json caveat)."
+      "provenance": "DERIVED from the measured 396 x 374 mm chassis (15.591 x 14.724 in, robot.json). Facing +X, left side on the far wall (y = 72 - 14.724 / 2 = 64.638) and the FRONT exactly on the centre line (x = -15.591 / 2 = -7.796, the front edge at -0.0007 in, not over it); the team confirmed this is how the robot is placed. robot.json's expanded length was set to the chassis length on 2026-11-21 so this validates; the depollinator is stowed here and never deployed. Blue mirror (7.796, -64.638, 180 deg). Assumes the Pinpoint tracking point is the chassis centre (robot.json caveat)."
     },
     "holds": {
       "pollen": 4
@@ -38,7 +38,7 @@
         "frame": "AUTHORED",
         "spin": true
       },
-      "notes": "Latch the target and spin up during the delay. AUTHORED: red aims the far cell, the blue wrapper aims the blue audience cell. About 49.7 in to the cell opening, inside the measured shot table."
+      "notes": "Latch the target and spin up during the delay. AUTHORED: red aims the far cell, the blue wrapper aims the blue audience cell. About 50.0 in to the cell opening, inside the measured shot table."
     },
     {
       "id": "startDelay",
@@ -72,7 +72,7 @@
           "from": "current",
           "control": [
             {
-              "xIn": -9.2,
+              "xIn": -7.796,
               "yIn": 50
             },
             {
@@ -90,7 +90,7 @@
         "mode": "constant",
         "headingRad": 0
       },
-      "notes": "Pull straight off the wall first (clears flower1's foot behind, x -27 to -21), then back toward the red wall holding heading. End pose (-56.2, 52.36, 0 deg): the rear-right corner sits at (-64.0, 45.0), 3 in inside the loading zone's corner (x < -61, y < 48); the other three corners are outside it. Blue mirror (56.2, -52.36, 180 deg), corner at (64.0, -45.0)."
+      "notes": "Pull straight off the wall first (first control point at the start x) (clears flower1's foot behind, x -27 to -21), then back toward the red wall holding heading. End pose (-56.2, 52.36, 0 deg): the rear-right corner sits at (-64.0, 45.0), 3 in inside the loading zone's corner (x < -61, y < 48); the other three corners are outside it. Blue mirror (56.2, -52.36, 180 deg), corner at (64.0, -45.0)."
     },
     {
       "id": "park",

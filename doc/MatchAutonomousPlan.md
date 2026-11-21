@@ -87,7 +87,7 @@ Blue Audience mirror: start (10, −63, 180°) with the left side on the audienc
 ## Measure before trusting these routes
 
 - The exact start spots: x along the wall for both starts. Red Audience must not touch the garden; Red Far must not touch flower1 and must stay on red's half.
-- Robot footprint and the deployed depollinator envelope. Zenith still uses the 18 × 18 in placeholder; Red Far's turn off the wall passes about 1 in from flower1's foot.
+- Robot footprint and the deployed depollinator envelope. Zenith's expanded box is the measured 14.724 in width by the chassis length (15.591 in); the measured depollinator-down length (537 mm) is not applied; Red Far's turn off the wall passes about 1 in from flower1's foot.
 - The flower approach: which direction, how far, and whether the depollinator needs a dwell or wiggle to release pollen.
 - Garden sweep end x, and whether the intake picks up pollen 1.4 in off the wall with the robot touching it.
 - Real `turretHome`, spin-up and 4-ball feed times. `shoot` is timed (2.5 s), not counted.

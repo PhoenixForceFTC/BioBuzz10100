@@ -48,7 +48,7 @@ The repo does not define an acceptable miss, so the team sets the limits below b
 | --- | --- | --- |
 | Chassis, depollinator up | 396 mm long x 374 mm wide (15.591 x 14.724 in) | Measured 2026-11-21, applied in `autos/robot.json` |
 | Width with the depollinator down | 374 mm (14.724 in) | Measured, applied |
-| Length with the depollinator down | 537 mm (21.142 in) | Measured, **not applied**: see section 5 |
+| Length with the depollinator down | 537 mm (21.142 in) | Measured, **not applied**: see section 5. The validator's expanded length is currently the chassis length, 15.591 in (changed 2026-11-21 so the Blue Audience start can sit exactly on the centre line). |
 | Robot height | Unknown; `robot.json` still has the 18 in placeholder | ☐ Measure |
 | Pinpoint tracking point is the chassis centre | Not confirmed (pod offsets +32 / -74 mm) | ☐ Confirm |
 
