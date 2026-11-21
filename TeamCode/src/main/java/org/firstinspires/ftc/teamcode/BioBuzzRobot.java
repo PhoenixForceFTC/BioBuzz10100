@@ -125,6 +125,7 @@ public final class BioBuzzRobot implements ZenithRobot {
     }
     boolean commandFailed() { return !outcome.equals("NONE") && !outcome.equals("SUCCESS"); }
     String lastOutcome() { return outcome; }
+    String lastOutcomeReason() { return outcomeReason; }
     @Override public Command step(String id, Command command) {
         return new CommandBuilder().requiring(command.requirements()).setPriority(command.priority())
                 .setInterruptedBehavior(command.interruptedBehavior()).setBlockedBehavior(command.blockedBehavior())

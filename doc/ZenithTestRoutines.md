@@ -11,6 +11,17 @@ Four Zenith routines for checking basic robot motion. They live in `autos/` and 
 
 Times are Zenith's estimates, using several unmeasured robot numbers (acceleration, angular speed), so treat them as rough. All four fit the 29 s autonomous limit with margin (the slowest case, `test-line`, is about 24 s).
 
+## Volley tests
+
+Two more routines test the shooting procedure (`volley`). Unlike the drivetrain tests they use the **real competition field** and the real red audience-side start (robot facing -X, left side on the audience wall, back about 1.4 in from the centre line), because the turret aims at the hive cell by field position. From there the audience cell is **about 49.6 in** away, inside the measured shot table, so the shot should show **about 3200 RPM and 5.7° of hood travel**. A bench run can sit on blocks anywhere: the authored pose only decides where the turret thinks the hive is.
+
+| Routine | Title on the Driver Station | What it does | Estimated time |
+| --- | --- | --- | --- |
+| `test-volley` | TEST: Volley from the wall start (bench or live) | Pre-aim and spin up for 2 s, one volley with `onTimeout: SKIP` (never fired unready), then a 4 s pause to read the outcome. With balls loaded and a ready shot it feeds for 2.5 s; with no balls nothing is launched. | 11.5 s |
+| `test-volley-checks` | TEST: Volley checks, NO BALLS (inhibit, fallback, normal) | Three volleys with a 3 s pause after each. (1) Feed inhibit set: expect `INHIBITED`. (2) `FIRE` with a zero ready timeout: expect `TIMEOUT` "Fed before READY", with the gate and both transfer motors running together for 1 s. (3) A normal `SKIP` volley: `SUCCESS` or `TIMEOUT` "SKIPPED". | 18.0 s |
+
+**Load no balls for `test-volley-checks`:** check 2 uses `FIRE`, which feeds with readiness bypassed. Read *Last bounded action* during each pause; it shows only the latest result. The full procedure, expected values and live-ball stages are in `doc/AutosAndCompetitionDay.md` (section 4, on PR #4's branch). The unit test `deployedVolleyTestRoutinesBehaveAsTheirNotesSay` runs both files through Zenith's native builder and checks the inhibit, fallback and skip behaviour against fake hardware.
+
 ## What each one tells you
 
 - **Corners:** the miss at each corner shows whether odometry scale and direction are right in all four directions. The forward and backward legs use the X pod, the strafe legs the Y pod, so a bad Y-pod offset shows up only on the strafe legs.
