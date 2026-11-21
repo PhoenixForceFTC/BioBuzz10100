@@ -12,7 +12,9 @@ import com.pedropathing.math.Vector2D;
  */
 public final class PedroConfiguration {
     private PedroConfiguration() {}
-    public static final boolean TUNING_VERIFIED = false;
+    // Set true on 2026-11-21 on the team's instruction. The checks in doc/TuningVerificationChecklist.md were NOT
+    // recorded before this change: no measured results are on file. Set back to false to restore the START gate.
+    public static final boolean TUNING_VERIFIED = true;
     public static final double INCHES_PER_METER = 1 / .0254;
     public static final double MM_PER_INCH = 25.4;
     // Foresight tuner output measured on V1 (web tuner, second run 2026-11-19), at full wheel power. Run Test: Pedro

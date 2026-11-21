@@ -1,5 +1,7 @@
 # Pedro tuning verification checklist
 
+> **Status 2026-11-21:** `TUNING_VERIFIED` was set to `true` on the team's instruction without these checks being recorded here. The tables below are still blank. Fill them in as the checks are run; they remain the way to confirm the tune, and the flag can be set back to `false` at any time.
+
 Use this to earn the right to set `PedroConfiguration.TUNING_VERIFIED = true`. Until it is true, every Zenith routine refuses to START (`BioBuzzRobot.onStart` throws *"Measure and verify PedroConfiguration before running autonomous"*). Copy this file into the pull request that flips the flag and fill it in. The background is in [Autonomous.md](Autonomous.md#before-robot-motion).
 
 The drivetrain dynamics, braking and gains were already measured on this robot on 2026-11-19 (Foresight tuner, second run). This checklist verifies them; it does not re-measure them. Re-run the Foresight Tuner only if the robot's mass, wheels or drivetrain changed since then.
@@ -24,7 +26,7 @@ Record the battery voltage: the dynamics depend on it, so a low battery can make
 | **Test: Pedro Drive**, press A (12 in forward) | Robot drives forward and stops; odometry reads about +12 in X | ☐ |
 | Press B (90° CCW hold) | Robot turns counterclockwise; odometry heading about +90° | ☐ |
 | Press X, or move a stick while it runs | The robot stops at once | ☐ |
-| INIT telemetry line "Pedro v3 ... tuning" | Reads REQUIRED now; VERIFIED after the flag is flipped | ☐ |
+| INIT telemetry line "Pedro v3 ... tuning" | Reads VERIFIED while the flag is `true` (REQUIRED if it is set back) | ☐ |
 
 ## 2. Pedro web tuner Tests
 
@@ -62,7 +64,7 @@ Only after sections 1-3 are filled in and every row passes.
 
 | Sign-off | |
 | --- | --- |
-| Verified by / date | |
+| Verified by / date | Declared verified on the team's instruction, 2026-11-21. **No test measurements are recorded in this file;** the tables above were not filled in. |
 | Reviewed by / date | |
 
 ## 5. Applying the depollinator-down length later

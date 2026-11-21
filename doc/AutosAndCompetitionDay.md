@@ -4,7 +4,7 @@ Written 2026-11-21 against `V1.0.1` plus the open pull requests (#1-#5). It will
 
 ## 1. The autos in the repo
 
-"Gated" means the routine refuses to START until `PedroConfiguration.TUNING_VERIFIED` is `true`.
+**Update 2026-11-21:** `PedroConfiguration.TUNING_VERIFIED` has been `true` since 2026-11-21 (set on the team's instruction; the checks in [TuningVerificationChecklist.md](TuningVerificationChecklist.md) were not recorded), so the gate no longer blocks any routine. "Gated" in the table below means the routine was blocked by that gate when this was written, and would be again if the flag were set back to `false`.
 
 | Driver Station name | Group | What it is | Can it run today? |
 | --- | --- | --- | --- |
@@ -52,11 +52,11 @@ Some of this is general FTC practice rather than something the repo defines.
 - **Wireless limits:** check the event's wireless rules before tuning near the field.
 - **Keep a fallback ready**, and record each run's outcome, battery voltage and the "Last bounded action" telemetry line.
 
-Until Pedro tuning is verified, only the fallback autos are safe to count on. The checklist in `doc/TuningVerificationChecklist.md` is the path to unblock the Zenith autos.
+The flag is `true`, but the verification checks have not been recorded, so treat the Zenith autos as unverified: run them slowly, in a cleared area, with someone holding STOP. The checklist in `doc/TuningVerificationChecklist.md` is how to record the checks.
 
 ## 4. How to test the volley
 
-`volley` is the autonomous version of TeleOp's RT + LT auto-shoot (with the GP1 A fallback). Test it in layers, cheapest first. Stages 2-4 need a Zenith routine, so they are blocked until `TUNING_VERIFIED` is `true`; stage 1 is not.
+`volley` is the autonomous version of TeleOp's RT + LT auto-shoot (with the GP1 A fallback). Test it in layers, cheapest first. Stages 2-4 need a Zenith routine, which START only while `TUNING_VERIFIED` is `true` (it has been since 2026-11-21); stage 1 does not need the robot.
 
 ### Stage 1: in software (no robot)
 
@@ -121,5 +121,5 @@ Also check what the volley leaves behind: `after: KEEP` leaves aim and spin runn
 
 Run the real routine slowly in a cleared area. Check that the volley's range from the final pose of the preceding path is inside the table, that pre-aiming in parallel with the drive makes it ready sooner, and that the whole routine fits the 29 s limit with the volley's worst case (`readyTimeoutSeconds + seconds`) counted.
 
-Until Zenith autos are unblocked, you can still check the same procedure by hand in TeleOp (RT + LT, GP1 A for the fallback) and with **Test: Auto Aim** and **Test: Intake + Index + Shooter**.
+If Zenith autos are blocked again (flag set back to `false`), you can still check the same procedure by hand in TeleOp (RT + LT, GP1 A for the fallback) and with **Test: Auto Aim** and **Test: Intake + Index + Shooter**.
 

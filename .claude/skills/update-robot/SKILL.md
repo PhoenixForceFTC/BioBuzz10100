@@ -61,7 +61,7 @@ If validation fails, read the error. Common ones: a condition wait needs `timeou
 
 ## Step 3: Check the gate
 
-Read `PedroConfiguration.TUNING_VERIFIED`. If it is `false`, tell the user every Zenith auto and the Pollen test will refuse to START (*"Measure and verify PedroConfiguration before running autonomous"*). Only the fallback autos (`Auto: Red/Blue Fallback`) and the ungated `BioBuzzAuto` can run. Installing is still fine; do not change the flag.
+Read `PedroConfiguration.TUNING_VERIFIED` (it has been `true` since 2026-11-21, set on the team's instruction without the checklist results being recorded; say so if asked). If it is `false`, tell the user every Zenith auto and the Pollen test will refuse to START (*"Measure and verify PedroConfiguration before running autonomous"*). Only the fallback autos (`Auto: Red/Blue Fallback`) and the ungated `BioBuzzAuto` can run. Installing is still fine; do not change the flag.
 
 ## Step 4: Install (after the user confirms the robot is ready)
 
