@@ -16,9 +16,48 @@ This work is kept separate from the team's own autos: `FallbackAutonomous`, the 
 | **Red Far Cycle (5 s, far 4+4, audience 4+4)** | Generated: `DRAFT Auto: Red Far Cycle …` from [`red-far-cycle`](../autos/red-far-cycle.auto.json) | draft | 29.2 s nominal, **does not fit yet** ([timing](#timing-does-not-fit-yet)) |
 | Blue Audience Cycle (Red Far Cycle mirrored) | Competition: `DRAFT Auto: Blue Audience Cycle (mirrors red-far-cycle)` (`BlueAudienceCycleAutonomous`) | draft | same route |
 | **Blue Audience Delay + Volley + Park** (10 s, volley 4, park one corner in the loading zone) | Competition: `DRAFT Auto: Blue Audience Delay + Volley + Park` (`BlueAudienceVolleyParkAutonomous`), running [`red-far-volley-park`](../autos/red-far-volley-park.auto.json) mirrored; the red file also generates `DRAFT Auto: Red Far Delay + Volley + Park` | draft | 18.35 s nominal ([below](#blue-audience-delay--volley--park)) |
+| Red Far Safety (leave + park, no shooting) | Generated: `DRAFT Auto: Red Far Safety (Leave + Park, unmeasured)` from [`red-far-safety-park`](../autos/red-far-safety-park.auto.json) | draft | 2.9 s nominal |
+| Blue Audience Safety (Red Far Safety mirrored) | Competition: `DRAFT Auto: Blue Audience Safety (Leave + Park)` (`BlueAudienceSafetyParkAutonomous`) | draft | same route |
+| Red Audience Safety (leave + park, no shooting) | Generated: `DRAFT Auto: Red Audience Safety (Leave + Park, unmeasured)` from [`red-audience-safety-park`](../autos/red-audience-safety-park.auto.json) | draft | 6.1 s nominal |
+| Blue Far Safety (Red Audience Safety mirrored) | Competition: `DRAFT Auto: Blue Far Safety (Leave + Park)` (`BlueFarSafetyParkAutonomous`) | draft | same route |
+| Red Audience Delay + Volley + Park | Generated: `DRAFT Auto: Red Audience Delay + Volley + Park (unmeasured)` from [`red-audience-volley-park`](../autos/red-audience-volley-park.auto.json) | draft | 21.6 s nominal |
+| Blue Far Delay + Volley + Park (Red Audience mirrored) | Competition: `DRAFT Auto: Blue Far Delay + Volley + Park` (`BlueFarVolleyParkAutonomous`) | draft | same route |
 | Autonomous tag relocalization | all Pedro/Zenith full-robot autos | implemented | JVM-tested; not tested on the robot |
 
-None of the Pedro/Zenith routes can START until `PedroConfiguration.TUNING_VERIFIED` is set, and none can feed automatically until the shot table is calibrated.
+`PedroConfiguration.TUNING_VERIFIED` has been `true` since 2026-11-21 (set on the team's instruction; the checklist results were not recorded), so the START gate no longer blocks these routes. The shot table is team-measured (2026-11-19, final), so automatic feeding runs once the shot is ready. Nothing here has run on the robot.
+
+## The eight match autos
+
+Four start positions, each with a **safety** (leave and park, no shooting) and a **volley** (10 s delay, volley the 4 preload, park). Each is authored once in the red frame; the blue entry is the point-mirror of the red file.
+
+| Start (as the drivers see it) | Safety | Volley + park | Red file | Blue wrapper |
+| --- | --- | --- | --- | --- |
+| Red Far | Red Far Safety | Red Far Delay + Volley + Park | `red-far-safety-park`, `red-far-volley-park` | n/a (red) |
+| Blue Audience (mirror of Red Far) | Blue Audience Safety | Blue Audience Delay + Volley + Park | same files | `BlueAudienceSafetyParkAutonomous`, `BlueAudienceVolleyParkAutonomous` |
+| Red Audience | Red Audience Safety | Red Audience Delay + Volley + Park | `red-audience-safety-park`, `red-audience-volley-park` | n/a (red) |
+| Blue Far (mirror of Red Audience) | Blue Far Safety | Blue Far Delay + Volley + Park | same files | `BlueFarSafetyParkAutonomous`, `BlueFarVolleyParkAutonomous` |
+
+**Start placement (red frame; blue is the mirror).** Left side exactly on the field edge, and one edge exactly on the centre line, on the chassis' measured 15.591 x 14.724 in:
+
+| Start | Pose | Facing | Which edge is on the line |
+| --- | --- | --- | --- |
+| Far wall (Red Far, Blue Audience) | (-7.796, 64.638, 0 deg) | +X, toward the centre line | the **front** |
+| Audience wall (Red Audience, Blue Far) | (-7.796, -64.638, 180 deg) | -X, toward the red wall | the **back** |
+
+`MatchAutoStartTest` pins both starts to these edges.
+
+**Park.** Every park leaves the chassis 8.00 in from the red (or blue) wall, touches no other wall, and has only a 3.00 x 3.00 in square of one corner inside the loading zone (the zone bounds are marked APPROX in the field file, so check the spot on the real field):
+
+| Family | Park pose (red frame) | Corner in the zone | Estimate |
+| --- | --- | --- | --- |
+| Far | (-56.2, 52.36, 0 deg), reached by backing off the wall then toward the red wall | rear-right | safety 2.9 s; volley 18.35 s |
+| Audience | (-56.2, 19.638, 180 deg), reached diagonally off the wall then up the red side (the second leg is a strafe) | front-right, at (-64.0, 27.0) | safety 6.1 s; volley 21.6 s |
+
+**Assumptions to confirm.**
+- **Delay:** the 10 s delay is on all four volley autos. The audience cell (Red Audience) and the blue far cell (Blue Far) are raised at the start of a match, so those two may not need it; the wait is the `startDelay` step in the file.
+- **Raised cells:** from the start rules in `AutoStartRelocalization`, the red audience and blue far cells start raised, and the red far and blue audience cells start lowered.
+- **Pinpoint:** the tracking point is still assumed to be the chassis centre.
+- **Draft:** `FIRE` after the 3 s ready timeout, and nothing has run on the robot.
 
 Blue never has its own route file. Each blue wrapper loads the red file with `new BioBuzzRobot(TurretSubsystem.Alliance.BLUE)`, so Ivy point-mirrors every pose once, (x, y, h) → (−x, −y, h + π), and `aim(frame=AUTHORED)` swaps AUDIENCE/FAR. Each wrapper preselects `Mecanum TeleOp - Blue`. Team validation (`scripts/zenith-project.cjs`) now allows exactly one other-alliance wrapper per routine. It still refuses same-alliance or second mirror wrappers.
 

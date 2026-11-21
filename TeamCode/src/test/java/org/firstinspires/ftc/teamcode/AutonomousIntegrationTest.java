@@ -712,6 +712,27 @@ public class AutonomousIntegrationTest {
         assertTrue(checks.get(2)[1],checks.get(2)[1].contains("SKIPPED"));
         assertEquals("the normal SKIP volley fed nothing more",checks.get(1)[2],checks.get(2)[2]);
     }
+    @Test public void deployedMatchAutosRunToCompletionAndBehaveAsTheirNotesSay() throws Exception {
+        // Safeties: one path, no shooting, no bounded-action outcome, nothing ever fed.
+        for (String name : new String[]{"red-far-safety-park","red-audience-safety-park"}) {
+            home();
+            List<String[]> safety=runDeployedWithEvents(name);
+            assertEquals(name,0,safety.size());
+            assertEquals(name+" is one continuous path",1,context.followed.size());
+            setup2();
+        }
+        // Volley autos: the fixture never becomes READY, so the FIRE fallback feeds after the ready timeout.
+        for (String name : new String[]{"red-far-volley-park","red-audience-volley-park"}) {
+            home();
+            List<String[]> volley=runDeployedWithEvents(name);
+            assertEquals(name,1,volley.size());
+            assertEquals("TIMEOUT",volley.get(0)[0]);
+            assertTrue(volley.get(0)[1],volley.get(0)[1].contains("Fed before READY"));
+            assertTrue(name+" fed",Integer.parseInt(volley.get(0)[2])>0);
+            assertEquals(name+" parks with one path",1,context.followed.size());
+            setup2();
+        }
+    }
     /** Fresh fixture between routines (the scheduler and named-command registry are global). */
     private void setup2() { reset(); setup(); }
     private static final class Harness extends BioBuzzAutoFromFile {

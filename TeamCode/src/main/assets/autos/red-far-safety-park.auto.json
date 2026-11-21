@@ -1,0 +1,69 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "red-far-safety-park",
+  "title": "DRAFT Auto: Red Far Safety (Leave + Park, unmeasured)",
+  "description": "DRAFT safety auto, 2026-11-21. No shooting: leave the start area and park. Red frame: left side on the far wall, facing +X (toward the centre line), front exactly on the centre line. Back straight off the wall, then toward the red wall holding heading, and park with only the rear-right corner (about 3 x 3 in) inside the red loading zone and nothing touching a wall. No delay. Blue mirror (BlueAudienceSafetyParkAutonomous): audience wall on the left, facing red, park with one corner in the blue loading zone. The preload stays in the robot.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -7.796,
+      "yIn": 64.638,
+      "headingRad": 0,
+      "provenance": "DERIVED from the measured 396 x 374 mm chassis (15.591 x 14.724 in, robot.json). Facing +X, left side on the far wall (y = 72 - 14.724 / 2 = 64.638) and the FRONT exactly on the centre line (x = -15.591 / 2 = -7.796, the front edge at -0.0007 in, not over it); the team confirmed this is how the robot is placed. robot.json's expanded length was set to the chassis length on 2026-11-21 so this validates; the depollinator is stowed here and never deployed. Blue mirror (7.796, -64.638, 180 deg). Assumes the Pinpoint tracking point is the chassis centre (robot.json caveat)."
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "depollinatorStow",
+      "kind": "command",
+      "name": "depollinatorHome"
+    },
+    {
+      "id": "toPark",
+      "kind": "path",
+      "timeoutS": 7,
+      "speedFraction": 0.35,
+      "segments": [
+        {
+          "kind": "bezier",
+          "from": "current",
+          "control": [
+            {
+              "xIn": -7.796,
+              "yIn": 50
+            },
+            {
+              "xIn": -40,
+              "yIn": 50
+            }
+          ],
+          "to": {
+            "xIn": -56.2,
+            "yIn": 52.36
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0
+      },
+      "notes": "Pull straight off the wall first (first control point at the start x) (clears flower1's foot behind, x -27 to -21), then back toward the red wall holding heading. End pose (-56.2, 52.36, 0 deg): the rear-right corner sits at (-64.0, 45.0), 3 in inside the loading zone's corner (x < -61, y < 48); the other three corners are outside it. Blue mirror (56.2, -52.36, 180 deg), corner at (64.0, -45.0)."
+    },
+    {
+      "id": "park",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

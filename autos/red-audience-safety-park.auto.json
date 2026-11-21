@@ -1,0 +1,67 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "red-audience-safety-park",
+  "title": "DRAFT Auto: Red Audience Safety (Leave + Park, unmeasured)",
+  "description": "DRAFT safety auto, 2026-11-21. No shooting: leave the start area and park. Red frame: left side on the audience wall, facing -X (toward the red wall), back edge exactly on the centre line. Drive up the red side and park with only the front-right corner (about 3 x 3 in) inside the red loading zone and nothing touching a wall. No delay. Blue mirror (BlueFarSafetyParkAutonomous): far wall on the left, facing blue, park with one corner in the blue loading zone. The preload stays in the robot.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -7.796,
+      "yIn": -64.638,
+      "headingRad": 3.1416,
+      "provenance": "DERIVED from the measured 396 x 374 mm chassis (15.591 x 14.724 in, robot.json). Facing -X (toward the red wall), left side on the audience wall (y = -72 + 14.724 / 2 = -64.638) and the BACK edge exactly on the centre line (x = -15.591 / 2 = -7.796, so the back edge is at 0.000 and not over it); the team confirmed this placement. robot.json's expanded length equals the chassis length, and the depollinator is stowed and never deployed here. Blue mirror (Blue Far): (7.796, 64.638, 0 deg). Assumes the Pinpoint tracking point is the chassis centre (robot.json caveat)."
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "depollinatorStow",
+      "kind": "command",
+      "name": "depollinatorHome"
+    },
+    {
+      "id": "toPark",
+      "kind": "path",
+      "timeoutS": 14,
+      "speedFraction": 0.35,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": -56.2,
+            "yIn": -50
+          }
+        },
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": -56.2,
+            "yIn": 19.638
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 3.1416
+      },
+      "notes": "Leave diagonally off the audience wall to (-56.2, -50), then straight up the red side holding heading (facing the red wall, so the second leg is a strafe). End pose (-56.2, 19.638, 180 deg): the front edge is at x = -64.0, 8.0 in from the red wall, and the robot stops just south of the loading zone with only its front-right corner (-64.0, 27.0) inside it: a 3.00 x 3.00 in square. Blue mirror (56.2, -19.638, 0 deg)."
+    },
+    {
+      "id": "park",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "red-audience-volley-park",
+  "title": "DRAFT Auto: Red Audience Delay + Volley + Park (unmeasured)",
+  "description": "DRAFT, 2026-11-21. Red frame: left side on the audience wall, facing -X (toward the red wall), back edge exactly on the centre line. Pre-aim, wait 10 s, volley the 4 preload at the audience cell (about 49.6 in, raised at the start of a match), then drive up the red side and park with only the front-right corner (about 3 x 3 in) inside the red loading zone, nothing touching a wall. Blue mirror (BlueFarVolleyParkAutonomous): far wall on the left, facing blue, volley at the blue far cell, park with one corner in the blue loading zone.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -7.796,
+      "yIn": -64.638,
+      "headingRad": 3.1416,
+      "provenance": "DERIVED from the measured 396 x 374 mm chassis (15.591 x 14.724 in, robot.json). Facing -X (toward the red wall), left side on the audience wall (y = -72 + 14.724 / 2 = -64.638) and the BACK edge exactly on the centre line (x = -15.591 / 2 = -7.796, so the back edge is at 0.000 and not over it); the team confirmed this placement. robot.json's expanded length equals the chassis length, and the depollinator is stowed and never deployed here. Blue mirror (Blue Far): (7.796, 64.638, 0 deg). Assumes the Pinpoint tracking point is the chassis centre (robot.json caveat)."
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "depollinatorStow",
+      "kind": "command",
+      "name": "depollinatorHome"
+    },
+    {
+      "id": "preAim",
+      "kind": "command",
+      "name": "aim",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "spin": true
+      },
+      "notes": "Latch the target and spin up during the delay. AUTHORED: red aims the audience cell, the blue wrapper aims the blue far cell. About 49.6 in to the cell opening, inside the measured shot table."
+    },
+    {
+      "id": "startDelay",
+      "kind": "wait",
+      "seconds": 10,
+      "notes": "10 s delay before the volley, as requested for the volley autos. The audience cell is raised at the start of a match, so a delay may not be needed here; change this wait if the team agrees."
+    },
+    {
+      "id": "volley4",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "seconds": 2.5,
+        "readyTimeoutSeconds": 3,
+        "onTimeout": "FIRE",
+        "after": "OFF"
+      },
+      "timeoutS": 6.6,
+      "notes": "The TeleOp full volley (RT + LT). Timed, not counted: 2.5 s of feed empties the 4 preload. FIRE: if not ready within 3 s it feeds anyway (turret homed only). after OFF: flywheel stops. No ledger expect on purpose (same as red-far): Zenith's solo hive model has this cell lowered, so an expect raises LEGAL_APPROACH and blocks deploy."
+    },
+    {
+      "id": "toPark",
+      "kind": "path",
+      "timeoutS": 14,
+      "speedFraction": 0.35,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": -56.2,
+            "yIn": -50
+          }
+        },
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": -56.2,
+            "yIn": 19.638
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 3.1416
+      },
+      "notes": "Leave diagonally off the audience wall to (-56.2, -50), then straight up the red side holding heading (facing the red wall, so the second leg is a strafe). End pose (-56.2, 19.638, 180 deg): the front edge is at x = -64.0, 8.0 in from the red wall, and the robot stops just south of the loading zone with only its front-right corner (-64.0, 27.0) inside it: a 3.00 x 3.00 in square. Blue mirror (56.2, -19.638, 0 deg)."
+    },
+    {
+      "id": "park",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}
