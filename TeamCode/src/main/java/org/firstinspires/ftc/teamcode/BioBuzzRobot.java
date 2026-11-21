@@ -34,8 +34,8 @@ public final class BioBuzzRobot implements ZenithRobot {
     PollenVision vision;
     PollenVision.Snapshot pollenSnapshot;
     boolean running;
-    private boolean hasStarted;
-    private long started;
+    boolean hasStarted;   // package-private so tests can set the match clock
+    long started;
     String collectionStatus = "Idle";
     private String activeStep = "INIT", outcome = "NONE", outcomeReason = "No bounded action completed", outcomeStep = "INIT";
     private double outcomeAt;
@@ -102,6 +102,8 @@ public final class BioBuzzRobot implements ZenithRobot {
     @Override public void registerCommands(AutoFromFile opMode) { new AutonomousCommands(this).register(); }
     double now() { return nanoTime() * 1e-9; }
     @Override public long nanoTime() { return clock.getAsLong(); }
+    /** Seconds since START (0 before it): the match clock the time guards read. */
+    double elapsedSeconds() { return hasStarted ? (nanoTime() - started) * 1e-9 : 0; }
     double remainingSeconds() { return hasStarted ? Math.max(0, PedroConfiguration.MAX_AUTONOMOUS_SECONDS - (nanoTime() - started) * 1e-9) : PedroConfiguration.MAX_AUTONOMOUS_SECONDS; }
     void outcome(String result, String reason) {
         if (terminalOutcome) return;

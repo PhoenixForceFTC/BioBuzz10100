@@ -84,6 +84,7 @@ A routine is a list of **steps** that run top to bottom. There are seven kinds: 
 | `onTimeout` | `FIRE` | `FIRE`, `SKIP` | What to do if not ready in time. |
 | `after` | `KEEP` | `KEEP`, `IDLE`, `OFF` | `KEEP` aim + spin; `IDLE` TeleOp idle RPM (3000) with yaw held; `OFF` stop the flywheel, hold yaw. |
 | `yawTrimDeg` / `hoodTrimDeg` / `rpmTrim` | 0 | ±10° / ±5° / ±500 | TeleOp's GP2 auto-aim trims, applied from this volley until the next volley or `aimOff`. |
+| `latestStartS` | 0 (automatic) | 0-29 | Match-clock second after which the gate will not open. 0 means the 29 s global deadline minus `seconds`, so a late volley is skipped instead of being cut off mid-feed. |
 
 The defaults match the planner (`FEED_SECONDS` 2.5, `READY_TIMEOUT_S` 3).
 
@@ -94,6 +95,7 @@ The defaults match the planner (`FEED_SECONDS` 2.5, `READY_TIMEOUT_S` 3).
 | `SUCCESS` | Became ready on its own and fed for `seconds`. |
 | `TIMEOUT` (reason "Fed before READY...") | Not ready in time; `FIRE` fed with readiness bypassed. Balls were launched, but readiness was missed. |
 | `TIMEOUT` (reason "SKIPPED...") | Nothing was fed: `SKIP`, or `FIRE` with an un-homed turret. |
+| `TIMEOUT` (reason "SKIPPED: too late...") | The time guard: the match clock passed `latestStartS` before the gate opened, so nothing was fed. A feed already under way is never cancelled by the guard. |
 | `INHIBITED` | Feed inhibit was set; inhibit always wins, even over `FIRE`. |
 | `CANCELLED` | Interrupted (outer timeout, race group, STOP). |
 
@@ -189,6 +191,11 @@ npm run zenith:check                   # must report 0 writes, 0 removals
 **Stopping:** Driver Station STOP stops all outputs and closes the gate. The routine also stops on completion, on localization loss, at the 29 s deadline and on an exception. Test STOP and a fault in the cleared area before relying on a routine in a match.
 
 ---
+
+### Automatic checks
+
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request: the three Zenith commands, then the unit tests and a debug APK build. It does not run the SimLoop suite, because three of its tests already fail on `V1`.
+- **Shot-range check** (`AutoVolleyRangeTest`): every `volley` and `shoot` under `autos/` must be fired from inside the measured shot table (12-60 in from the hive opening). The profile extrapolates outside it, which gives a hood and RPM from an unmeasured line. Routines titled DRAFT or EXAMPLE only print a report, so placeholder coordinates do not fail the build; remove the word from the title once the route is measured and the check starts enforcing.
 
 ## 6. Troubleshooting
 

@@ -719,7 +719,7 @@
     },
     {
       "name": "volley",
-      "summary": "TeleOp full auto-shoot (RT+LT): aim, wait up to readyTimeoutSeconds for readiness, feed for seconds, then apply after. Not ready in time: FIRE feeds with readiness bypassed (TeleOp GP1 A) only if the turret is homed; SKIP feeds nothing. Inhibit wins. Time-bounded, never a piece count.",
+      "summary": "TeleOp full auto-shoot (RT+LT): aim, wait up to readyTimeoutSeconds for readiness, feed for seconds, then apply after. Not ready in time: FIRE feeds with readiness bypassed (TeleOp GP1 A) only if the turret is homed; SKIP feeds nothing. Inhibit wins. Skipped if it would start too late to finish before the global deadline (latestStartS). Time-bounded, never a piece count.",
       "params": {
         "side": {
           "type": "enum",
@@ -792,6 +792,13 @@
           "max": 500,
           "default": 0,
           "provenance": "TeleOp GP2 RPM trim (AutoAimAdjustments, +-500 RPM); applies from this volley until the next volley or aimOff."
+        },
+        "latestStartS": {
+          "type": "number",
+          "min": 0,
+          "max": 29,
+          "default": 0,
+          "provenance": "Match-clock second after which the gate will not open: a volley still aiming then is skipped (TIMEOUT, 'too late'). 0 = automatic: the 29 s global deadline minus `seconds`, so a late volley is skipped instead of cut off mid-feed. Ball timing on this robot is unmeasured; set it from measured first-ball and per-ball times."
         }
       },
       "estimateS": "seconds + readyTimeoutSeconds",

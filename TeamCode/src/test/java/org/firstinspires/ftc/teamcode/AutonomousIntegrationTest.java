@@ -388,6 +388,44 @@ public class AutonomousIntegrationTest {
         assertFalse(robot.outputs.aiming());
         assertEquals(CompetitionShotPipeline.FLYWHEEL_IDLE_RPM,robot.turret.getTargetShooterRpm(),0);
     }
+    @Test public void volleyIsSkippedBeforeTheGateOpensWhenTooLateToFinishBeforeTheDeadline() {
+        home();
+        robot.hasStarted=true;
+        // Default latest start = 29 s - seconds: a 2.5 s volley may start until 26.5 s on the match clock.
+        robot.started=now-(long)(27.0e9);
+        Command late=command("volley","seconds",2.5,"readyTimeoutSeconds",.1,"onTimeout","FIRE");
+        late.start();
+        assertFalse("no feed once it is too late",runVolley(late,100));
+        assertTrue(late.done()); late.end(EndCondition.NATURALLY);
+        assertEquals("TIMEOUT",robot.lastOutcome());
+        assertFalse(robot.gate.isOpenCommanded());
+        // Explicit later limit: the same 27 s clock is allowed, so it feeds.
+        robot.started=now-(long)(27.0e9);
+        Command allowed=command("volley","seconds",.4,"readyTimeoutSeconds",.1,"onTimeout","FIRE","latestStartS",28);
+        allowed.start();
+        assertTrue("fed with an explicit latestStartS past the clock",runVolley(allowed,100));
+        allowed.end(EndCondition.NATURALLY);
+        // Before START the clock reads 0, so the guard never blocks a bench run.
+        robot.hasStarted=false;
+        Command bench=command("volley","seconds",.4,"readyTimeoutSeconds",.1,"onTimeout","FIRE");
+        bench.start();
+        assertTrue(runVolley(bench,100)); bench.end(EndCondition.NATURALLY);
+    }
+    @Test public void volleyLatestStartIsValidatedAndCannotBlockAnAlreadyFeedingVolley() {
+        assertThrows(IllegalArgumentException.class,()->command("volley","latestStartS",-1));
+        assertThrows(IllegalArgumentException.class,()->command("volley","latestStartS",30));
+        home();
+        robot.hasStarted=true; robot.started=now-(long)(10.0e9);
+        Command v=command("volley","seconds",1.0,"readyTimeoutSeconds",.1,"onTimeout","FIRE","latestStartS",10.5);
+        v.start();
+        boolean fed=false;
+        for (int i=0;i<200 && !v.done();i++) {
+            v.execute(); tick(.02); fed|=robot.transfer.isFeeding();
+            if (i==20) robot.started=now-(long)(20.0e9); // the clock jumps past latestStartS mid-feed
+        }
+        assertTrue("a feed already under way is not cancelled by the guard",fed);
+        v.end(EndCondition.NATURALLY);
+    }
     @Test public void volleyArgumentsAreValidatedDuringInit() {
         assertThrows(IllegalArgumentException.class,()->command("volley","seconds",0));
         assertThrows(IllegalArgumentException.class,()->command("volley","seconds",29));
