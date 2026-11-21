@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 /** Initial hub velocity PIDF gains, voltage-compensated feedforward and the bench-only
- * bang-bang + feedforward fusion law; all require loaded tuning. */
+ * bang-bang + feedforward fusion law (fusion gains team-tuned November 20, 2026). */
 public final class ShooterVelocityTuning {
     private ShooterVelocityTuning() { }
     // Stronger initial proportional recovery; validate overshoot during loaded trials.
@@ -22,19 +22,15 @@ public final class ShooterVelocityTuning {
             * ShooterSpeed.REPORTED_MEASUREMENT_VOLTAGE_VOLTS
             / BareMotorSpecifications.REFERENCE_VOLTAGE_VOLTS;
 
-    // ---- Bang-bang + feedforward fusion (bench comparison controller; untuned initial values) ----
+    // ---- Bang-bang + feedforward fusion (competition flywheel controller) ----
     /** Above this absolute speed error the fusion controller is bang-bang: full power when slow, coast when fast. */
     public static final double FUSION_BANG_BANG_ERROR_TICKS_PER_SECOND = 80.0;
-    // Motor power (0..1) at the 12 V reference; all three are estimates until measured on the robot.
-    // kS: power that just overcomes static friction. Estimate, not a measurement.
-    public static final double INITIAL_FUSION_KS = 0.05;
-    // kV: power per motor tick/s. Solved so kS + kV * speed reproduces the installed-speed
-    // observation (full power = 6100 RPM at 14 V) after voltage compensation.
-    public static final double INITIAL_FUSION_KV = (ShooterSpeed.REPORTED_MEASUREMENT_VOLTAGE_VOLTS
-            / BareMotorSpecifications.REFERENCE_VOLTAGE_VOLTS - INITIAL_FUSION_KS)
-            / (ShooterSpeed.REPORTED_MAX_OBSERVED_RPM / 60 * ShooterSpeed.MOTOR_TICKS_PER_REV);
-    // kP: small correction, power per tick/s of remaining error (0.08 power at the 80 ticks/s edge).
-    public static final double INITIAL_FUSION_KP = 0.001;
+    // Motor power (0..1) at the 12 V reference; kV and kP are per motor tick/s.
+    // Team-tuned on the robot in the Intake + Index + Shooter bench test, November 20, 2026,
+    // at about 14 V (procedure in doc/ShooterVelocityTuning.md). Both competition TeleOps use these.
+    public static final double INITIAL_FUSION_KS = 0.04;
+    public static final double INITIAL_FUSION_KV = 0.00038404662763466;
+    public static final double INITIAL_FUSION_KP = 0.0021;
     public static final double MAX_FUSION_KS = 0.3;
     public static final double MAX_FUSION_KV = 0.002;
     public static final double MAX_FUSION_KP = 0.02;

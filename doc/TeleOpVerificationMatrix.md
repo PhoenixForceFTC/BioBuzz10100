@@ -1115,3 +1115,21 @@ at the 0.02 s tick), and that the flywheel is at rest with fusion OFF until RT a
 `IntakeShooterTestControllerTest` (21, two renamed in the baseline, one added), `CompetitionFeedControllerTest` (2)
 and `FiringCoordinatorTest` (6). `Competition` scenarios were not rerun: no shared competition class changed.
 Physical gate clearance at 0.10 s is not verified.
+
+## Bench test fires like competition (2026-11-21)
+
+Continuous fire in `Test: Intake + Index + Shooter` felt staggered compared with the competition TeleOps. Each ball
+pulls the flywheel out of the 133 RPM continuation band, so firing restarts after the 0.15 s ready delay; the bench
+then added its own 0.10 s gate-to-stage-1 wait and a 3 deg/s turret-rate check, which shot vibration can trip. The
+bench now uses `CompetitionFeedController.firing()` (gate and stage 1 in the same loop) and the competition
+`ShotReadiness.angleReady` yaw check (3 deg, no rate limit; was 4 deg + 3 deg/s) for both the start and continuation
+checks. `GATE_OPEN_TO_TRANSFER_SECONDS` and `BENCH_YAW_TOLERANCE_DEG` were removed; the bench gate uses the
+competition `GATE_TO_FEED_DELAY_SECONDS`. Competition classes are unchanged.
+Simulation decision: ran `MechanismsSimTest`. The transfer-cycle and manual-feed scenarios now assert the transfer
+feeds in the same tick as the gate opening. With the 6100 RPM / 14 V flywheel fixture (2026-11-20) 9 of 11 pass:
+`benchLoadsHoldsFullFeedsAndReloadsThroughActualMotorOutputs` and `benchFusionControllerSpinsUpHoldsAndFeedsThroughActualOpMode`
+fail before any feed because the frictionless sim flywheel overshoots on spin-up and coasts above the ready band
+(no drag in the model; trace showed 3354 RPM measured against 3000 at 0% fusion power). With the earlier 5400 RPM
+fixture swapped in temporarily all 11 pass, including the new firing assertions; the fixture stays at the measured
+6100 RPM and no assertion was relaxed. Also ran `IntakeShooterTestControllerTest` (21; two renamed in the baseline),
+`CompetitionFeedControllerTest` and `FiringCoordinatorTest`. `Competition` scenarios were not rerun.

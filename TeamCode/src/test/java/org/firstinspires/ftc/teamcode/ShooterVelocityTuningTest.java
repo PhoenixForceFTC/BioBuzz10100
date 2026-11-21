@@ -60,11 +60,11 @@ public class ShooterVelocityTuningTest {
             assertEquals(0, ShooterVelocityTuning.fusionPower(1300, 1300, 12, KS, KV, invalid), 0);
         }
     }
-    @Test public void initialFusionGainsReproduceTheInstalledSpeedObservation() {
-        // Full power at 6100 RPM and 14 V: the only speed measurement available. kS/kP are estimates.
-        double observedTicksPerSecond = 6100.0 / 60 * 28;
-        assertEquals(1, (ShooterVelocityTuning.INITIAL_FUSION_KS
-                + ShooterVelocityTuning.INITIAL_FUSION_KV * observedTicksPerSecond) * 12 / 14, 1e-12);
+    @Test public void defaultFusionGainsAreTheTeamTunedValuesWithinTheirLimits() {
+        // Team-tuned on the robot, November 20, 2026 (about 14 V).
+        assertEquals(0.04, ShooterVelocityTuning.INITIAL_FUSION_KS, 0);
+        assertEquals(0.00038404662763466, ShooterVelocityTuning.INITIAL_FUSION_KV, 0);
+        assertEquals(0.0021, ShooterVelocityTuning.INITIAL_FUSION_KP, 0);
         assertTrue(ShooterVelocityTuning.INITIAL_FUSION_KS <= ShooterVelocityTuning.MAX_FUSION_KS);
         assertTrue(ShooterVelocityTuning.INITIAL_FUSION_KV <= ShooterVelocityTuning.MAX_FUSION_KV);
         assertTrue(ShooterVelocityTuning.INITIAL_FUSION_KP <= ShooterVelocityTuning.MAX_FUSION_KP);

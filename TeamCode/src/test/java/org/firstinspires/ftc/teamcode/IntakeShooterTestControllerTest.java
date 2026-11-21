@@ -5,24 +5,26 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * Bench controls running the competition TeleOp shooting policy (continuous only, ported 2026-11-19), except
- * that transfer stage 1 starts {@link IntakeShooterTestController#GATE_OPEN_TO_TRANSFER_SECONDS} after the
- * gate-open command and the flywheel has no idle.
+ * Bench controls running the competition TeleOp shooting policy (continuous only, ported 2026-11-19; firing
+ * coordinator and yaw readiness matched to competition 2026-11-21): the gate and transfer stage 1 start in the
+ * same loop. The bench flywheel has no idle.
  */
 public class IntakeShooterTestControllerTest {
     private static final double READY = IntakeShooterTestController.READY_STABLE_SECONDS;
-    private static final double GATE = IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS;
 
     @Test public void benchUsesTheCompetitionContinuousFeedPolicy() {
         IntakeShooterTestController c = armed();
         assertTrue(c.firing().continuous());
         assertEquals(CompetitionFeedController.READY_STABLE_SECONDS, c.firing().stableSeconds, 0);
         assertEquals(ShootingConfiguration.READY_STABLE_SECONDS, READY, 0);
-        assertEquals(0.10, GATE, 0);
-        assertEquals(GATE, c.firing().gateTravelSeconds, 0);
+        assertEquals(CompetitionFeedController.GATE_TO_FEED_DELAY_SECONDS, c.firing().gateTravelSeconds, 0);
+        // Same coordinator setup as competition: a manual feed opens the gate and feeds in one loop.
+        c.update(1, false, false, false, false, true, false, false, false, false, false);
+        assertTrue(c.firing().gateOpen());
+        assertTrue(c.feedTransfer(false));
     }
 
-    @Test public void readinessMustHoldForStableDelayThenStage1StartsAfterTheGateDelay() {
+    @Test public void readinessMustHoldForStableDelayThenGateAndStage1StartTogether() {
         IntakeShooterTestController c = armed();
         autoShot(c, 1, true, true);
         assertEquals(FiringCoordinator.State.PREPARING, c.firing().state());
@@ -35,20 +37,10 @@ public class IntakeShooterTestControllerTest {
         assertFalse(c.firing().gateOpen());
         double gateCommand = 1.2 + READY + .01;
         autoShot(c, gateCommand, true, true);
-        // Bench-only: the gate is commanded open first, with stage 1 still off and collection paused.
+        // Competition: the gate command and stage 1 start in the same loop, with collection paused.
         assertTrue(c.firing().gateOpen());
-        assertEquals(FiringCoordinator.State.GATE_OPENING, c.firing().state());
-        assertFalse(c.feedTransfer(true));
-        assertFalse(c.feedStage1());
         assertTrue(c.pauseLoading());
         assertEquals(0, c.intakePower(false), 0);
-        assertEquals(0, c.firing().feedAttempts());
-        autoShot(c, gateCommand + GATE - .01, true, true);
-        assertTrue(c.firing().gateOpen());
-        assertFalse(c.feedTransfer(true));
-        assertFalse(c.feedStage1());
-        autoShot(c, gateCommand + GATE + .01, true, true);
-        assertTrue(c.firing().gateOpen());
         assertEquals(FiringCoordinator.State.FEEDING, c.firing().state());
         assertTrue(c.feedTransfer(false));
         assertTrue(c.feedStage1());
@@ -61,7 +53,7 @@ public class IntakeShooterTestControllerTest {
         new CompetitionFeedController().updateSelection(0, competition);
         competition.update(1, false, true, false, false, false, false, false, "");
         assertTrue(competition.gateOpen());
-        assertTrue(competition.feeding()); // The bench delay must not leak into the competition TeleOp.
+        assertTrue(competition.feeding());
     }
 
     @Test public void continuousAutoFeedHasNoTimedWindowWhileFeedReadinessHolds() {
@@ -87,9 +79,7 @@ public class IntakeShooterTestControllerTest {
         assertFalse(c.firing().gateOpen());
         autoShot(c, 2.02 + READY + .01, true, true);
         assertTrue(c.firing().gateOpen());
-        assertFalse(c.feedTransfer(true)); // The reopened gate gets the full delay again.
-        autoShot(c, 2.02 + READY + .01 + GATE + .01, true, true);
-        assertTrue(c.feedTransfer(false));
+        assertTrue(c.feedTransfer(false)); // Requalified: gate and transfer restart together.
         assertEquals(2, c.firing().feedAttempts());
     }
 
@@ -112,11 +102,7 @@ public class IntakeShooterTestControllerTest {
         IntakeShooterTestController c = armed();
         c.update(1, false, false, false, false, true, false, false, false, false, false);
         assertTrue(c.firing().gateOpen());
-        assertFalse(c.feedTransfer(true)); // Manual feed also waits for the bench gate delay.
-        assertFalse(c.feedStage1());
-        c.update(1 + GATE + .01, false, false, false, false, true, false, false, false, false, false);
-        assertTrue(c.firing().gateOpen());
-        assertTrue(c.feedTransfer(false));
+        assertTrue(c.feedTransfer(false)); // Manual feed: gate and transfer in the same loop.
         assertTrue(c.feedStage1());
         assertTrue(c.manualFeedRequested());
         assertFalse(c.spinFlywheel());
@@ -145,42 +131,38 @@ public class IntakeShooterTestControllerTest {
         c.update(4, false, false, false, false, true, false, false, true, true, true);
         assertTrue(c.armed());
         assertTrue(c.firing().gateOpen());
-        c.update(4 + GATE + .01, false, false, false, false, true, false, false, true, true, true);
         assertTrue(c.feedTransfer(false));
     }
 
     @Test public void acceptedServoErrorCanFeedWithoutNeedingAnUnrequestedCorrection() {
         IntakeShooterTestController c = armed();
-        boolean settled = IntakeShooterTestController.isYawSettled(2, 0);
+        boolean settled = IntakeShooterTestController.isYawReady(2);
         assertTrue(settled);
         autoShot(c, 1, settled, true);
         autoShot(c, 1 + READY + .01, settled, true);
         assertTrue(c.firing().gateOpen());
-        autoShot(c, 1 + READY + .01 + GATE + .01, settled, true);
         assertTrue(c.feedTransfer(false));
     }
 
-    @Test public void benchYawCheckRejectsExcessErrorMotionAndInvalidReadings() {
-        assertTrue(IntakeShooterTestController.isYawSettled(4, -3));
-        assertTrue(IntakeShooterTestController.isYawSettled(-4, 3));
-        assertFalse(IntakeShooterTestController.isYawSettled(4.01, 0));
-        assertFalse(IntakeShooterTestController.isYawSettled(-4.01, 0));
-        assertFalse(IntakeShooterTestController.isYawSettled(0, 3.01));
-        assertFalse(IntakeShooterTestController.isYawSettled(0, -3.01));
-        assertFalse(IntakeShooterTestController.isYawSettled(Double.NaN, 0));
-        assertFalse(IntakeShooterTestController.isYawSettled(0, Double.POSITIVE_INFINITY));
+    @Test public void benchYawCheckIsTheCompetitionAngleCheckWithNoRateLimit() {
+        double tolerance = ShotReadiness.YAW_TOLERANCE_DEG;
+        assertTrue(IntakeShooterTestController.isYawReady(tolerance));
+        assertTrue(IntakeShooterTestController.isYawReady(-tolerance));
+        assertFalse(IntakeShooterTestController.isYawReady(tolerance + .01));
+        assertFalse(IntakeShooterTestController.isYawReady(-tolerance - .01));
+        assertFalse(IntakeShooterTestController.isYawReady(Double.NaN));
         IntakeShooterTestController c = armed();
-        autoShot(c, 1, IntakeShooterTestController.isYawSettled(5, 0), true);
-        autoShot(c, 2, IntakeShooterTestController.isYawSettled(5, 0), true);
+        autoShot(c, 1, IntakeShooterTestController.isYawReady(tolerance + 1), true);
+        autoShot(c, 2, IntakeShooterTestController.isYawReady(tolerance + 1), true);
         assertFalse(c.firing().gateOpen());
     }
 
     @Test public void feedContinuationUsesTheCompetitionLooseRpmBand() {
         double band = TurretSubsystem.SHOOTER_LOOSE_READY_TOLERANCE_RPM;
         assertTrue(IntakeShooterTestController.isLooseReady(0, true, 3500, 3500 - band + .01));
-        assertTrue(IntakeShooterTestController.isLooseReady(-4, true, 3500, 3500 + band - .01));
+        assertTrue(IntakeShooterTestController.isLooseReady(-ShotReadiness.YAW_TOLERANCE_DEG, true, 3500, 3500 + band - .01));
         assertFalse(IntakeShooterTestController.isLooseReady(0, true, 3500, 3500 - band - .01));
-        assertFalse(IntakeShooterTestController.isLooseReady(4.01, true, 3500, 3500));
+        assertFalse(IntakeShooterTestController.isLooseReady(ShotReadiness.YAW_TOLERANCE_DEG + .01, true, 3500, 3500));
         assertFalse(IntakeShooterTestController.isLooseReady(0, false, 3500, 3500));
         assertFalse(IntakeShooterTestController.isLooseReady(0, true, 0, 0));
         assertFalse(IntakeShooterTestController.isLooseReady(Double.NaN, true, 3500, 3500));
@@ -301,8 +283,6 @@ public class IntakeShooterTestControllerTest {
         autoShot(c, 2.1 + READY - .01, true, true);
         assertFalse(c.firing().gateOpen());
         autoShot(c, 2.1 + READY + .01, true, true);
-        assertFalse(c.feedTransfer(true));
-        autoShot(c, 2.1 + READY + .01 + GATE + .01, true, true);
         assertTrue(c.feedTransfer(false));
         assertEquals(2, c.firing().feedAttempts());
     }
@@ -344,7 +324,6 @@ public class IntakeShooterTestControllerTest {
         assertTrue(c.armed());
         c.update(5, false, false, false, false, true, false, false, true, true, true);
         assertTrue(c.firing().gateOpen());
-        c.update(5 + GATE + .01, false, false, false, false, true, false, false, true, true, true);
         assertTrue(c.feedTransfer(false));
     }
 
@@ -365,7 +344,6 @@ public class IntakeShooterTestControllerTest {
         autoShot(c, 1, true, true);
         autoShot(c, 1 + READY + .01, true, true);
         assertTrue(c.firing().gateOpen());
-        autoShot(c, 1 + READY + .01 + GATE + .01, true, true);
         assertTrue(c.feedTransfer(false));
         return c;
     }

@@ -707,7 +707,7 @@ public class TurretSubsystem {
                     targetShooterRpm == 0 ? "OFF" : fusionBangBang ? "BANG-BANG" : "FEEDFORWARD", 100 * fusionPower,
                     targetShooterRpm == 0 ? 0 : ShooterSpeed.motorTicksPerSecond(targetShooterRpm) - shooterTicksPerSecond,
                     ShooterVelocityTuning.FUSION_BANG_BANG_ERROR_TICKS_PER_SECOND);
-            telemetry.addData("Fusion gains (power at 12 V; untuned)", "kS %.3f | kV %.6f | kP %.4f per tick/s",
+            telemetry.addData("Fusion gains (power at 12 V)", "kS %.3f | kV %.6f | kP %.4f per tick/s",
                     fusionKs, fusionKv, fusionKp);
         }
         telemetry.addData("Shooter motor (RPM, encoder)", "%.0f | flywheel/motor ratio %.3f",
