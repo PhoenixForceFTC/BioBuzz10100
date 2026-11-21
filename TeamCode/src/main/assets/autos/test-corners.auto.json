@@ -1,0 +1,134 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "test-corners",
+  "title": "TEST: Four corners (60 in square)",
+  "description": "Drivetrain/odometry test. Tape a 60 in square with the start mark at one corner. Drive its four corners at 50% speed with the heading held at 0: forward, strafe left, backward, strafe right, back onto the start mark. Pause 1 s at each corner. Cleared area only, hand on STOP. Local frame: the start mark is (0,0), +X is the robot's front at START, +Y is its left.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0,
+      "headingRad": 0.0,
+      "provenance": "TEST ROUTINE, local frame: put the robot on the start mark facing +X on any clear floor. Not a field position."
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "leg_forward",
+      "kind": "path",
+      "timeoutS": 9,
+      "speedFraction": 0.5,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 60,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "mark_forward",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Mark where the robot stopped; measure the miss from the target corner."
+    },
+    {
+      "id": "leg_strafeLeft",
+      "kind": "path",
+      "timeoutS": 9,
+      "speedFraction": 0.5,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 60,
+            "yIn": 60
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "mark_strafeLeft",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Mark where the robot stopped; measure the miss from the target corner."
+    },
+    {
+      "id": "leg_backward",
+      "kind": "path",
+      "timeoutS": 9,
+      "speedFraction": 0.5,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 60
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "mark_backward",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Mark where the robot stopped; measure the miss from the target corner."
+    },
+    {
+      "id": "leg_strafeRight",
+      "kind": "path",
+      "timeoutS": 9,
+      "speedFraction": 0.5,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 0,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    },
+    {
+      "id": "mark_strafeRight",
+      "kind": "wait",
+      "seconds": 1.0,
+      "notes": "Mark where the robot stopped; measure the miss from the target corner."
+    },
+    {
+      "id": "stopEnd",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}

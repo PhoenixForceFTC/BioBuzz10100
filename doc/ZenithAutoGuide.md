@@ -131,7 +131,7 @@ Run the stages in order. Each one catches a different class of mistake, and a pa
 ### Stage 1: In the editor (no robot, no build)
 
 - Open **Problems**. Fix every error; read warnings (`TIMEOUT_TIGHT`, `STRAFE_FRACTION`, `TIME_BUDGET`) and decide on purpose. Click a problem to jump to its step.
-- Play the routine (Space). The default **Ideal** playback follows the plan exactly; **Instant sim** shows overshoot and drift from a Pedro follower model. Both use the numbers in `robot.json`, several of which are still unmeasured (footprint, height, acceleration, angular speed), so the times are estimates.
+- Play the routine (Space). The default **Ideal** playback follows the plan exactly; **Instant sim** shows overshoot and drift from a Pedro follower model. Both use the numbers in `robot.json`, several of which are still unmeasured (robot height, the depollinator-down length, acceleration, angular speed), so the times are estimates.
 - The high-fidelity sim (desktop only) is **not configured** for this repo. There is no "Full sim" trace to load.
 
 ### Stage 2: Validate against the real robot code
@@ -174,7 +174,7 @@ npm run zenith:check                   # must report 0 writes, 0 removals
 
 1. `TUNING_VERIFIED` must be `true` (section 0). Until then START throws.
 2. Run the Test OpModes for each mechanism the routine uses: **Test: Pedro Drive**, **Test: Pinpoint Odometry Only**, **Test: Turret**, **Test: Auto Aim**, **Test: Intake + Index + Shooter**, **Test: Gate Only**, **Test: Depollinator Only**.
-3. Clear the area, with the robot's maximum extension (depollinator deployed) in mind. Its deployed footprint is still unmeasured.
+3. Clear the area, with the robot's maximum extension (depollinator deployed) in mind. Its deployed length (537 mm measured) is not yet in `robot.json`; see the tuning checklist.
 
 **First run (low risk):** put the robot on blocks, wheels off the floor. Select the routine from the **Generated** group on the Driver Station (the entry is named by the routine's `title`). The hand-written blue mirrors of the draft autos (`DRAFT Auto: Blue ...`) are in **Competition** instead. Run INIT, then START. Watch the mechanism steps (intake, aim, volley feed, depollinator). Paths will not move the robot and should end by timeout.
 
@@ -232,6 +232,6 @@ Most routines need no Java. A new robot action needs all of these, together:
 
 **Not verified:**
 
-- **Nothing here has run on the robot.** Tuning, footprint and height values marked UNMEASURED in `robot.json` are still placeholders.
+- **Nothing here has run on the robot.** Values marked UNMEASURED in `robot.json` (robot height, depollinator-down length, acceleration, angular speed) are still placeholders.
 - The Mac workflow (web editor on a Mac, `./gradlew :TeamCode:installDebug` to a Control Hub) is untested. The team's earlier editor acceptance was done with the Windows desktop app ([ZenithUiAcceptance.md](ZenithUiAcceptance.md)).
 - The volley's feed uses the final TeleOp continuous policy, but its timing, the `FIRE` fallback and the aim lead are unmeasured on the real robot.

@@ -10,19 +10,19 @@
   },
   "footprint": {
     "startIn": {
-      "lengthIn": 18,
-      "widthIn": 18,
-      "provenance": "UNMEASURED EXAMPLE: measure chassis"
+      "lengthIn": 15.591,
+      "widthIn": 14.724,
+      "provenance": "MEASURED (team, 2026-11-21): 396 mm long x 374 mm wide with the depollinator up. Length is along the robot's forward axis."
     },
     "expandedIn": {
       "lengthIn": 18,
-      "widthIn": 18,
-      "provenance": "UNMEASURED PLACEHOLDER: 18x18 is NOT a verified deployed envelope. Measure including depollinator; no posture-based clearance assurance."
+      "widthIn": 14.724,
+      "provenance": "WIDTH MEASURED (team, 2026-11-21: 374 mm, unchanged by the depollinator). LENGTH IS STILL THE 18 in PLACEHOLDER. The team measured 537 mm (21.142 in) long with the depollinator down, but it is not applied: the depollinator extends from one end only (which end is not recorded) and Zenith models only a box centred on the chassis, so 21.142 in overstates the clear end by about 2.8 in and makes the far-wall draft starts infeasible by 0.17 in. Apply the measured length once the end is confirmed; the 10 small draft nudges it needs are listed in doc/TuningVerificationChecklist.md."
     },
     "centreOfRotationIn": {
       "xIn": 0,
       "yIn": 0,
-      "provenance": "Existing Pinpoint robot-center frame; verify footprint alignment"
+      "provenance": "Existing Pinpoint robot-centre frame. Not yet confirmed that the Pinpoint tracking point is the chassis centre (pod offsets +32 / -74 mm); verify before trusting start poses."
     }
   },
   "heightIn": {

@@ -22,7 +22,7 @@ These are the versions documented and tested together by [Zenith](https://github
 
 Use **Test: Pedro Drive**, which initializes only the drive subsystem (four motors and Pinpoint). Keep the chassis stationary through calibration. Sticks command at most 0.2 power, A requests 12 inches forward from the current pose, B requests a 90-degree CCW hold, and X cancels. Stick movement cancels a running test. A/B use Ivy commands, have a five-second timeout, and stop on completion. This diagnostic deliberately allows testing before TUNING_VERIFIED is set.
 
-Verify forward, left and CCW motion and the matching odometry signs, then measure Pedro's dynamics, braking and gains with the web tuner below. Update `PedroConfiguration` and the matching kinematics/follower values in autos/robot.json together. Measure robot footprint and height too; the editor currently has explicit 18-inch example dimensions. Set TUNING_VERIFIED only after low-speed path, hold, stop, and turn checks pass.
+Verify forward, left and CCW motion and the matching odometry signs, then measure Pedro's dynamics, braking and gains with the web tuner below. Update `PedroConfiguration` and the matching kinematics/follower values in autos/robot.json together. Robot footprint is measured (396 x 374 mm chassis; see [the checklist](TuningVerificationChecklist.md)), except the depollinator-down length and the height, which are still placeholders. Set TUNING_VERIFIED only after low-speed path, hold, stop, and turn checks pass.
 
 ### Pedro web tuner
 

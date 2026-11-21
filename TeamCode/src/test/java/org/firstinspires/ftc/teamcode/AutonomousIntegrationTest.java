@@ -624,6 +624,96 @@ public class AutonomousIntegrationTest {
         assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
         assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
     }
+    /** Runs a real autos/ file through the native builder with the fixture world; returns {paths followed, in-place holds}. */
+    private int[] runDeployedRoutine(String name) throws Exception {
+        AutoFile file=AutoFile.load(AutoSource.directory(new File("../autos")),name);
+        robot.observeSteps(file.steps);
+        context.pose=file.startPose;
+        AutoContext runtime=new AutoContext() {
+            @Override public com.pedropathing.follower.Follower follower() { return context.follower; }
+            @Override public com.pedropathing.paths.Path atSpeed(com.pedropathing.paths.Path path,double speed) { return context.atSpeed(path,speed); }
+            @Override public Object drive() { return robot.drive; }
+            @Override public Pose alliance(Pose p) { return p; }
+            @Override public long nanoTime() { return now; }
+            @Override public Command step(String id,Command body) { return robot.step(id,body); }
+        };
+        Command routine=AutoBuilder.build(file,runtime); Scheduler.schedule(routine);
+        for (int i=0;i<3000 && Scheduler.isScheduled(routine);i++) {
+            now+=20_000_000; map.updateAll(.02); robot.turret.update(now*1e-9); robot.transfer.readSensors(now*1e-9);
+            context.now=now; context.advance(); Scheduler.execute();
+            robot.outputs.apply(now*1e-9,ControllerFixtures.pose(now*1e-9,1,-1,0,0,0,0).withReference(1),
+                    robot.turret,robot.shots,robot.firing,robot.gate,robot.transfer,robot.intake);
+        }
+        assertFalse(name+" did not finish",Scheduler.isScheduled(routine));
+        assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
+        assertEquals(0,power("intake_motor"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
+        return new int[]{context.followed.size(),context.holds};
+    }
+    @Test public void deployedDrivetrainTestRoutinesRunToCompletionAndLeaveEverythingStopped() throws Exception {
+        // Followed paths: corners 4 legs; lap 2 x 4 legs; line 3 speeds x (out + back). Turns are in-place holds:
+        // 2 + 2 + 4 + 4 quarter turns, ending back on the start heading.
+        assertArrayEquals(new int[]{4,0},runDeployedRoutine("test-corners"));
+        setup2();
+        assertArrayEquals(new int[]{8,0},runDeployedRoutine("test-lap"));
+        setup2();
+        assertArrayEquals(new int[]{6,0},runDeployedRoutine("test-line"));
+        setup2();
+        assertArrayEquals(new int[]{0,12},runDeployedRoutine("test-turns"));
+        double finalHeading=context.pose.heading();
+        assertEquals("a full CW turn ends on the start heading",0,Math.atan2(Math.sin(finalHeading),Math.cos(finalHeading)),1e-6);
+    }
+    /** Runs a deployed routine and records every change of the last bounded action as {outcome, reason, feeding ticks so far}. */
+    private List<String[]> runDeployedWithEvents(String name) throws Exception {
+        AutoFile file=AutoFile.load(AutoSource.directory(new File("../autos")),name);
+        robot.observeSteps(file.steps);
+        context.pose=file.startPose;
+        AutoContext runtime=new AutoContext() {
+            @Override public com.pedropathing.follower.Follower follower() { return context.follower; }
+            @Override public com.pedropathing.paths.Path atSpeed(com.pedropathing.paths.Path path,double speed) { return context.atSpeed(path,speed); }
+            @Override public Object drive() { return robot.drive; }
+            @Override public Pose alliance(Pose p) { return p; }
+            @Override public long nanoTime() { return now; }
+            @Override public Command step(String id,Command body) { return robot.step(id,body); }
+        };
+        Command routine=AutoBuilder.build(file,runtime); Scheduler.schedule(routine);
+        List<String[]> events=new ArrayList<>(); String last=robot.lastOutcome()+"|"+robot.lastOutcomeReason(); int fedTicks=0;
+        for (int i=0;i<3000 && Scheduler.isScheduled(routine);i++) {
+            now+=20_000_000; map.updateAll(.02); robot.turret.update(now*1e-9); robot.transfer.readSensors(now*1e-9);
+            context.now=now; context.advance(); Scheduler.execute();
+            robot.outputs.apply(now*1e-9,ControllerFixtures.pose(now*1e-9,1,-1,0,0,0,0).withReference(1),
+                    robot.turret,robot.shots,robot.firing,robot.gate,robot.transfer,robot.intake);
+            if (robot.transfer.isFeeding()) fedTicks++;
+            String key=robot.lastOutcome()+"|"+robot.lastOutcomeReason();
+            if (!key.equals(last)) { events.add(new String[]{robot.lastOutcome(),robot.lastOutcomeReason(),String.valueOf(fedTicks)}); last=key; }
+        }
+        assertFalse(name+" did not finish",Scheduler.isScheduled(routine));
+        assertFalse(robot.gate.isOpenCommanded()); assertFalse(robot.transfer.isFeeding());
+        assertEquals(0,power("transfer_motor_1"),0); assertEquals(0,robot.turret.getTargetShooterRpm(),0);
+        return events;
+    }
+    @Test public void deployedVolleyTestRoutinesBehaveAsTheirNotesSay() throws Exception {
+        home();
+        // test-volley: SKIP, and the fixture robot never becomes READY, so nothing is ever fed.
+        List<String[]> single=runDeployedWithEvents("test-volley");
+        assertEquals(1,single.size());
+        assertEquals("TIMEOUT",single.get(0)[0]);
+        assertTrue(single.get(0)[1],single.get(0)[1].contains("SKIPPED"));
+        assertEquals("never fed","0",single.get(0)[2]);
+        setup2(); home();
+        // test-volley-checks: INHIBITED with no feeding, then the FIRE fallback feeds, then the normal SKIP.
+        List<String[]> checks=runDeployedWithEvents("test-volley-checks");
+        assertEquals(3,checks.size());
+        assertEquals("INHIBITED",checks.get(0)[0]);
+        assertEquals("inhibit blocks every feed","0",checks.get(0)[2]);
+        assertEquals("TIMEOUT",checks.get(1)[0]);
+        assertTrue(checks.get(1)[1],checks.get(1)[1].contains("Fed before READY"));
+        assertTrue("the fallback fed",Integer.parseInt(checks.get(1)[2])>0);
+        assertEquals("TIMEOUT",checks.get(2)[0]);
+        assertTrue(checks.get(2)[1],checks.get(2)[1].contains("SKIPPED"));
+        assertEquals("the normal SKIP volley fed nothing more",checks.get(1)[2],checks.get(2)[2]);
+    }
+    /** Fresh fixture between routines (the scheduler and named-command registry are global). */
+    private void setup2() { reset(); setup(); }
     private static final class Harness extends BioBuzzAutoFromFile {
         Harness() {
             spec=AutoFile.parse(Json.parse("{\"formatVersion\":4,\"alliance\":\"RED\",\"start\":{\"pose\":{\"xIn\":0,\"yIn\":0}},\"steps\":[{\"kind\":\"wait\",\"seconds\":0.1}]}","fixture"),"fixture",Collections.emptyMap());
