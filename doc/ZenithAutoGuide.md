@@ -84,6 +84,7 @@ A routine is a list of **steps** that run top to bottom. There are seven kinds: 
 | `onTimeout` | `FIRE` | `FIRE`, `SKIP` | What to do if not ready in time. |
 | `after` | `KEEP` | `KEEP`, `IDLE`, `OFF` | `KEEP` aim + spin; `IDLE` TeleOp idle RPM (3000) with yaw held; `OFF` stop the flywheel, hold yaw. |
 | `yawTrimDeg` / `hoodTrimDeg` / `rpmTrim` | 0 | ±10° / ±5° / ±500 | TeleOp's GP2 auto-aim trims, applied from this volley until the next volley or `aimOff`. |
+| `latestStartS` | 0 (automatic) | 0-29 | Match-clock second after which the gate will not open. 0 means the 29 s global deadline minus `seconds`, so a late volley is skipped instead of being cut off mid-feed. |
 
 The defaults match the planner (`FEED_SECONDS` 2.5, `READY_TIMEOUT_S` 3).
 
@@ -94,6 +95,7 @@ The defaults match the planner (`FEED_SECONDS` 2.5, `READY_TIMEOUT_S` 3).
 | `SUCCESS` | Became ready on its own and fed for `seconds`. |
 | `TIMEOUT` (reason "Fed before READY...") | Not ready in time; `FIRE` fed with readiness bypassed. Balls were launched, but readiness was missed. |
 | `TIMEOUT` (reason "SKIPPED...") | Nothing was fed: `SKIP`, or `FIRE` with an un-homed turret. |
+| `TIMEOUT` (reason "SKIPPED: too late...") | The time guard: the match clock passed `latestStartS` before the gate opened, so nothing was fed. A feed already under way is never cancelled by the guard. |
 | `INHIBITED` | Feed inhibit was set; inhibit always wins, even over `FIRE`. |
 | `CANCELLED` | Interrupted (outer timeout, race group, STOP). |
 
@@ -129,7 +131,7 @@ Run the stages in order. Each one catches a different class of mistake, and a pa
 ### Stage 1: In the editor (no robot, no build)
 
 - Open **Problems**. Fix every error; read warnings (`TIMEOUT_TIGHT`, `STRAFE_FRACTION`, `TIME_BUDGET`) and decide on purpose. Click a problem to jump to its step.
-- Play the routine (Space). The default **Ideal** playback follows the plan exactly; **Instant sim** shows overshoot and drift from a Pedro follower model. Both use the numbers in `robot.json`, several of which are still unmeasured (footprint, height, acceleration, angular speed), so the times are estimates.
+- Play the routine (Space). The default **Ideal** playback follows the plan exactly; **Instant sim** shows overshoot and drift from a Pedro follower model. Both use the numbers in `robot.json`, several of which are still unmeasured (robot height, the depollinator-down length, acceleration, angular speed), so the times are estimates.
 - The high-fidelity sim (desktop only) is **not configured** for this repo. There is no "Full sim" trace to load.
 
 ### Stage 2: Validate against the real robot code
@@ -172,7 +174,7 @@ npm run zenith:check                   # must report 0 writes, 0 removals
 
 1. `TUNING_VERIFIED` must be `true` (section 0). Until then START throws.
 2. Run the Test OpModes for each mechanism the routine uses: **Test: Pedro Drive**, **Test: Pinpoint Odometry Only**, **Test: Turret**, **Test: Auto Aim**, **Test: Intake + Index + Shooter**, **Test: Gate Only**, **Test: Depollinator Only**.
-3. Clear the area, with the robot's maximum extension (depollinator deployed) in mind. Its deployed footprint is still unmeasured.
+3. Clear the area, with the robot's maximum extension (depollinator deployed) in mind. Its deployed length (537 mm measured) is not yet in `robot.json`; see the tuning checklist.
 
 **First run (low risk):** put the robot on blocks, wheels off the floor. Select the routine from the **Generated** group on the Driver Station (the entry is named by the routine's `title`). The hand-written blue mirrors of the draft autos (`DRAFT Auto: Blue ...`) are in **Competition** instead. Run INIT, then START. Watch the mechanism steps (intake, aim, volley feed, depollinator). Paths will not move the robot and should end by timeout.
 
@@ -189,6 +191,11 @@ npm run zenith:check                   # must report 0 writes, 0 removals
 **Stopping:** Driver Station STOP stops all outputs and closes the gate. The routine also stops on completion, on localization loss, at the 29 s deadline and on an exception. Test STOP and a fault in the cleared area before relying on a routine in a match.
 
 ---
+
+### Automatic checks
+
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request: the three Zenith commands, then the unit tests and a debug APK build. It does not run the SimLoop suite, because three of its tests already fail on `V1`.
+- **Shot-range check** (`AutoVolleyRangeTest`): every `volley` and `shoot` under `autos/` must be fired from inside the measured shot table (12-60 in from the hive opening). The profile extrapolates outside it, which gives a hood and RPM from an unmeasured line. Routines titled DRAFT or EXAMPLE only print a report, so placeholder coordinates do not fail the build; remove the word from the title once the route is measured and the check starts enforcing.
 
 ## 6. Troubleshooting
 
@@ -225,6 +232,6 @@ Most routines need no Java. A new robot action needs all of these, together:
 
 **Not verified:**
 
-- **Nothing here has run on the robot.** Tuning, footprint and height values marked UNMEASURED in `robot.json` are still placeholders.
+- **Nothing here has run on the robot.** Values marked UNMEASURED in `robot.json` (robot height, depollinator-down length, acceleration, angular speed) are still placeholders.
 - The Mac workflow (web editor on a Mac, `./gradlew :TeamCode:installDebug` to a Control Hub) is untested. The team's earlier editor acceptance was done with the Windows desktop app ([ZenithUiAcceptance.md](ZenithUiAcceptance.md)).
 - The volley's feed uses the final TeleOp continuous policy, but its timing, the `FIRE` fallback and the aim lead are unmeasured on the real robot.

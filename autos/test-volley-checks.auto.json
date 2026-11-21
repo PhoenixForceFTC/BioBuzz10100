@@ -1,0 +1,123 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "test-volley-checks",
+  "title": "TEST: Volley checks, NO BALLS (inhibit, fallback, normal)",
+  "description": "Behaviour checks for volley. LOAD NO BALLS: the second check uses FIRE and feeds with readiness bypassed. Three volleys with a pause after each to read 'Last bounded action': (1) feed inhibit set, expect INHIBITED even with FIRE; (2) FIRE with a zero ready timeout, expect TIMEOUT 'Fed before READY'; (3) a normal volley with SKIP, expect SUCCESS or TIMEOUT 'SKIPPED'. Same real red audience-side start as test-volley. Cleared area, hand on STOP.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/biobuzz.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": -9.2,
+      "yIn": -64.64,
+      "headingRad": 3.1416,
+      "provenance": "TEST ROUTINE: the real red audience-side start (robot facing -X, left side on the audience wall, back about 1.4 in from the centre line; 396 x 374 mm chassis). Bench runs can sit anywhere: the pose only decides where the turret thinks the hive is."
+    },
+    "holds": {
+      "pollen": 4
+    }
+  },
+  "steps": [
+    {
+      "id": "safeStart",
+      "kind": "command",
+      "name": "stopAll"
+    },
+    {
+      "id": "preAim",
+      "kind": "command",
+      "name": "aim",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "spin": true
+      }
+    },
+    {
+      "id": "spinUpWait",
+      "kind": "wait",
+      "seconds": 2.0,
+      "notes": "Let the flywheel come up and the turret settle."
+    },
+    {
+      "id": "inhibitOn",
+      "kind": "command",
+      "name": "feedInhibit",
+      "notes": "Latches the feed inhibit. Inhibit always wins, even over FIRE."
+    },
+    {
+      "id": "volleyInhibited",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "seconds": 1,
+        "readyTimeoutSeconds": 1,
+        "onTimeout": "FIRE",
+        "after": "KEEP"
+      },
+      "timeoutS": 3.0,
+      "notes": "Expect INHIBITED and no gate or transfer movement."
+    },
+    {
+      "id": "readInhibited",
+      "kind": "wait",
+      "seconds": 3.0,
+      "notes": "Read 'Last bounded action': INHIBITED."
+    },
+    {
+      "id": "inhibitOff",
+      "kind": "command",
+      "name": "feedResume"
+    },
+    {
+      "id": "volleyFallback",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "seconds": 1,
+        "readyTimeoutSeconds": 0,
+        "onTimeout": "FIRE",
+        "after": "KEEP"
+      },
+      "timeoutS": 2.5,
+      "notes": "Zero ready timeout, so FIRE feeds at once with readiness bypassed (the GP1 A fallback), because the turret is homed. NO BALLS LOADED. The gate opens and both transfer motors run together for 1 s."
+    },
+    {
+      "id": "readFallback",
+      "kind": "wait",
+      "seconds": 3.0,
+      "notes": "Read 'Last bounded action': TIMEOUT 'Fed before READY (ready timeout); readiness bypassed'."
+    },
+    {
+      "id": "volleyNormal",
+      "kind": "command",
+      "name": "volley",
+      "args": {
+        "side": "AUDIENCE",
+        "frame": "AUTHORED",
+        "seconds": 1,
+        "readyTimeoutSeconds": 3,
+        "onTimeout": "SKIP",
+        "after": "OFF"
+      },
+      "timeoutS": 5.0,
+      "notes": "Normal path: SUCCESS if the shot becomes ready, otherwise TIMEOUT 'SKIPPED: not ready in time'. after OFF stops the flywheel."
+    },
+    {
+      "id": "readNormal",
+      "kind": "wait",
+      "seconds": 3.0,
+      "notes": "Read 'Last bounded action'."
+    },
+    {
+      "id": "stopEnd",
+      "kind": "command",
+      "name": "stopAll"
+    }
+  ]
+}
