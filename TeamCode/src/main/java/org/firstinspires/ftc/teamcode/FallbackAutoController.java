@@ -23,7 +23,7 @@ public final class FallbackAutoController {
     // Continuous feed time for every preload to leave (transfer feeding, gate open).
     public static final double FEED_SECONDS = 2.5;
 
-    // ---- Leave drive. STARTING VALUES: deliberately slow, same 0.35 cap as Pedro autonomous. ----
+    // ---- Leave drive. STARTING VALUES: deliberately slow (0.35 power cap). Pedro autonomous no longer has a power cap. ----
     public static final double KP_POWER_PER_INCH = 0.04;       // 25 in of error requests 1.0 (then capped)
     public static final double MAX_DRIVE_POWER = 0.35;
     public static final double MIN_DRIVE_POWER = 0.08;         // Overcomes static friction near the target

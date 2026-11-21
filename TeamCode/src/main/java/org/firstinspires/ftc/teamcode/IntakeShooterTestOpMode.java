@@ -5,6 +5,7 @@ import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import java.util.Locale;
 
 /**
  * Combined intake/index/shooter bench test with no drive, odometry, camera or depollinator.
@@ -237,7 +238,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
                 else if (firing.feeding()) feedStatus = (manualFeed ? "MANUAL FEED (GP1 B / GP2 RT): readiness bypassed"
                         : "AUTO FEED: gate open, stage 1 running") + "; release to stop";
                 else if (firing.state() == FiringCoordinator.State.GATE_OPENING)
-                    feedStatus = String.format("GATE OPENING: stage 1 starts %.2f s after the gate command",
+                    feedStatus = String.format(Locale.US, "GATE OPENING: stage 1 starts %.2f s after the gate command",
                             IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS);
                 else if (manualFeed) feedStatus = firing.reason();
                 else if (!spin) feedStatus = (openLoopMax ? "Flywheel off: hold RT for OPEN-LOOP MAX (full voltage)"
@@ -361,7 +362,7 @@ public class IntakeShooterTestOpMode extends LinearOpMode {
     private void addControlsTelemetry() {
         telemetry.addLine("Dashboard: 192.168.43.1:8080/dash | Config: IntakeShooterTestOpMode");
         telemetry.addLine("Live P/I/D/F_SCALE/TARGET_RPM and FUSION_KS/KV/KP; applied gains shown below; GP2 X resets all gains");
-        telemetry.addLine(String.format("Shooting = competition TeleOp: CONTINUOUS feed; bench-only: stage 1 starts %.2f s after the gate opens",
+        telemetry.addLine(String.format(Locale.US, "Shooting = competition TeleOp: CONTINUOUS feed; bench-only: stage 1 starts %.2f s after the gate opens",
                 IntakeShooterTestController.GATE_OPEN_TO_TRANSFER_SECONDS));
         telemetry.addLine("Automatic intake/index after arming: LOW forward, 0.5 s HIGH stop; paused while shooting");
         telemetry.addLine("GP1/GP2 RB forces intake + stage 1 forward / LB reverses intake / Both stop");
