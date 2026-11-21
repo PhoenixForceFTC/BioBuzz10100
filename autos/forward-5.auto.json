@@ -1,0 +1,40 @@
+{
+  "$schema": "https://libraries.horizon36596.org/zenith/schema/v1/auto.json",
+  "formatVersion": 4,
+  "name": "forward-5",
+  "title": "TEST: Forward 5 in",
+  "description": "Drives the robot straight forward 5 in and stops. Nothing else. Local frame: the start mark is (0,0), +X is the robot's front at START. Leave about 1 ft clear ahead of the robot.",
+  "robot": "autos/robot.json",
+  "field": "autos/field/pollen-test.field.json",
+  "alliance": "RED",
+  "start": {
+    "pose": {
+      "xIn": 0,
+      "yIn": 0,
+      "headingRad": 0.0,
+      "provenance": "TEST ROUTINE, local frame: put the robot on the start mark facing +X on any clear floor. Not a field position."
+    }
+  },
+  "steps": [
+    {
+      "id": "forward5",
+      "kind": "path",
+      "timeoutS": 5,
+      "speedFraction": 0.3,
+      "segments": [
+        {
+          "kind": "line",
+          "from": "current",
+          "to": {
+            "xIn": 5,
+            "yIn": 0
+          }
+        }
+      ],
+      "heading": {
+        "mode": "constant",
+        "headingRad": 0.0
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@
     "TeamCode/src/main/java/org/firstinspires/ftc/teamcode/PollenAuto.java": "1f47933cc1efa6aa36e312b416ce497b98d633e3a68b2979d94958b8cb105301",
     "autos/field/biobuzz.field.json": "9eed158444a5a82da6c4d42594b00a6ecae8c978dc92de9ce9a83f8b8c01e0d3",
     "autos/field/pollen-test.field.json": "783cd04d9686e90fe8574c294bf5f47673179874c25b0623fea66df01dd68b74",
+    "autos/forward-5.auto.json": "877ba96cefbae55b1fdd5348c317cf75f098688ed659e0d2a96bd698c73e2890",
     "autos/integration-example.auto.json": "5c8f6bf84507586cf3f7a18b229594632bf479d4c47db81a3151fd80b3610a4e",
     "autos/pollen-navigation-test.auto.json": "f503f4ef0e12a93aaf3a3209e771bdd7a5314ab34137fcd5233537dbd38e99e0",
     "autos/red-audience-safety-park.auto.json": "642882a5fbda913045bc293c97ffcee8208fc9afcb99f751f9aa95b2c2fe934c",
@@ -30,6 +31,7 @@
   },
   "outputs": {
     "TeamCode/src/main/assets/autos/biobuzz.field.json": "9eed158444a5a82da6c4d42594b00a6ecae8c978dc92de9ce9a83f8b8c01e0d3",
+    "TeamCode/src/main/assets/autos/forward-5.auto.json": "877ba96cefbae55b1fdd5348c317cf75f098688ed659e0d2a96bd698c73e2890",
     "TeamCode/src/main/assets/autos/integration-example.auto.json": "5c8f6bf84507586cf3f7a18b229594632bf479d4c47db81a3151fd80b3610a4e",
     "TeamCode/src/main/assets/autos/pollen-navigation-test.auto.json": "f503f4ef0e12a93aaf3a3209e771bdd7a5314ab34137fcd5233537dbd38e99e0",
     "TeamCode/src/main/assets/autos/pollen-test.field.json": "783cd04d9686e90fe8574c294bf5f47673179874c25b0623fea66df01dd68b74",
@@ -49,6 +51,7 @@
     "TeamCode/src/main/assets/autos/test-volley-checks.auto.json": "390e6eef9f7df3979bef4344d73a82b25547b620afa983f2593774279b42c759",
     "TeamCode/src/main/assets/autos/test-volley.auto.json": "432d7052e095e8aa3417f1b52778fb761c80db64ed733ec4954e1e903bcb7463",
     "TeamCode/src/main/assets/autos/waypoints.json": "7f4a76afabaa1c33cdfa6f01d0a87bce6ba2780fa9c3de8aa9933a67af22b8c8",
+    "TeamCode/src/main/java/org/firstinspires/ftc/teamcode/zenith/generated/Forward5Auto.java": "52b8d67a3cbdd65f07d10edd7756f0334145bc530102f879996317045adce969",
     "TeamCode/src/main/java/org/firstinspires/ftc/teamcode/zenith/generated/IntegrationExampleAuto.java": "10e9c86bf5262fd57a732840951b2304dd69f2dc4796eeb5494712592247ef7f",
     "TeamCode/src/main/java/org/firstinspires/ftc/teamcode/zenith/generated/RedAudienceAuto.java": "962cc6274de4d95c813a53697fe864bf160bd1abf1dc3204fd95335fa0af7758",
     "TeamCode/src/main/java/org/firstinspires/ftc/teamcode/zenith/generated/RedAudienceSafetyParkAuto.java": "cef3a3188e0c1926f7efeec7ab0f2b74fac8bc49e92843687133c3c64a7f809d",
